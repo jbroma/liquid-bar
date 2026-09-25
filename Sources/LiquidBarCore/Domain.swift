@@ -35,10 +35,12 @@ public struct BatteryState: Equatable, Sendable {
 public struct VolumeState: Equatable, Sendable {
     public var level: Int  // 0...100
     public var muted: Bool
+    public var device: String
 
-    public init(level: Int, muted: Bool) {
+    public init(level: Int, muted: Bool, device: String = "") {
         self.level = level
         self.muted = muted
+        self.device = device
     }
 }
 

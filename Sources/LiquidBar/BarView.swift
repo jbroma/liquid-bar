@@ -18,67 +18,24 @@ extension Color {
     static let barRed = Color(hex: 0xfc618d)
 }
 
-let spring = Animation.spring(response: 0.35, dampingFraction: 0.72)
-
 /// One bar per screen. `leftWidth`/`rightWidth` are the areas beside the notch; nil means no notch.
 struct BarView: View {
     let model: BarModel
     let screenFrame: CGRect
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
-    /// The auto-hidden native menu bar slides in under us while the pointer is in the strip and would show
-    /// through the gaps, so the islands stretch into two glass wings beside the notch until it has gone again.
+    /// The auto-hidden native menu bar slides in under us while the pointer is in the strip and its status items
+    /// would show through the gaps between pills, so a backdrop covers each side until it has gone again.
     @State private var covering = false
     @State private var uncover: Task<Void, Never>?
 
     var body: some View {
         let config = model.config
-        let island = config.height - 6
+        let pillHeight = config.height - 6
         HStack(spacing: 0) {
-            GlassEffectContainer(spacing: 4) {
-                HStack(spacing: 2) {
-                    ForEach(Array(config.left.enumerated()), id: \.offset) { _, widget in
-                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island - 6)
-                    }
-                }
-                .fixedSize()
-                .padding(3)
-                .frame(maxWidth: covering ? .infinity : nil, alignment: .leading)
-                .frame(height: island)
-                .glassEffect(.regular, in: .capsule)
-            }
-            .padding(.leading, config.margin)
-            .frame(width: leftWidth, alignment: .leading)
-
+            island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
             Spacer(minLength: 0)
-
-            GlassEffectContainer(spacing: 4) {
-                ZStack(alignment: .trailing) {
-                    if covering {
-                        Color.clear
-                            .frame(maxWidth: .infinity)
-                            .frame(height: island)
-                            .glassEffect(.regular, in: .capsule)
-                            .transition(.scale(scale: 0, anchor: .trailing).combined(with: .opacity))
-                    }
-                    HStack(spacing: 6) {
-                        ForEach(Array(config.right.enumerated()), id: \.offset) { _, widget in
-                            Group {
-                                if widget == .volume {
-                                    VolumeItem(model: model, height: island)
-                                } else {
-                                    WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island)
-                                        .pill(height: island)
-                                }
-                            }
-                            .onTapGesture { model.click(widget) }
-                        }
-                    }
-                    .fixedSize()
-                }
-            }
-            .padding(.trailing, config.margin)
-            .frame(width: rightWidth, alignment: .trailing)
+            island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
         }
         .font(.system(size: 13, weight: .semibold))
         .monospacedDigit()
@@ -99,11 +56,42 @@ struct BarView: View {
             }
         }
     }
+
+    private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?, pillHeight: CGFloat) -> some View {
+        let margin = model.config.margin
+        return ZStack(alignment: alignment) {
+            if covering {
+                Backdrop().transition(.opacity)
+            }
+            GlassEffectContainer(spacing: 4) {
+                HStack(spacing: 6) {
+                    ForEach(Array(widgets.enumerated()), id: \.offset) { _, widget in
+                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
+                    }
+                }
+            }
+        }
+        .padding(alignment == .leading ? .leading : .trailing, margin)
+        .frame(width: width, alignment: alignment)
+        .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
+    }
+}
+
+/// Covers one side of the notch, full strip height, behind the pills and outside their glass container so they
+/// keep their own shapes. Tinted clear glass hides the native status items without muddying the pills on top.
+struct Backdrop: View {
+    var body: some View {
+        Color.clear
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .glassEffect(.clear.tint(.black.opacity(0.3)), in: .rect)
+    }
 }
 
 extension View {
-    func pill(height: CGFloat) -> some View {
-        padding(.horizontal, 12)
+    func pill(height: CGFloat, padding: CGFloat = 12) -> some View {
+        // Pills size to their content; long detail text caps its own width instead of wrapping.
+        fixedSize()
+            .padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
             .glassEffect(.regular.interactive(), in: .capsule)
@@ -125,19 +113,25 @@ struct WidgetView: View {
     let model: BarModel
     let widget: LiquidBarCore.Widget
     let screenFrame: CGRect
-    let itemHeight: CGFloat
+    let pillHeight: CGFloat
 
     var body: some View {
         switch widget {
         case .apple:
-            AppleButton(model: model, screenFrame: screenFrame, height: itemHeight)
+            AppleButton(model: model, screenFrame: screenFrame)
+                .pill(height: pillHeight, padding: 11)
         case .workspaces:
-            WorkspaceStrip(model: model, itemHeight: itemHeight)
+            WorkspaceStrip(model: model, itemHeight: pillHeight - 6)
+                .pill(height: pillHeight, padding: 3)
         case .volume:
-            Image(systemName: model.volume.symbol)
+            VolumePill(model: model)
+                .pill(height: pillHeight)
+                .onTapGesture { model.click(widget) }
         case .wifi:
             Image(systemName: model.network.symbol)
                 .contentTransition(.symbolEffect(.replace))
+                .pill(height: pillHeight)
+                .onTapGesture { model.click(widget) }
         case .battery:
             if let battery = model.battery {
                 HStack(spacing: 5) {
@@ -149,16 +143,22 @@ struct WidgetView: View {
                         .font(.system(size: 12, weight: .bold))
                         .contentTransition(.numericText(value: Double(battery.percent)))
                 }
-                .animation(.smooth, value: battery)
+                .animation(spring, value: battery)
+                .pill(height: pillHeight)
+                .onTapGesture { model.click(widget) }
             }
         case .clock:
             Text(clockText(model.now))
                 .contentTransition(.numericText())
-                .animation(.smooth, value: model.now)
+                .animation(spring, value: model.now)
+                .pill(height: pillHeight)
+                .onTapGesture { model.click(widget) }
         case .date:
             Text(dateText(model.now))
                 .contentTransition(.numericText())
-                .animation(.smooth, value: model.now)
+                .animation(spring, value: model.now)
+                .pill(height: pillHeight)
+                .onTapGesture { model.click(widget) }
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }
@@ -166,66 +166,48 @@ struct WidgetView: View {
                     Text(label).contentTransition(.numericText())
                 }
             }
-            .animation(.smooth, value: model.scriptLabels[script.script])
+            .animation(spring, value: model.scriptLabels[script.script])
+            .pill(height: pillHeight)
+            .onTapGesture { model.click(widget) }
         }
     }
 }
 
-/// Icon only at rest; hovering or scrolling expands it to show the level, collapsing 1.5s after the last interaction.
-struct VolumeItem: View {
+/// Scroll changes the level in steps of 2; the detail names the output device and shows the level.
+struct VolumePill: View {
     let model: BarModel
-    let height: CGFloat
-    @State private var expanded = false
-    @State private var hovering = false
-    @State private var collapse: Task<Void, Never>?
 
     var body: some View {
-        let level = model.volume.muted ? 0 : model.volume.level
-        HStack(spacing: 8) {
-            Image(systemName: model.volume.symbol)
+        let volume = model.volume
+        let level = volume.muted ? 0 : volume.level
+        LivePill(pulse: volume) {
+            Image(systemName: volume.symbol)
                 .frame(width: 18)
                 .contentTransition(.symbolEffect(.replace))
-            if expanded {
-                Capsule()
-                    .fill(.white.opacity(0.18))
-                    .frame(width: 48, height: 4)
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(Color.barWhite).frame(width: 48 * CGFloat(level) / 100)
-                    }
-                    .transition(.scale(scale: 0.2, anchor: .leading).combined(with: .opacity))
+        } detail: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(volume.device)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.barWhite.opacity(0.7))
+                        .lineLimit(1)
+                    Capsule()
+                        .fill(.white.opacity(0.2))
+                        .frame(width: 72, height: 4)
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(Color.barWhite).frame(width: 72 * CGFloat(level) / 100)
+                        }
+                }
+                .frame(minWidth: 72, alignment: .leading)
                 Text("\(level)%")
                     .font(.system(size: 12, weight: .bold))
                     .frame(width: 34, alignment: .trailing)
                     .contentTransition(.numericText(value: Double(level)))
-                    .transition(.opacity)
             }
         }
-        .animation(.snappy(duration: 0.18), value: level)
-        .pill(height: height)
-        .onHover { inside in
-            hovering = inside
-            inside ? expand() : scheduleCollapse()
-        }
+        .animation(spring, value: level)
         .overlay {
-            ScrollCatcher { steps in
-                model.nudgeVolume(steps)
-                expand()
-                if !hovering { scheduleCollapse() }
-            }
-        }
-    }
-
-    private func expand() {
-        collapse?.cancel()
-        if !expanded { withAnimation(spring) { expanded = true } }
-    }
-
-    private func scheduleCollapse() {
-        collapse?.cancel()
-        collapse = Task {
-            try? await Task.sleep(for: .seconds(1.5))
-            guard !Task.isCancelled else { return }
-            withAnimation(spring) { expanded = false }
+            ScrollCatcher { steps in model.nudgeVolume(steps) }
         }
     }
 }
@@ -266,18 +248,11 @@ struct ScrollCatcher: NSViewRepresentable {
 struct AppleButton: View {
     let model: BarModel
     let screenFrame: CGRect
-    let height: CGFloat
     @State private var frame = CGRect.zero
-    @State private var hovering = false
 
     var body: some View {
         Image(systemName: "apple.logo")
             .font(.system(size: 16, weight: .semibold))
-            .padding(.horizontal, 10)
-            .frame(height: height)
-            .background { if hovering { Capsule().fill(.white.opacity(0.07)) } }
-            .contentShape(Capsule())
-            .onHover { hovering = $0 }
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
             .onTapGesture {
                 if let command = model.config.clicks["apple"] {

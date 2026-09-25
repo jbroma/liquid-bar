@@ -155,6 +155,14 @@ nonisolated func setSystemVolume(_ level: Int) {
     if level > 0 { set(device, mute, UInt32(0)) }
 }
 
+nonisolated func deviceName(_ device: AudioObjectID) -> String {
+    var addr = address(kAudioObjectPropertyName)
+    var name: Unmanaged<CFString>?
+    var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+    guard AudioObjectGetPropertyData(device, &addr, 0, nil, &size, &name) == noErr, let name else { return "" }
+    return name.takeRetainedValue() as String
+}
+
 final class VolumeSource {
     let model: BarModel
     private var device: AudioObjectID = 0
@@ -187,7 +195,7 @@ final class VolumeSource {
         }
         let level = get(device, mainVolume, Float32(0)) ?? 0
         let muted = (get(device, mute, UInt32(0)) ?? 0) != 0
-        let state = VolumeState(level: Int((level * 100).rounded()), muted: muted)
+        let state = VolumeState(level: Int((level * 100).rounded()), muted: muted, device: deviceName(device))
         if state != model.volume { model.volume = state }
     }
 }

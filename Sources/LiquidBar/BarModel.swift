@@ -19,7 +19,7 @@ final class BarModel {
 
     func nudgeVolume(_ steps: Int) {
         let level = volume.stepped(steps)
-        volume = VolumeState(level: level, muted: volume.muted && level == 0)
+        volume = VolumeState(level: level, muted: volume.muted && level == 0, device: volume.device)
         setSystemVolume(level)
     }
 
