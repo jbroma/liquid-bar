@@ -26,6 +26,10 @@ struct BarView: View {
     let screenFrame: CGRect
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
+    /// The auto-hidden native menu bar slides in under us while the pointer is in the strip and would show
+    /// through the gaps, so the islands stretch into two glass wings beside the notch until it has gone again.
+    @State private var covering = false
+    @State private var uncover: Task<Void, Never>?
 
     var body: some View {
         let config = model.config
@@ -37,7 +41,9 @@ struct BarView: View {
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island - 6)
                     }
                 }
+                .fixedSize()
                 .padding(3)
+                .frame(maxWidth: covering ? .infinity : nil, alignment: .leading)
                 .frame(height: island)
                 .glassEffect(.regular, in: .capsule)
             }
@@ -47,18 +53,28 @@ struct BarView: View {
             Spacer(minLength: 0)
 
             GlassEffectContainer(spacing: 4) {
-                HStack(spacing: 6) {
-                    ForEach(Array(config.right.enumerated()), id: \.offset) { _, widget in
-                        Group {
-                            if widget == .volume {
-                                VolumeItem(model: model, height: island)
-                            } else {
-                                WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island)
-                                    .pill(height: island)
-                            }
-                        }
-                        .onTapGesture { model.click(widget) }
+                ZStack(alignment: .trailing) {
+                    if covering {
+                        Color.clear
+                            .frame(maxWidth: .infinity)
+                            .frame(height: island)
+                            .glassEffect(.regular, in: .capsule)
+                            .transition(.scale(scale: 0, anchor: .trailing).combined(with: .opacity))
                     }
+                    HStack(spacing: 6) {
+                        ForEach(Array(config.right.enumerated()), id: \.offset) { _, widget in
+                            Group {
+                                if widget == .volume {
+                                    VolumeItem(model: model, height: island)
+                                } else {
+                                    WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island)
+                                        .pill(height: island)
+                                }
+                            }
+                            .onTapGesture { model.click(widget) }
+                        }
+                    }
+                    .fixedSize()
                 }
             }
             .padding(.trailing, config.margin)
@@ -68,6 +84,20 @@ struct BarView: View {
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            uncover?.cancel()
+            if inside {
+                withAnimation(spring) { covering = true }
+            } else {
+                // The native bar lingers for a moment after the pointer leaves.
+                uncover = Task {
+                    try? await Task.sleep(for: .seconds(0.7))
+                    guard !Task.isCancelled else { return }
+                    withAnimation(spring) { covering = false }
+                }
+            }
+        }
     }
 }
 
