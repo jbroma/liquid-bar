@@ -88,15 +88,40 @@ struct BarView: View {
         return banner.minX < screenFrame.maxX && banner.maxX > screenFrame.midX
     }
 
+    private func isShown(_ widget: LiquidBarCore.Widget) -> Bool {
+        switch widget {
+        case .nowPlaying: model.nowPlaying != nil
+        case .battery: model.battery != nil
+        default: true
+        }
+    }
+
+    /// While a pill is expanded it pulls its inner neighbour into one piece of glass; they split again when it
+    /// collapses.
+    private func fusedIndices(_ widgets: [LiquidBarCore.Widget]) -> Set<Int> {
+        guard let owner = slot.owner,
+              let index = widgets.firstIndex(where: { $0.name == owner || ($0 == .workspaces && owner.hasPrefix("workspace:")) })
+        else { return [] }
+        let neighbour = index > 0 ? index - 1 : index + 1
+        return neighbour < widgets.count ? [index, neighbour] : []
+    }
+
     private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?, pillHeight: CGFloat) -> some View {
         let margin = model.config.margin
         return ZStack(alignment: alignment) {
             GlassEffectContainer(spacing: 4) {
+                let shown = widgets.filter(isShown)
+                let fused = fusedIndices(shown)
                 HStack(spacing: 6) {
-                    ForEach(Array(widgets.enumerated()), id: \.offset) { _, widget in
+                    ForEach(Array(shown.enumerated()), id: \.element) { index, widget in
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
+                            .environment(\.fused, fused.contains(index))
+                            // Closing the gap brings the two capsules within the container's blending distance, so the
+                            // glass flows into one shape with a neck and snaps apart again as the gap reopens.
+                            .padding(.trailing, fused.contains(index) && fused.contains(index + 1) ? -6 : 0)
                     }
                 }
+                .animation(spring, value: fused)
                 .animation(spring, value: model.nowPlaying == nil)
             }
         }
@@ -109,11 +134,38 @@ struct BarView: View {
 }
 
 extension View {
-    func pill(height: CGFloat, padding: CGFloat = 12) -> some View {
+    /// A glass capsule. A tint colours the glass and spills a soft glow of itself onto the wallpaper around it.
+    func pill(height: CGFloat, padding: CGFloat = 12, tint: Color? = nil) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
-            .glassEffect(.regular.interactive(), in: .capsule)
+            .glassEffect(tint.map { .regular.tint($0.opacity(0.5)).interactive() } ?? .regular.interactive(), in: .capsule)
+            .overlay { Specular() }
+            .background {
+                Capsule().fill(tint ?? .clear).blur(radius: 9).opacity(0.55).padding(.horizontal, 4)
+            }
+            .animation(spring, value: tint)
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether this pill is merged into its neighbour's glass right now.
+    @Entry var fused = false
+}
+
+/// The glint along a pill's top edge, fading out toward its middle. Fused pills are one piece of glass, which draws
+/// its own edge, so theirs step aside.
+struct Specular: View {
+    @Environment(\.fused) private var fused
+
+    var body: some View {
+        Capsule()
+            .strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.5), location: 0), .init(color: .white.opacity(0), location: 0.45),
+                                                 .init(color: .white.opacity(0.1), location: 1)], startPoint: .top, endPoint: .bottom),
+                          lineWidth: 0.5)
+            .opacity(fused ? 0 : 1)
+            .animation(fused ? nil : .easeOut(duration: 0.25).delay(0.15), value: fused)
+            .allowsHitTesting(false)
     }
 }
 
@@ -155,8 +207,8 @@ struct WidgetView: View {
             }
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
-                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
-                    .pill(height: pillHeight, padding: 6)
+                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, colors: model.artworkColors, control: model.control)
+                    .pill(height: pillHeight, padding: 6, tint: model.artworkColors.first?.glassTint.color)
                     .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
@@ -170,7 +222,8 @@ struct WidgetView: View {
         case .battery:
             if let battery = model.battery {
                 BatteryPill(battery: battery)
-                    .pill(height: pillHeight)
+                    .overlay { if battery.onAC && battery.percent < 100 { Shimmer().clipShape(Capsule()) } }
+                    .pill(height: pillHeight, tint: battery.levelTint.color)
                     .onTapGesture { model.click(widget) }
             }
         case .clock:
@@ -248,22 +301,27 @@ struct AppleButton: View {
     }
 }
 
-/// Scrolling over the strip steps through the workspaces that have windows.
+/// Scrolling over the strip steps through the workspaces that have windows. The focused workspace sits under a
+/// droplet lens tinted by the icon of its front app.
 struct WorkspaceStrip: View {
     let model: BarModel
     let itemHeight: CGFloat
-    @Namespace private var ns
+    @State private var frames: [String: CGRect] = [:]
+    @State private var lead: CGFloat = 0
+    @State private var trail: CGFloat = 0
 
     var body: some View {
+        let focused = model.workspaces.focused
+        let focusedFrame = focused.flatMap { frames[$0] }
         HStack(spacing: 2) {
             ForEach(model.config.workspaces) { workspace in
                 WorkspaceButton(
                     id: workspace.id,
                     apps: model.workspaces.apps(on: workspace.id),
-                    focused: model.workspaces.focused == workspace.id,
-                    height: itemHeight,
-                    ns: ns
+                    focused: focused == workspace.id,
+                    height: itemHeight
                 ) { model.focus(workspace.id) }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("strip")) } action: { frames[workspace.id] = $0 }
             }
             if model.workspaces.mode != "main" {
                 Text(model.workspaces.mode)
@@ -276,7 +334,25 @@ struct WorkspaceStrip: View {
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
-        .animation(spring, value: model.workspaces.focused)
+        .background(alignment: .leading) {
+            if let focusedFrame {
+                DropletLens(lead: lead, trail: trail, rest: focusedFrame.width,
+                            tint: focused.flatMap { model.workspaces.apps(on: $0).first }.flatMap(AppIcons.tint))
+                    .frame(height: itemHeight)
+            }
+        }
+        .coordinateSpace(.named("strip"))
+        .onChange(of: focusedFrame) { old, new in
+            guard let new else { return }
+            guard let old, abs(old.midX - new.midX) > 1 else {
+                // Same workspace growing or shrinking (its icons fanned out): both edges together.
+                return withAnimation(old == nil ? nil : spring) { (lead, trail) = (new.minX, new.maxX) }
+            }
+            // A droplet: the edge in the direction of travel leaves first, the other follows 80ms later.
+            let right = new.midX > old.midX
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { if right { trail = new.maxX } else { lead = new.minX } }
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.8).delay(0.08)) { if right { lead = new.minX } else { trail = new.maxX } }
+        }
         .animation(spring, value: model.workspaces.mode)
         .animation(spring, value: model.workspaces.windows)
         // Wheel away or fingers up goes to the previous workspace, like scrolling up a list.
@@ -291,7 +367,6 @@ struct WorkspaceButton: View {
     let apps: [String]
     let focused: Bool
     let height: CGFloat
-    let ns: Namespace.ID
     let action: () -> Void
 
     var body: some View {
@@ -307,17 +382,50 @@ struct WorkspaceButton: View {
             .padding(.leading, apps.isEmpty ? 8 : 7)
             .padding(.trailing, apps.isEmpty ? 8 : 5)
             .frame(height: height)
-            .background {
-                if focused {
-                    Capsule()
-                        .fill(.white.opacity(0.18))
-                        .strokeBorder(.white.opacity(0.22), lineWidth: 0.5)
-                        .matchedGeometryEffect(id: "focus", in: ns)
-                }
-            }
         }
         .contentShape(Capsule())
         .onTapGesture(perform: action)
+    }
+}
+
+/// The focus lens between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet, and it
+/// takes the colour of the focused workspace's front app.
+struct DropletLens: View {
+    let lead: CGFloat
+    let trail: CGFloat
+    let rest: CGFloat
+    let tint: Color?
+
+    var body: some View {
+        let shape = DropletShape(lead: lead, trail: trail, rest: rest)
+        let color = tint ?? .white
+        ZStack {
+            shape.fill(color.opacity(tint == nil ? 0.1 : 0.3)).blur(radius: 6)
+            shape.fill(LinearGradient(colors: [color.opacity(tint == nil ? 0.24 : 0.85), color.opacity(tint == nil ? 0.14 : 0.62)],
+                                      startPoint: .top, endPoint: .bottom))
+            shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.6), location: 0), .init(color: .white.opacity(0.08), location: 0.5),
+                                                .init(color: .white.opacity(0.18), location: 1)], startPoint: .top, endPoint: .bottom), lineWidth: 0.5)
+        }
+        .animation(spring, value: tint)
+        .allowsHitTesting(false)
+    }
+}
+
+struct DropletShape: Shape {
+    var lead: CGFloat
+    var trail: CGFloat
+    let rest: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lead, trail) }
+        set { (lead, trail) = (newValue.first, newValue.second) }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let width = max(trail - lead, 1)
+        // Volume is kept roughly constant: twice as long, about 70% as tall, never thinner than 72%.
+        let height = rect.height * min(1, max(0.72, (rest / width).squareRoot()))
+        return Path(roundedRect: CGRect(x: lead, y: rect.midY - height / 2, width: width, height: height), cornerRadius: height / 2)
     }
 }
 

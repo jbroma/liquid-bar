@@ -18,7 +18,11 @@ final class BarModel {
     var now = Date()
     var scriptLabels: [String: String] = [:]
     var nowPlaying: NowPlaying?
-    var artwork: NSImage?
+    var artwork: NSImage? {
+        didSet { artworkColors = artwork?.palette() ?? [] }
+    }
+    /// The artwork's two dominant colours, for the now playing pill's tint and drift.
+    private(set) var artworkColors: [RGB] = []
     /// Where notification banners are on screen (top-left origin), nil when none is showing.
     var banner: CGRect?
     var frontApp: FrontApp?
@@ -49,6 +53,7 @@ final class BarModel {
     }
 
     func focus(_ workspace: String) {
+        haptic()
         workspaces.focused = workspace
         Task { _ = await run(["aerospace", "workspace", workspace]) }
     }
@@ -72,6 +77,7 @@ final class BarModel {
     }
 
     func click(_ widget: Widget) {
+        haptic()
         if case .script(let script) = widget {
             if let command = script.click { shell(command) }
         } else if let command = config.clicks[widget.name] {

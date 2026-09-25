@@ -212,6 +212,7 @@ struct ClockPill: View {
 struct NowPlayingPill: View {
     let nowPlaying: NowPlaying
     let artwork: NSImage?
+    let colors: [RGB]
     let control: (String) -> Void
 
     var body: some View {
@@ -226,6 +227,15 @@ struct NowPlayingPill: View {
                 }
                 .frame(width: 22, height: 22)
                 .clipShape(RoundedRectangle(cornerRadius: 5))
+                // The artwork's colours drift slowly behind it while the track plays.
+                .background {
+                    if colors.count > 0 {
+                        GradientDrift(colors: colors.map(\.color), moving: nowPlaying.playing)
+                            .frame(width: 44, height: 30)
+                            .blur(radius: 8)
+                            .opacity(0.8)
+                    }
+                }
                 .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
                 Equalizer(playing: nowPlaying.playing)
                     .frame(width: 14, height: 14)
@@ -421,5 +431,73 @@ private struct WindowTitle: View {
                 let output = await run(["aerospace", "list-windows", "--focused", "--format", "%{window-title}"])
                 title = output?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             }
+    }
+}
+
+/// Two colours sliding across each other, driven by Core Animation so it costs the bar no CPU.
+struct GradientDrift: NSViewRepresentable {
+    let colors: [Color]
+    let moving: Bool
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        view.wantsLayer = true
+        view.layer?.addSublayer(CAGradientLayer())
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        guard let gradient = view.layer?.sublayers?.first as? CAGradientLayer else { return }
+        let cgColors = (colors + colors).prefix(2).map { NSColor($0).cgColor }
+        gradient.colors = cgColors + [cgColors[0]]
+        gradient.startPoint = CGPoint(x: 0, y: 0.5)
+        gradient.endPoint = CGPoint(x: 1, y: 0.5)
+        gradient.frame = view.bounds.insetBy(dx: -view.bounds.width, dy: 0)
+        gradient.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        gradient.removeAllAnimations()
+        guard moving else { return }
+        let drift = CABasicAnimation(keyPath: "transform.translation.x")
+        drift.fromValue = -view.bounds.width * 0.8
+        drift.toValue = view.bounds.width * 0.8
+        drift.duration = 5
+        drift.autoreverses = true
+        drift.repeatCount = .infinity
+        drift.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        gradient.add(drift, forKey: "drift")
+    }
+}
+
+/// A band of light sweeping across a charging battery every few seconds, in Core Animation.
+struct Shimmer: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = ShimmerView()
+        view.wantsLayer = true
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    final class ShimmerView: NSView {
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func layout() {
+            super.layout()
+            guard let layer, bounds.width > 0 else { return }
+            layer.sublayers?.forEach { $0.removeFromSuperlayer() }
+            let band = CAGradientLayer()
+            let clear = NSColor.white.withAlphaComponent(0).cgColor
+            band.colors = [clear, NSColor.white.withAlphaComponent(0.32).cgColor, clear]
+            band.startPoint = CGPoint(x: 0, y: 0.3)
+            band.endPoint = CGPoint(x: 1, y: 0.7)
+            band.frame = CGRect(x: -bounds.width * 0.5, y: 0, width: bounds.width * 0.5, height: bounds.height)
+            layer.addSublayer(band)
+            let sweep = CAKeyframeAnimation(keyPath: "position.x")
+            sweep.values = [-bounds.width * 0.25, bounds.width * 1.25, bounds.width * 1.25]
+            sweep.keyTimes = [0, 0.4, 1]
+            sweep.duration = 3.2
+            sweep.repeatCount = .infinity
+            sweep.timingFunctions = [CAMediaTimingFunction(name: .easeInEaseOut), CAMediaTimingFunction(name: .linear)]
+            band.add(sweep, forKey: "sweep")
+        }
     }
 }
