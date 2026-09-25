@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
-        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model), FrontAppSource(model: model)]
+        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model), FrontAppSource(model: model), AgentSource(model: model)]
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
@@ -139,13 +139,17 @@ extension AppDelegate {
 let quitNotification = Notification.Name("dev.liquidbar.quit")
 
 let arguments = CommandLine.arguments.dropFirst()
-if !arguments.isEmpty {
-    guard arguments.count == 2, arguments.first == "trigger" else {
-        FileHandle.standardError.write(Data("usage: liquid-bar [trigger <event>]\n".utf8))
-        exit(2)
-    }
+switch (arguments.first, arguments.count) {
+case (nil, _):
+    break
+case ("trigger", 2):
     DistributedNotificationCenter.default().postNotificationName(triggerNotification, object: arguments.last, userInfo: nil, deliverImmediately: true)
     exit(0)
+case ("agents", 1...2):
+    exit(printAgents(arguments.dropFirst().first))
+default:
+    FileHandle.standardError.write(Data("usage: liquid-bar [trigger <event> | agents [database]]\n".utf8))
+    exit(2)
 }
 
 // launchd and Finder start us with a minimal PATH; aerospace and script widgets live elsewhere.

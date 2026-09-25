@@ -22,6 +22,12 @@ final class BarModel {
     /// Where notification banners are on screen (top-left origin), nil when none is showing.
     var banner: CGRect?
     var frontApp: FrontApp?
+    /// T3 Code threads, most recently updated first.
+    var agents: [AgentThread] = []
+
+    func receive(_ threads: [AgentThread]) {
+        if threads != agents { agents = threads }
+    }
 
     func focus(_ workspace: String) {
         workspaces.focused = workspace
