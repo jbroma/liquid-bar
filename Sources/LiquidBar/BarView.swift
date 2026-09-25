@@ -100,10 +100,7 @@ struct WidgetView: View {
     var body: some View {
         switch widget {
         case .apple:
-            Image(systemName: "apple.logo")
-                .font(.system(size: 16, weight: .semibold))
-                .padding(.horizontal, 10)
-                .frame(height: itemHeight)
+            AppleButton(model: model, screenFrame: screenFrame, height: itemHeight)
         case .workspaces:
             WorkspaceStrip(model: model, itemHeight: itemHeight)
         case .volume:
@@ -233,6 +230,32 @@ struct ScrollCatcher: NSViewRepresentable {
             }
             if event.phase == .ended || event.momentumPhase == .ended { pending = 0 }
         }
+    }
+}
+
+struct AppleButton: View {
+    let model: BarModel
+    let screenFrame: CGRect
+    let height: CGFloat
+    @State private var frame = CGRect.zero
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: "apple.logo")
+            .font(.system(size: 16, weight: .semibold))
+            .padding(.horizontal, 10)
+            .frame(height: height)
+            .background { if hovering { Capsule().fill(.white.opacity(0.07)) } }
+            .contentShape(Capsule())
+            .onHover { hovering = $0 }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+            .onTapGesture {
+                if let command = model.config.clicks["apple"] {
+                    shell(command)
+                } else {
+                    AppleMenu.popUp(at: NSPoint(x: screenFrame.minX + frame.minX, y: screenFrame.maxY - model.config.height + 2))
+                }
+            }
     }
 }
 

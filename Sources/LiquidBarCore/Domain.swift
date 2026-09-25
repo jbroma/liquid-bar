@@ -101,7 +101,8 @@ public struct Config: Equatable, Sendable {
         "volume": "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'",
         "wifi": "open 'x-apple.systempreferences:com.apple.Network-Settings.extension'",
         "battery": "open 'x-apple.systempreferences:com.apple.Battery-Settings.extension'",
-        "clock": "open -a 'Notification Center'",
+        // `open -a 'Notification Center'` fails on macOS 26; clicking the clock menu extra needs Accessibility access.
+        "clock": #"osascript -e 'tell application "System Events" to tell process "ControlCenter" to click (first menu bar item of menu bar 1 whose value of attribute "AXIdentifier" is "com.apple.menuextra.clock")'"#,
         "date": "open -a Calendar",
     ]
 

@@ -79,7 +79,7 @@ extension AppDelegate {
                 if parts[0] == "scroll", parts.count == 4, let lines = Int32(parts[3]) {
                     // Synthetic scroll NSEvents carry no window, so AppKit drops them; hand it to the view under the point.
                     let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: lines, wheel2: 0, wheel3: 0)!
-                    func catcher(in view: NSView) -> ScrollCatcher.CatcherView? {
+                    @MainActor func catcher(in view: NSView) -> ScrollCatcher.CatcherView? {
                         if let hit = view as? ScrollCatcher.CatcherView, hit.convert(hit.bounds, to: nil).contains(local) { return hit }
                         return view.subviews.lazy.compactMap(catcher).first
                     }
