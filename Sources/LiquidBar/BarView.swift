@@ -1,3 +1,4 @@
+import AppKit
 import LiquidBarCore
 import SwiftUI
 
@@ -211,6 +212,7 @@ struct AppleButton: View {
     }
 }
 
+/// Scrolling over the strip steps through the workspaces that have windows.
 struct WorkspaceStrip: View {
     let model: BarModel
     let itemHeight: CGFloat
@@ -220,9 +222,9 @@ struct WorkspaceStrip: View {
         HStack(spacing: 2) {
             ForEach(model.config.workspaces) { workspace in
                 WorkspaceButton(
-                    workspace: workspace,
+                    id: workspace.id,
+                    apps: model.workspaces.apps(on: workspace.id),
                     focused: model.workspaces.focused == workspace.id,
-                    occupied: model.workspaces.occupied.contains(workspace.id),
                     height: itemHeight,
                     ns: ns
                 ) { model.focus(workspace.id) }
@@ -240,44 +242,95 @@ struct WorkspaceStrip: View {
         }
         .animation(spring, value: model.workspaces.focused)
         .animation(spring, value: model.workspaces.mode)
+        .animation(spring, value: model.workspaces.windows)
+        // Wheel away or fingers up goes to the previous workspace, like scrolling up a list.
+        .overlay { ScrollCatcher(step: 30) { model.scrollWorkspaces(-$0) } }
     }
 }
 
+/// The workspace number beside a stack of its apps' icons, the most recently used on top. Hover fans the stack
+/// into a row; a window arriving or leaving fans it out for a moment.
 struct WorkspaceButton: View {
-    let workspace: Workspace
+    let id: String
+    let apps: [String]
     let focused: Bool
-    let occupied: Bool
     let height: CGFloat
     let ns: Namespace.ID
     let action: () -> Void
-    @State private var hovering = false
-    @State private var bounce = 0
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: workspace.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 18)
-                .symbolEffect(.bounce, value: bounce)
-            Text(workspace.id)
-                .font(.system(size: 11, weight: .bold))
-        }
-        .foregroundStyle(focused ? Color.barWhite : occupied ? Color.barWhite.opacity(0.7) : Color(hex: 0x8b888f, opacity: 0.6))
-        .padding(.horizontal, 8)
-        .frame(height: height)
-        .background {
-            if focused {
-                Capsule()
-                    .fill(.white.opacity(0.18))
-                    .strokeBorder(.white.opacity(0.22), lineWidth: 0.5)
-                    .matchedGeometryEffect(id: "focus", in: ns)
-            } else if hovering {
-                Capsule().fill(.white.opacity(0.07))
+        LivePill(pulse: Set(apps)) { expanded in
+            HStack(spacing: 5) {
+                Text(id)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.barWhite.opacity(focused ? 1 : apps.isEmpty ? 0.38 : 0.7))
+                if !apps.isEmpty {
+                    IconStack(apps: apps, fanned: expanded)
+                }
+            }
+            .padding(.leading, apps.isEmpty ? 8 : 7)
+            .padding(.trailing, apps.isEmpty ? 8 : 5)
+            .frame(height: height)
+            .background {
+                if focused {
+                    Capsule()
+                        .fill(.white.opacity(0.18))
+                        .strokeBorder(.white.opacity(0.22), lineWidth: 0.5)
+                        .matchedGeometryEffect(id: "focus", in: ns)
+                }
             }
         }
         .contentShape(Capsule())
-        .onHover { hovering = $0 }
         .onTapGesture(perform: action)
-        .onChange(of: focused) { if focused { bounce += 1 } }
+    }
+}
+
+/// App icons as a small card stack (three visible, then "+N"), or fanned out into a row.
+struct IconStack: View {
+    let apps: [String]
+    let fanned: Bool
+    private let size: CGFloat = 20
+    private let peek: CGFloat = 6
+
+    var body: some View {
+        let shown = Array(apps.prefix(fanned ? 8 : 3))
+        let extra = apps.count - shown.count
+        let step = fanned ? size + 3 : peek
+        HStack(spacing: 3) {
+            ZStack(alignment: .leading) {
+                ForEach(Array(shown.enumerated()), id: \.element) { index, app in
+                    let depth = fanned ? 0 : CGFloat(index)
+                    Image(nsImage: AppIcons.icon(app))
+                        .resizable()
+                        .frame(width: size, height: size)
+                        .shadow(color: .black.opacity(0.35), radius: 1, y: 0.5)
+                        .scaleEffect(1 - 0.14 * depth)
+                        .opacity(1 - 0.28 * depth)
+                        .offset(x: CGFloat(index) * step)
+                        .zIndex(-Double(index))
+                        .transition(.scale(0.5).combined(with: .opacity))
+                }
+            }
+            .frame(width: size + CGFloat(shown.count - 1) * step, alignment: .leading)
+            if extra > 0 {
+                Text("+\(extra)")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.barWhite.opacity(0.7))
+                    .contentTransition(.numericText())
+            }
+        }
+    }
+}
+
+/// App icons by bundle ID, looked up once.
+enum AppIcons {
+    private static var cache: [String: NSImage] = [:]
+
+    static func icon(_ bundleID: String) -> NSImage {
+        if let icon = cache[bundleID] { return icon }
+        let icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+            .map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSWorkspace.shared.icon(for: .application)
+        cache[bundleID] = icon
+        return icon
     }
 }

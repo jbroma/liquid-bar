@@ -17,6 +17,12 @@ final class BarModel {
         Task { _ = await run(["aerospace", "workspace", workspace]) }
     }
 
+    func scrollWorkspaces(_ steps: Int) {
+        if let target = workspaces.neighbor(steps, in: config.workspaces.map(\.id)), target != workspaces.focused {
+            focus(target)
+        }
+    }
+
     func nudgeVolume(_ steps: Int) {
         let level = volume.stepped(steps)
         volume = VolumeState(level: level, muted: volume.muted && level == 0, device: volume.device)

@@ -2,23 +2,24 @@ import Foundation
 
 public struct Workspace: Identifiable, Equatable, Sendable, Codable {
     public let id: String
-    public var symbol: String
 
-    public init(id: String, symbol: String) {
+    public init(id: String) {
         self.id = id
-        self.symbol = symbol
     }
 }
 
 public struct WorkspaceState: Equatable, Sendable {
     public var focused: String?
-    public var occupied: Set<String>
     public var mode: String
+    public internal(set) var windows: [Window]
+    /// Window IDs, most recently focused first.
+    public var recency: [Int]
 
-    public init(focused: String? = nil, occupied: Set<String> = [], mode: String = "main") {
+    public init(focused: String? = nil, mode: String = "main", windows: [Window] = [], recency: [Int] = []) {
         self.focused = focused
-        self.occupied = occupied
         self.mode = mode
+        self.windows = windows
+        self.recency = recency
     }
 }
 
@@ -106,17 +107,7 @@ public enum Widget: Equatable, Hashable, Sendable {
 public struct Config: Equatable, Sendable {
     public var height: Double = 40
     public var margin: Double = 10
-    public var workspaces: [Workspace] = [
-        .init(id: "1", symbol: "terminal"),
-        .init(id: "2", symbol: "globe"),
-        .init(id: "3", symbol: "apple.terminal"),
-        .init(id: "4", symbol: "chevron.left.forwardslash.chevron.right"),
-        .init(id: "5", symbol: "folder.fill"),
-        .init(id: "6", symbol: "note.text"),
-        .init(id: "7", symbol: "number"),
-        .init(id: "8", symbol: "gamecontroller.fill"),
-        .init(id: "9", symbol: "music.note"),
-    ]
+    public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.volume, .wifi, .battery, .clock]
     public var clicks: [String: String] = [

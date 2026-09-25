@@ -17,11 +17,11 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func overridesOnlyTheKeysGiven() throws {
     let config = try decode("""
-        {"height": 36, "workspaces": [{"id": "1", "symbol": "star"}], "clicks": {"clock": "open -a Fantastical"}}
+        {"height": 36, "workspaces": [{"id": "1", "symbol": "star"}, {"id": "web"}], "clicks": {"clock": "open -a Fantastical"}}
         """)
     #expect(config.height == 36)
     #expect(config.margin == 10)
-    #expect(config.workspaces == [Workspace(id: "1", symbol: "star")])
+    #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")
 }

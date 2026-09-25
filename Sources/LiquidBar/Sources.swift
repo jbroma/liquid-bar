@@ -35,7 +35,7 @@ final class AeroSpaceSource {
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
             center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshOccupancy() }
+                MainActor.assumeIsolated { self?.refreshWindows() }
             }
         }
         Task { await subscribeForever() }
@@ -62,30 +62,37 @@ final class AeroSpaceSource {
         process.standardError = FileHandle.nullDevice
         do { try process.run() } catch { return }
         subscriber = process
-        refreshOccupancy()
+        // Seed focus so the focused workspace's stack is right before the first focus event.
+        if let focused = await run(["aerospace", "list-windows", "--focused", "--format", windowFormat]).flatMap({ parseWindows($0).first }) {
+            _ = model.workspaces.apply(.focusChanged(workspace: focused.workspace, windowID: focused.id))
+        }
+        refreshWindows()
         do {
             for try await line in out.fileHandleForReading.bytes.lines {
                 guard let event = parseAeroEvent(line) else { continue }
-                if model.workspaces.apply(event) { refreshOccupancy() }
+                if model.workspaces.apply(event) { refreshWindows() }
             }
         } catch {}
         subscriber = nil
     }
 
-    func refreshOccupancy() {
+    func refreshWindows() {
         refreshTask?.cancel()
         refreshTask = Task {
             // Window events arrive in bursts; coalesce them into one query.
             try? await Task.sleep(for: .milliseconds(40))
             guard !Task.isCancelled,
-                  let output = await run(["aerospace", "list-windows", "--all", "--format", "%{workspace}"]),
+                  let output = await run(["aerospace", "list-windows", "--all", "--format", windowFormat]),
                   !Task.isCancelled
             else { return }
-            let occupied = parseOccupied(output)
-            if occupied != model.workspaces.occupied { model.workspaces.occupied = occupied }
+            var state = model.workspaces
+            state.setWindows(parseWindows(output))
+            if state != model.workspaces { model.workspaces = state }
         }
     }
 }
+
+private let windowFormat = "%{workspace}|%{window-id}|%{app-bundle-id}"
 
 final class BatterySource {
     let model: BarModel
