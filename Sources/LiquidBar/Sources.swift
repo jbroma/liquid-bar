@@ -231,3 +231,91 @@ final class ClockSource {
         RunLoop.main.add(timer!, forMode: .common)
     }
 }
+
+let configURL = URL(fileURLWithPath: NSHomeDirectory()).appending(path: ".config/liquid-bar/config.json")
+
+/// Reloads the config whenever the file or its directory changes. A missing file means defaults;
+/// an invalid one is logged and ignored so the bar keeps its previous config.
+final class ConfigWatcher {
+    private let onChange: (Config) -> Void
+    private var watches: [DispatchSourceFileSystemObject] = []
+
+    init(onChange: @escaping (Config) -> Void) {
+        self.onChange = onChange
+        reload()
+    }
+
+    private func reload() {
+        watches.forEach { $0.cancel() }
+        let dir = configURL.deletingLastPathComponent()
+        // Watch the directory for atomic saves, the file for in-place writes, and ~/.config until the directory exists.
+        watches = [configURL, dir, dir.deletingLastPathComponent()].lazy.compactMap(watch).prefix(2).map { $0 }
+        do {
+            let data = try Data(contentsOf: configURL)
+            onChange(try Config.decode(data))
+        } catch CocoaError.fileReadNoSuchFile {
+            onChange(Config())
+        } catch {
+            FileHandle.standardError.write(Data("liquid-bar: ignoring \(configURL.path): \(error)\n".utf8))
+        }
+    }
+
+    private func watch(_ url: URL) -> DispatchSourceFileSystemObject? {
+        let fd = open(url.path, O_EVTONLY)
+        guard fd >= 0 else { return nil }
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated { self?.reload() }
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        return source
+    }
+}
+
+let triggerNotification = Notification.Name("dev.liquidbar.trigger")
+
+/// SketchyBar-style script widgets: stdout becomes the label, refreshed on an interval and on `liquid-bar trigger <event>`.
+final class ScriptRunner {
+    let model: BarModel
+    private var scripts: [ScriptWidget] = []
+    private var timers: [Timer] = []
+
+    init(model: BarModel) {
+        self.model = model
+        DistributedNotificationCenter.default().addObserver(forName: triggerNotification, object: nil, queue: .main) { [weak self] note in
+            let event = note.object as? String
+            MainActor.assumeIsolated {
+                guard let self, let event else { return }
+                self.scripts.filter { $0.on?.contains(event) == true }.forEach(self.refresh)
+            }
+        }
+    }
+
+    func load(_ widgets: [Widget]) {
+        let scripts = widgets.compactMap { widget -> ScriptWidget? in
+            if case .script(let script) = widget { script } else { nil }
+        }
+        guard scripts != self.scripts else { return }
+        self.scripts = scripts
+        timers.forEach { $0.invalidate() }
+        timers = scripts.compactMap { script in
+            script.interval.map { interval in
+                let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.refresh(script) }
+                }
+                timer.tolerance = interval / 10
+                RunLoop.main.add(timer, forMode: .common)
+                return timer
+            }
+        }
+        scripts.forEach(refresh)
+    }
+
+    private func refresh(_ script: ScriptWidget) {
+        Task {
+            guard let output = await run(["/bin/sh", "-c", script.script]) else { return }
+            model.scriptLabels[script.script] = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+}

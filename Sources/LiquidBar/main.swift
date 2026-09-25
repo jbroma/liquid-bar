@@ -7,11 +7,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var panels: [NSPanel] = []
     var aerospace: AeroSpaceSource?
     var sources: [AnyObject] = []
+    var scripts: ScriptRunner?
+    var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        scripts = ScriptRunner(model: model)
+        configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model)]
+        rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
         sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
@@ -20,15 +25,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             exit(0)
         }
         sigterm?.resume()
+        // A new instance (launchd restart, `make run`) replaces any running one instead of stacking a second bar on top.
+        let pid = String(getpid())
+        let center = DistributedNotificationCenter.default()
+        center.addObserver(forName: quitNotification, object: nil, queue: .main) { [weak self] note in
+            guard note.object as? String != pid else { return }
+            MainActor.assumeIsolated { self?.aerospace?.subscriber?.terminate() }
+            exit(0)
+        }
+        center.postNotificationName(quitNotification, object: pid, userInfo: nil, deliverImmediately: true)
         #if DEBUG
         installDebugInput()
         #endif
-        rebuildPanels()
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.rebuildPanels() }
         }
+    }
+
+    func apply(_ config: Config) {
+        let resized = config.height != model.config.height
+        model.config = config
+        scripts?.load(config.left + config.right)
+        if resized && !panels.isEmpty { rebuildPanels() }
     }
 
     func rebuildPanels() {
@@ -96,6 +116,18 @@ extension AppDelegate {
     }
 }
 #endif
+
+let quitNotification = Notification.Name("dev.liquidbar.quit")
+
+let arguments = CommandLine.arguments.dropFirst()
+if !arguments.isEmpty {
+    guard arguments.count == 2, arguments.first == "trigger" else {
+        FileHandle.standardError.write(Data("usage: liquid-bar [trigger <event>]\n".utf8))
+        exit(2)
+    }
+    DistributedNotificationCenter.default().postNotificationName(triggerNotification, object: arguments.last, userInfo: nil, deliverImmediately: true)
+    exit(0)
+}
 
 // launchd and Finder start us with a minimal PATH; aerospace and script widgets live elsewhere.
 setenv("PATH", "/opt/homebrew/bin:/usr/local/bin:/run/current-system/sw/bin:/etc/profiles/per-user/\(NSUserName())/bin:\(NSHomeDirectory())/.nix-profile/bin:" + (ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"), 1)
