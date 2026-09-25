@@ -1,4 +1,5 @@
 import AppKit
+import LiquidBarCore
 import Metal
 import QuartzCore
 
@@ -42,10 +43,11 @@ static float smax(float a, float b, float k) {
     return max(a, b) + h * h * k * 0.25;
 }
 
-// A mound of fluid: flat top, quarter-round shoulders `w` wide, over half width `y` (shoulders included).
+// A mound of fluid: a flat top whose corners round off with radius `w`, standing `z` tall over half width `y`.
 static float mound(float x, float4 m) {
-    float t = clamp((m.y - abs(x - m.x)) / max(m.w, 0.001), 0.0, 1.0);
-    return m.z * sin(1.5708 * t);
+    float r = min(m.w, m.z);
+    float dx = max(0.0, abs(x - m.x) - (m.y - r));
+    return dx >= r ? 0.0 : m.z - r + sqrt(r * r - dx * dx);
 }
 
 // Fluid height above the vessel's inner bottom at x.
@@ -124,23 +126,6 @@ fragment float4 ferroFragment(VOut in [[stage_in]], constant Header &u [[buffer(
 }
 """
 
-/// Uniforms for one frame, in the shader's layout.
-struct FerroFrame: Equatable {
-    var size: CGSize
-    var inset: Float = 2
-    var film: Float = 3.5
-    var filmFrom: Float = 0
-    var filmTo: Float = 0
-    var tint: SIMD4<Float> = .zero
-    var tintAmount: Float = 0
-    /// Center, half width including shoulders, height, shoulder width.
-    var mounds: [SIMD4<Float>] = []
-    /// One rim colour per mound: straight rgb and how strongly it shows.
-    var tints: [SIMD4<Float>] = []
-    var spikes: [SIMD4<Float>] = []
-    var ripples: [SIMD4<Float>] = []
-}
-
 private struct Header {
     var size: SIMD2<Float>
     var scale: Float
@@ -197,14 +182,21 @@ final class FerroView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override var isFlipped: Bool { true }
 
+    var onWindow: () -> Void = {}
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil { onWindow() }
+    }
+
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         metal.contentsScale = window?.backingScaleFactor ?? 2
     }
 
-    func draw(_ frame: FerroFrame) {
+    func draw(_ frame: FluidFrame) {
         let scale = metal.contentsScale
-        let pixels = CGSize(width: (frame.size.width * scale).rounded(), height: (frame.size.height * scale).rounded())
+        let pixels = CGSize(width: (frame.width * scale).rounded(), height: (frame.height * scale).rounded())
         guard pixels.width > 0, pixels.height > 0, let state = FerroPipeline.state, let queue = FerroPipeline.queue else { return }
         if metal.drawableSize != pixels { metal.drawableSize = pixels }
         guard let drawable = metal.nextDrawable(), let buffer = queue.makeCommandBuffer() else { return }
@@ -214,8 +206,10 @@ final class FerroView: NSView {
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = buffer.makeRenderCommandEncoder(descriptor: pass) else { return }
-        var header = Header(size: SIMD2(Float(frame.size.width), Float(frame.size.height)), scale: Float(scale), inset: frame.inset,
-                            film: frame.film, filmFrom: frame.filmFrom, filmTo: frame.filmTo, tintAmount: frame.tintAmount, tint: frame.tint,
+        // Away from any tinted mound the rim reflects a cool, neutral sky.
+        var header = Header(size: SIMD2(Float(frame.width), Float(frame.height)), scale: Float(scale), inset: Float(frame.inset),
+                            film: Float(frame.film), filmFrom: Float(frame.filmFrom), filmTo: Float(frame.filmTo), tintAmount: 0.5,
+                            tint: SIMD4(0.55, 0.62, 0.75, 1),
                             mounds: Int32(frame.mounds.count), spikes: Int32(frame.spikes.count), ripples: Int32(frame.ripples.count))
         encoder.setRenderPipelineState(state)
         encoder.setFragmentBytes(&header, length: MemoryLayout<Header>.stride, index: 0)
