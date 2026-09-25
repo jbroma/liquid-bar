@@ -44,9 +44,9 @@ struct BarView: View {
                 restingHeight: notchHeight
             )
             HStack(spacing: 0) {
-                island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
+                island(config.left, alignment: .leading, width: leftWidth.map { $0 - ears }, pillHeight: pillHeight)
                 Spacer(minLength: 0)
-                island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
+                island(config.right, alignment: .trailing, width: rightWidth.map { $0 - ears }, pillHeight: pillHeight)
                     // A notification banner slides in right under the right island; step out of its way.
                     .offset(y: yielding ? -config.height : 0)
                     .opacity(yielding ? 0 : 1)
@@ -56,6 +56,7 @@ struct BarView: View {
         .font(.system(size: 13, weight: .semibold))
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
+        .animation(spring, value: ears)
         .environment(slot)
         .environment(menuMode)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,6 +78,11 @@ struct BarView: View {
         }
     }
 
+    /// Room the notch island's ears take beside the notch.
+    private var ears: CGFloat {
+        IslandGeometry(notch: .zero).earWidth(model.islandContent)
+    }
+
     private var yielding: Bool {
         guard let banner = model.banner else { return false }
         return banner.minX < screenFrame.maxX && banner.maxX > screenFrame.midX
@@ -91,7 +97,6 @@ struct BarView: View {
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
                     }
                 }
-                .animation(spring, value: model.nowPlaying == nil)
             }
         }
         // Islands get a finite width beside the notch, so an expanded pill's detail yields instead of overflowing.
@@ -146,12 +151,6 @@ struct WidgetView: View {
             if let app = model.frontApp {
                 FrontAppPill(model: model, app: app, screenFrame: screenFrame)
                     .pill(height: pillHeight, padding: 8)
-            }
-        case .nowPlaying:
-            if let nowPlaying = model.nowPlaying {
-                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
-                    .pill(height: pillHeight, padding: 6)
-                    .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
             VolumePill(model: model)

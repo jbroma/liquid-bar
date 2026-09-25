@@ -24,9 +24,28 @@ final class BarModel {
     var frontApp: FrontApp?
     /// T3 Code threads, most recently updated first.
     var agents: [AgentThread] = []
+    /// The latest thing worth a moment of the island's attention.
+    var pulse: Pulse?
+    /// While the debug hook shows fake agents, they replace the real sources' data.
+    var faking = false
+    @ObservationIgnored private let launched = Date()
 
-    func receive(_ threads: [AgentThread]) {
-        if threads != agents { agents = threads }
+    struct Pulse: Equatable {
+        let id = UUID()
+        let kind: IslandPulse
+    }
+
+    func receive(_ threads: [AgentThread], faking: Bool = false) {
+        guard faking == self.faking, threads != agents else { return }
+        let events = agentEvents(before: agents, after: threads)
+        agents = threads
+        events.last.map { announce(.agent($0)) }
+    }
+
+    func announce(_ kind: IslandPulse) {
+        // Sources report their first real state just after launch; that is not news.
+        guard faking || Date().timeIntervalSince(launched) > 2 else { return }
+        pulse = Pulse(kind: kind)
     }
 
     func focus(_ workspace: String) {

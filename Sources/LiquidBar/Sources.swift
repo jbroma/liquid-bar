@@ -386,7 +386,11 @@ final class NowPlayingSource {
     private func update(_ state: NowPlaying?, from player: NowPlaying.Player) {
         // One player stopping must not hide the other.
         guard state != nil || model.nowPlaying?.player == player else { return }
-        if state?.trackID != model.nowPlaying?.trackID { loadArtwork(state) }
+        guard !model.faking else { return }
+        if state?.trackID != model.nowPlaying?.trackID {
+            loadArtwork(state)
+            if let state, state.playing { model.announce(.track(state)) }
+        }
         model.nowPlaying = state
         hide?.cancel()
         guard let state, !state.playing else { return }

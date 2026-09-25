@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import ApplicationServices
 import LiquidBarCore
 
 /// Keeps `model.agents` in step with T3 Code. T3 writes every change to `state.sqlite-wal`, so the source watches that
@@ -60,7 +61,7 @@ final class AgentSource {
         }
     }
 
-    private func reload() {
+    func reload() {
         let database = database
         Task {
             let result = await Task.detached { Result { try T3Store.threads(at: database) } }.value
@@ -93,5 +94,77 @@ func printAgents(_ path: String?) -> Int32 {
     } catch {
         FileHandle.standardError.write(Data("\(error)\n".utf8))
         return 1
+    }
+}
+
+/// Opening a thread in T3 Code. The desktop app registers `t3code://` only for its sign-in callback, so no URL can
+/// select a thread: the bar activates the app, then presses the thread's row in T3's sidebar through Accessibility.
+enum T3App {
+    static let bundleID = "com.t3tools.t3code"
+
+    /// Activating an app does not make AeroSpace switch workspaces, so the bar focuses T3's window through AeroSpace.
+    static func open(_ thread: AgentThread, windows: [Window]) {
+        if let window = windows.first(where: { $0.bundleID == bundleID }) {
+            shell("aerospace focus --window-id \(window.id)")
+        }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { app, _ in
+            guard let pid = app?.processIdentifier else { return }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                select(thread.title, pid: pid)
+            }
+        }
+    }
+
+    /// Presses the first pressable element titled `title` inside T3's windows. Electron builds its accessibility tree
+    /// only once asked through `AXManualAccessibility`.
+    @discardableResult
+    static func select(_ title: String, pid: pid_t) -> Bool {
+        guard AXIsProcessTrusted(), !title.isEmpty else { return false }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        var queue = children(app, kAXWindowsAttribute)
+        var visited = 0
+        while !queue.isEmpty, visited < 4000 {
+            let element = queue.removeFirst()
+            visited += 1
+            let texts = [kAXTitleAttribute, kAXValueAttribute, kAXDescriptionAttribute].compactMap { string(element, $0) }
+            if texts.contains(title), let target = pressable(from: element) {
+                return AXUIElementPerformAction(target, kAXPressAction as CFString) == .success
+            }
+            queue += children(element, kAXChildrenAttribute)
+        }
+        return false
+    }
+
+    /// The element or its nearest ancestor that is a link or button.
+    private static func pressable(from element: AXUIElement) -> AXUIElement? {
+        var current: AXUIElement? = element
+        for _ in 0..<6 {
+            guard let node = current else { return nil }
+            let role = string(node, kAXRoleAttribute)
+            if role == "AXLink" || role == kAXButtonRole { return node }
+            var parent: CFTypeRef?
+            AXUIElementCopyAttributeValue(node, kAXParentAttribute as CFString, &parent)
+            current = parent.map { $0 as! AXUIElement }
+        }
+        return nil
+    }
+
+    private static func string(_ element: AXUIElement, _ name: String) -> String? {
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value as? String : nil
+    }
+
+    private static func children(_ element: AXUIElement, _ name: String) -> [AXUIElement] {
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value as? [AXUIElement] ?? [] : []
+    }
+}
+
+extension BarModel {
+    func open(_ thread: AgentThread) {
+        T3App.open(thread, windows: workspaces.windows)
     }
 }
