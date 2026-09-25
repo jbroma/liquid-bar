@@ -6,10 +6,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BarModel()
     var panels: [NSPanel] = []
     var aerospace: AeroSpaceSource?
+    var sources: [AnyObject] = []
     var sigterm: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         aerospace = AeroSpaceSource(model: model)
+        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model)]
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
         sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
@@ -75,15 +77,19 @@ extension AppDelegate {
                 guard let panel = self.panels.first(where: { $0.frame.contains(point) }) else { return }
                 let local = panel.convertPoint(fromScreen: point)
                 if parts[0] == "scroll", parts.count == 4, let lines = Int32(parts[3]) {
+                    // Synthetic scroll NSEvents carry no window, so AppKit drops them; hand it to the view under the point.
                     let cg = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: lines, wheel2: 0, wheel3: 0)!
-                    cg.location = CGPoint(x: x, y: y)
-                    if let event = NSEvent(cgEvent: cg) { panel.sendEvent(event) }
+                    func catcher(in view: NSView) -> ScrollCatcher.CatcherView? {
+                        if let hit = view as? ScrollCatcher.CatcherView, hit.convert(hit.bounds, to: nil).contains(local) { return hit }
+                        return view.subviews.lazy.compactMap(catcher).first
+                    }
+                    if let event = NSEvent(cgEvent: cg), let view = panel.contentView.flatMap(catcher) { view.scrollWheel(with: event) }
                     return
                 }
                 for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                     let event = NSEvent.mouseEvent(with: type, location: local, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                                                    windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
-                    panel.sendEvent(event)
+                    NSApp.sendEvent(event)
                 }
             }
         }

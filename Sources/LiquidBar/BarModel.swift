@@ -16,4 +16,18 @@ final class BarModel {
         workspaces.focused = workspace
         Task { _ = await run(["aerospace", "workspace", workspace]) }
     }
+
+    func nudgeVolume(_ steps: Int) {
+        let level = volume.stepped(steps)
+        volume = VolumeState(level: level, muted: volume.muted && level == 0)
+        setSystemVolume(level)
+    }
+
+    func click(_ widget: Widget) {
+        if case .script(let script) = widget {
+            if let command = script.click { shell(command) }
+        } else if let command = config.clicks[widget.name] {
+            shell(command)
+        }
+    }
 }

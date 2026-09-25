@@ -107,3 +107,69 @@ public struct Config: Equatable, Sendable {
 
     public init() {}
 }
+
+public enum Tint: Equatable, Sendable {
+    case normal, green, yellow, red
+}
+
+extension BatteryState {
+    public var symbol: String {
+        if charging { return "battery.100percent.bolt" }
+        switch percent {
+        case 90...: return "battery.100percent"
+        case 70..<90: return "battery.75percent"
+        case 50..<70: return "battery.50percent"
+        case 30..<50: return "battery.25percent"
+        default: return "battery.0percent"
+        }
+    }
+
+    public var tint: Tint {
+        if charging { return .green }
+        if percent <= 20 { return .red }
+        if percent <= 40 { return .yellow }
+        return .normal
+    }
+}
+
+extension VolumeState {
+    public var symbol: String {
+        if muted || level == 0 { return "speaker.slash.fill" }
+        if level < 30 { return "speaker.wave.1.fill" }
+        if level < 60 { return "speaker.wave.2.fill" }
+        return "speaker.wave.3.fill"
+    }
+
+    /// The level after `steps` scroll steps of 2 points each, clamped to 0...100.
+    public func stepped(_ steps: Int) -> Int {
+        min(100, max(0, level + steps * 2))
+    }
+}
+
+extension NetworkState {
+    public var symbol: String {
+        switch self {
+        case .wifi: "wifi"
+        case .wired: "network"
+        case .offline: "wifi.slash"
+        }
+    }
+}
+
+/// "19:27", like `date '+%H:%M'`.
+public func clockText(_ date: Date, timeZone: TimeZone = .current) -> String {
+    format(date, "HH:mm", timeZone)
+}
+
+/// "Fri. 25 Sep.", like `date '+%a. %d %b.'`.
+public func dateText(_ date: Date, timeZone: TimeZone = .current) -> String {
+    format(date, "EEE. dd MMM.", timeZone)
+}
+
+private func format(_ date: Date, _ pattern: String, _ timeZone: TimeZone) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = timeZone
+    formatter.dateFormat = pattern
+    return formatter.string(from: date)
+}

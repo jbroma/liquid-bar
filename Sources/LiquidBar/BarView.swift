@@ -49,10 +49,15 @@ struct BarView: View {
             GlassEffectContainer(spacing: 4) {
                 HStack(spacing: 6) {
                     ForEach(Array(config.right.enumerated()), id: \.offset) { _, widget in
-                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island)
-                            .padding(.horizontal, 12)
-                            .frame(height: island)
-                            .glassEffect(.regular.interactive(), in: .capsule)
+                        Group {
+                            if widget == .volume {
+                                VolumeItem(model: model, height: island)
+                            } else {
+                                WidgetView(model: model, widget: widget, screenFrame: screenFrame, itemHeight: island)
+                                    .pill(height: island)
+                            }
+                        }
+                        .onTapGesture { model.click(widget) }
                     }
                 }
             }
@@ -63,6 +68,26 @@ struct BarView: View {
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+extension View {
+    func pill(height: CGFloat) -> some View {
+        padding(.horizontal, 12)
+            .frame(height: height)
+            .contentShape(Capsule())
+            .glassEffect(.regular.interactive(), in: .capsule)
+    }
+}
+
+extension Tint {
+    var color: Color {
+        switch self {
+        case .normal: .barWhite
+        case .green: .barGreen
+        case .yellow: .barYellow
+        case .red: .barRed
+        }
     }
 }
 
@@ -82,23 +107,131 @@ struct WidgetView: View {
         case .workspaces:
             WorkspaceStrip(model: model, itemHeight: itemHeight)
         case .volume:
-            Image(systemName: "speaker.wave.1.fill")
+            Image(systemName: model.volume.symbol)
         case .wifi:
-            Image(systemName: "wifi")
+            Image(systemName: model.network.symbol)
+                .contentTransition(.symbolEffect(.replace))
         case .battery:
-            HStack(spacing: 5) {
-                Image(systemName: "battery.50percent")
-                Text("49%").font(.system(size: 12, weight: .bold))
+            if let battery = model.battery {
+                HStack(spacing: 5) {
+                    Image(systemName: battery.symbol)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
+                        .contentTransition(.symbolEffect(.replace))
+                    Text("\(battery.percent)%")
+                        .font(.system(size: 12, weight: .bold))
+                        .contentTransition(.numericText(value: Double(battery.percent)))
+                }
+                .animation(.smooth, value: battery)
             }
         case .clock:
-            Text("19:34")
+            Text(clockText(model.now))
+                .contentTransition(.numericText())
+                .animation(.smooth, value: model.now)
         case .date:
-            Text("Fri. 25 Sep.")
+            Text(dateText(model.now))
+                .contentTransition(.numericText())
+                .animation(.smooth, value: model.now)
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }
-                Text(model.scriptLabels[script.script] ?? "")
+                if let label = model.scriptLabels[script.script], !label.isEmpty {
+                    Text(label).contentTransition(.numericText())
+                }
             }
+            .animation(.smooth, value: model.scriptLabels[script.script])
+        }
+    }
+}
+
+/// Icon only at rest; hovering or scrolling expands it to show the level, collapsing 1.5s after the last interaction.
+struct VolumeItem: View {
+    let model: BarModel
+    let height: CGFloat
+    @State private var expanded = false
+    @State private var hovering = false
+    @State private var collapse: Task<Void, Never>?
+
+    var body: some View {
+        let level = model.volume.muted ? 0 : model.volume.level
+        HStack(spacing: 8) {
+            Image(systemName: model.volume.symbol)
+                .frame(width: 18)
+                .contentTransition(.symbolEffect(.replace))
+            if expanded {
+                Capsule()
+                    .fill(.white.opacity(0.18))
+                    .frame(width: 48, height: 4)
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(Color.barWhite).frame(width: 48 * CGFloat(level) / 100)
+                    }
+                    .transition(.scale(scale: 0.2, anchor: .leading).combined(with: .opacity))
+                Text("\(level)%")
+                    .font(.system(size: 12, weight: .bold))
+                    .frame(width: 34, alignment: .trailing)
+                    .contentTransition(.numericText(value: Double(level)))
+                    .transition(.opacity)
+            }
+        }
+        .animation(.snappy(duration: 0.18), value: level)
+        .pill(height: height)
+        .onHover { inside in
+            hovering = inside
+            inside ? expand() : scheduleCollapse()
+        }
+        .overlay {
+            ScrollCatcher { steps in
+                model.nudgeVolume(steps)
+                expand()
+                if !hovering { scheduleCollapse() }
+            }
+        }
+    }
+
+    private func expand() {
+        collapse?.cancel()
+        if !expanded { withAnimation(spring) { expanded = true } }
+    }
+
+    private func scheduleCollapse() {
+        collapse?.cancel()
+        collapse = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            withAnimation(spring) { expanded = false }
+        }
+    }
+}
+
+/// SwiftUI has no scroll-wheel hook for plain views; this overlay takes only scroll events and lets clicks and hover through.
+struct ScrollCatcher: NSViewRepresentable {
+    let onScroll: (Int) -> Void
+
+    func makeNSView(context: Context) -> CatcherView { CatcherView() }
+    func updateNSView(_ view: CatcherView, context: Context) { view.onScroll = onScroll }
+
+    final class CatcherView: NSView {
+        var onScroll: (Int) -> Void = { _ in }
+        private var pending: CGFloat = 0
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            NSApp.currentEvent?.type == .scrollWheel ? super.hitTest(point) : nil
+        }
+
+        override func scrollWheel(with event: NSEvent) {
+            // Device direction: wheel away / fingers up raises the volume regardless of natural scrolling.
+            let delta = event.scrollingDeltaY * (event.isDirectionInvertedFromDevice ? -1 : 1)
+            guard event.hasPreciseScrollingDeltas else {
+                if delta != 0 { onScroll(delta > 0 ? 1 : -1) }
+                return
+            }
+            pending += delta / 10
+            let steps = Int(pending)
+            if steps != 0 {
+                pending -= CGFloat(steps)
+                onScroll(steps)
+            }
+            if event.phase == .ended || event.momentumPhase == .ended { pending = 0 }
         }
     }
 }
