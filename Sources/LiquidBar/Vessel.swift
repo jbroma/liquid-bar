@@ -10,6 +10,12 @@ final class FluidController: NSObject {
     private var link: CADisplayLink?
     private var last: CFTimeInterval?
     private(set) lazy var view = FerroView()
+    #if DEBUG
+    /// Slows the fluid down so screen captures, which take ~100ms each, can follow it frame by frame.
+    static var slowdown = 1.0
+    #else
+    static let slowdown = 1.0
+    #endif
 
     init(source: FluidSim.End) {
         sim = FluidSim(source: source)
@@ -36,8 +42,8 @@ final class FluidController: NSObject {
         wake()
     }
 
-    func ripple(at x: Double) {
-        sim.ripple(at: x)
+    func ripple(_ id: String) {
+        sim.ripple(id)
         wake()
     }
 
@@ -55,7 +61,7 @@ final class FluidController: NSObject {
         // After a pause the first interval would span the whole rest; take one frame's worth instead.
         let dt = min(1.0 / 30, last.map { link.targetTimestamp - $0 } ?? link.duration)
         last = link.targetTimestamp
-        sim.step(dt)
+        sim.step(dt / Self.slowdown)
         draw()
         if sim.resting {
             link.isPaused = true
@@ -135,9 +141,9 @@ struct Vessel<Content: View>: View {
             }
             .onChange(of: places, initial: true) { controller.gather(places) }
             .onChange(of: kick) {
-                guard let kick, let frame = frames[kick.item] else { return }
+                guard let kick, frames[kick.item] != nil else { return }
                 switch kick.kind {
-                case .ripple: controller.ripple(at: frame.midX)
+                case .ripple: controller.ripple(kick.item)
                 case .burst: controller.burst(kick.item)
                 }
             }

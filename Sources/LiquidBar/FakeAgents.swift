@@ -35,6 +35,17 @@ final class FakeAgents {
             fakeTrack = true
             model.artwork = Self.artwork
             model.nowPlaying = NowPlaying(player: .spotify, title: "Feel Like Summer", artist: "lovelytheband", trackID: "fake", playing: true)
+        case "charger":
+            // Unplug, then plug back in; the next power notification restores the real state.
+            guard let battery = model.battery else { return }
+            model.battery = BatteryState(percent: battery.percent, power: .battery(minutesLeft: 300))
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                model.battery = BatteryState(percent: battery.percent, power: .charging(minutesToFull: 20))
+            }
+        case "track":
+            guard fakeTrack else { return }
+            model.nowPlaying = NowPlaying(player: .spotify, title: "Midnight City", artist: "M83", trackID: "fake2", playing: true)
         default:
             FileHandle.standardError.write(Data("liquid-bar: unknown scene \(scene)\n".utf8))
         }

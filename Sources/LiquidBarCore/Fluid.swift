@@ -37,216 +37,232 @@ public struct Spring: Equatable, Sendable {
     }
 }
 
-/// One place where fluid gathers: under a hovered or pulsing item, or under the focused workspace.
+/// Where a bead of fluid should sit: around the focused workspace, or around the hovered or pulsing item.
 public struct Gather: Equatable, Sendable {
     public var id: String
     public var minX: Double
     public var maxX: Double
-    /// Height as a fraction of the vessel's inner height.
-    public var height: Double
     /// Spike strength, 0...1.
     public var spikes: Double
     /// Rim colour: straight rgb and how strongly it shows.
     public var tint: SIMD4<Float>
-    /// Moving to a new place flows like a droplet, stretching and necking, instead of draining and refilling.
+    /// Moving to a new place flows like a droplet, stretching and necking, instead of shrinking away and regrowing.
     public var flows: Bool
+    /// False for an item without a bead: a bead still shrinking away keeps hugging it as it collapses.
+    public var present: Bool
 
-    public init(id: String, minX: Double, maxX: Double, height: Double, spikes: Double = 0, tint: SIMD4<Float> = .zero, flows: Bool = false) {
+    public init(id: String, minX: Double, maxX: Double, spikes: Double = 0, tint: SIMD4<Float> = .zero, flows: Bool = false,
+                present: Bool = true) {
+        self.present = present
         self.id = id
         self.minX = minX
         self.maxX = maxX
-        self.height = height
         self.spikes = spikes
         self.tint = tint
         self.flows = flows
     }
 }
 
-/// What the renderer draws for one frame, in the shader's units (points, heights above the vessel's inner bottom).
+/// What the renderer draws for one frame, in points with y down from the vessel's top.
 public struct FluidFrame: Equatable, Sendable {
     public var width: Double
     public var height: Double
     public var inset: Double
-    public var film: Double
-    public var filmFrom: Double
-    public var filmTo: Double
-    /// Center, half width, height, corner radius.
-    public var mounds: [SIMD4<Float>] = []
+    /// Capsules: center x, center y, half width, half height.
+    public var beads: [SIMD4<Float>] = []
     public var tints: [SIMD4<Float>] = []
-    /// x, height, half width, unused.
+    /// Tapered spikes: base x, base y, tip x, tip y.
     public var spikes: [SIMD4<Float>] = []
-    /// Origin, amplitude, wavelength, distance travelled.
-    public var ripples: [SIMD4<Float>] = []
 }
 
-/// Ferrofluid in one glass vessel: a thin film along the bottom, poured in from the notch end at launch, gathering
-/// into mounds where it is called and raising spikes toward the pointer. Pure state stepped by a clock, so it can
-/// rest completely: `resting` is true once nothing moves and nothing needs drawing.
-public struct FluidSim: Equatable, Sendable {
+/// Ferrofluid in one glass vessel: free beads that wrap the items they belong to, flow between places, and spike
+/// toward the pointer or on a pulse. Pure state stepped by a clock, so it can rest completely: `resting` is true once
+/// nothing moves.
+public struct FluidSim: Sendable {
     public enum End: Equatable, Sendable { case leading, trailing }
 
-    struct Mound: Equatable, Sendable {
+    struct Bead: Equatable, Sendable {
         var center: Spring
-        /// Follows the center more lazily; while the two are apart the fluid stretches between them.
+        /// Follows the center more lazily; while the two are apart the bead stretches, necks and splits between them.
         var trail: Spring
         var halfWidth: Spring
-        var height: Spring
+        /// 0 when shrunk away, 1 at full size.
+        var size: Spring
         var spikes: Spring
+        /// A jiggle, kicked by a track change.
+        var wobble: Spring
         var tint: SIMD4<Float>
         var flows: Bool
-    }
 
-    struct Ripple: Equatable, Sendable {
-        var origin: Double
-        var age: Double
+        var springs: [Spring] { [center, trail, halfWidth, size, spikes, wobble] }
     }
 
     public var width: Double = 0
     public var height: Double = 0
-    /// The vessel end next to the notch, where the fluid pours in from.
+    /// The vessel end next to the notch, where the fluid comes from at launch.
     public var source: End
     public var inset = 2.0
-    public var film = 4.0
-    var reach = Spring(0, response: 1.1, damping: 0.9)
-    var mounds: [String: Mound] = [:]
-    var magnet = Spring(0, response: 0.25, damping: 0.9)
-    var magnetized = false
-    var ripples: [Ripple] = []
+    /// Air between a bead and the glass, top and bottom.
+    public var clearance = 1.5
+    var beads: [String: Bead] = [:]
+    var magnet: Double?
+    var poured = false
+    /// Kicks for beads that do not exist yet: a pulse and its kick arrive together, the bead a moment later.
+    var pendingKicks: [String: (spikes: Double, wobble: Double)] = [:]
 
     public init(source: End) {
         self.source = source
     }
 
-    public static let rippleLife = 1.4
-
     public var resting: Bool {
-        reach.resting && magnet.resting && ripples.isEmpty
-            && mounds.values.allSatisfy { [$0.center, $0.trail, $0.halfWidth, $0.height, $0.spikes].allSatisfy(\.resting) }
+        beads.values.allSatisfy { $0.springs.allSatisfy(\.resting) }
     }
 
-    /// Sizes the vessel. The first size starts the pour.
     public mutating func resize(width: Double, height: Double) {
         self.width = width
         self.height = height
-        reach.target = 1
     }
 
-    /// Where fluid should gather now. Places no longer listed drain back into the film where they stand.
-    public mutating func gather(_ places: [Gather]) {
+    /// Where beads should sit now. Beads not present shrink away around their item, or where they stand once the
+    /// item is gone.
+    public mutating func gather(_ all: [Gather]) {
+        guard width > 0 else { return }
+        let places = all.filter(\.present)
+        // The first beads flow out of the notch end, the reservoir, instead of appearing in place.
+        let pour = !poured && !places.isEmpty
+        if pour { poured = true }
+        let spout = source == .leading ? 0.0 : width
+        for place in all where !place.present && beads[place.id] != nil {
+            // A folding item snaps narrow at once; the bead closes in on it quickly while it drains.
+            let center = (place.minX + place.maxX) / 2
+            for path in [\Bead.center, \.trail] as [WritableKeyPath<Bead, Spring>] {
+                beads[place.id]![keyPath: path].target = center
+                beads[place.id]![keyPath: path].response = 0.2
+                beads[place.id]![keyPath: path].damping = 1
+            }
+            beads[place.id]!.halfWidth.target = (place.maxX - place.minX) / 2
+            beads[place.id]!.halfWidth.response = 0.2
+            beads[place.id]!.halfWidth.damping = 1
+        }
         for place in places {
             let center = (place.minX + place.maxX) / 2, half = (place.maxX - place.minX) / 2
-            var mound = mounds[place.id] ?? Mound(
-                center: Spring(center, response: 0.36, damping: 0.62),
-                trail: Spring(center, response: 0.62, damping: 0.95),
-                halfWidth: Spring(half, response: 0.4, damping: 0.75),
-                height: Spring(0, response: 0.42, damping: 0.68),
+            var bead = beads[place.id] ?? Bead(
+                center: Spring(center),
+                trail: Spring(center),
+                halfWidth: Spring(half),
+                size: Spring(0, response: 0.4, damping: 0.62),
                 spikes: Spring(0, response: 0.3, damping: 0.55),
+                wobble: Spring(0, response: 0.26, damping: 0.28),
                 tint: place.tint, flows: place.flows)
-            if mound.height.value < 0.01 {
-                // Rising out of the film: grow in place instead of sliding in from where it last drained.
-                (mound.center.value, mound.trail.value, mound.halfWidth.value) = (center, center, half)
+            if pour {
+                (bead.center.value, bead.trail.value, bead.size.value) = (spout, spout, 0.6)
+            } else if bead.size.value < 0.05 {
+                // Growing back from nothing: grow in place instead of sliding in from where it vanished.
+                (bead.center.value, bead.trail.value, bead.halfWidth.value) = (center, center, half)
             }
-            mound.center.target = center
-            mound.trail.target = center
-            mound.halfWidth.target = half
-            mound.height.target = place.height
-            mound.spikes.target = place.spikes
-            mound.tint = place.tint
-            mound.flows = place.flows
-            mounds[place.id] = mound
+            if let kick = pendingKicks.removeValue(forKey: place.id) {
+                bead.spikes.velocity += kick.spikes
+                bead.wobble.velocity += kick.wobble
+            }
+            bead.center.target = center
+            bead.trail.target = center
+            bead.halfWidth.target = half
+            // A bead around an item moves with the bar's own layout spring, so it keeps hugging the item while the
+            // item grows; a droplet overshoots like the liquid it is.
+            (bead.center.response, bead.center.damping) = (0.38, place.flows ? 0.64 : 0.8)
+            (bead.trail.response, bead.trail.damping) = (0.62, 0.9)
+            (bead.halfWidth.response, bead.halfWidth.damping) = (0.38, 0.8)
+            bead.size.target = 1
+            (bead.size.response, bead.size.damping) = (0.4, 0.62)
+            bead.spikes.target = place.spikes
+            bead.tint = place.tint
+            bead.flows = place.flows || pour
+            beads[place.id] = bead
         }
         let listed = Set(places.map(\.id))
-        for id in mounds.keys where !listed.contains(id) {
-            mounds[id]!.height.target = 0
-            mounds[id]!.spikes.target = 0
+        for id in beads.keys where !listed.contains(id) {
+            // Grows with a little pop, but drains without overshooting through nothing.
+            (beads[id]!.size.response, beads[id]!.size.damping) = (0.3, 1)
+            beads[id]!.size.target = 0
+            beads[id]!.spikes.target = 0
         }
     }
 
     /// The pointer's x, the magnet the spikes reach for; nil once it leaves.
     public mutating func point(at x: Double?) {
-        magnetized = x != nil
-        if let x {
-            if magnet.resting && magnet.value == 0 { magnet.value = x }
-            magnet.target = x
-        }
+        magnet = x
     }
 
-    /// A kick to one mound's spikes, like a charger plugging in.
+    /// A kick to one bead's spikes, like a charger plugging in.
     public mutating func burst(_ id: String) {
-        mounds[id]?.spikes.velocity += 14
+        kick(id, spikes: 12, wobble: 0)
     }
 
-    public mutating func ripple(at x: Double) {
-        ripples.append(Ripple(origin: x, age: 0))
+    /// A jiggle through one bead, like a new track starting.
+    public mutating func ripple(_ id: String) {
+        kick(id, spikes: 0, wobble: 9)
+    }
+
+    private mutating func kick(_ id: String, spikes: Double, wobble: Double) {
+        guard beads[id] != nil else { return pendingKicks[id] = (spikes, wobble) }
+        beads[id]!.spikes.velocity += spikes
+        beads[id]!.wobble.velocity += wobble
     }
 
     public mutating func step(_ dt: Double) {
-        reach.step(dt)
-        magnet.step(dt)
-        for id in Array(mounds.keys) {
-            mounds[id]!.center.step(dt)
-            mounds[id]!.trail.step(dt)
-            mounds[id]!.halfWidth.step(dt)
-            mounds[id]!.height.step(dt)
-            mounds[id]!.spikes.step(dt)
-            let mound = mounds[id]!
-            if mound.height.resting, mound.height.value == 0, mound.spikes.resting { mounds[id] = nil }
+        for id in Array(beads.keys) {
+            var bead = beads[id]!
+            bead.center.step(dt)
+            bead.trail.step(dt)
+            bead.halfWidth.step(dt)
+            bead.size.step(dt)
+            bead.spikes.step(dt)
+            bead.wobble.step(dt)
+            beads[id] = bead.size.resting && bead.size.value == 0 && bead.spikes.resting ? nil : bead
         }
-        ripples = ripples.map { Ripple(origin: $0.origin, age: $0.age + dt) }.filter { $0.age < Self.rippleLife }
     }
 
     public var frame: FluidFrame {
-        let inner = max(0, height - 2 * inset)
-        let reachX = reach.value * width
-        let filmFrom = source == .leading ? 0 : width - reachX
-        let filmTo = source == .leading ? reachX : width
-        var frame = FluidFrame(width: width, height: height, inset: inset, film: film, filmFrom: filmFrom, filmTo: filmTo)
-        // Fluid can only gather where the pour has reached.
-        func poured(_ x: Double) -> Double {
-            let fromSource = source == .leading ? x : width - x
-            return min(1, max(0, (reachX - fromSource) / 40))
-        }
-        func add(_ center: Double, _ half: Double, _ height: Double, _ tint: SIMD4<Float>) {
-            guard height > 0.2 else { return }
-            let corner = min(height * 0.85, half)
-            frame.mounds.append(SIMD4(Float(center), Float(half), Float(height), Float(corner)))
-            frame.tints.append(tint)
-        }
-        // The pour's leading edge carries a bead of fluid that shrinks as it spreads.
-        if reach.value > 0, reach.value < 0.995 {
-            let front = source == .leading ? reachX : width - reachX
-            add(front, 9, inner * 0.4 * (1 - reach.value).squareRoot(), .zero)
-        }
-        for id in mounds.keys.sorted() {
-            let mound = mounds[id]!
-            let lead = mound.center.value, trail = mound.trail.value
-            let stretch = abs(lead - trail)
-            let half = max(0, mound.halfWidth.value)
-            let h = max(0, mound.height.value) * inner * poured(lead)
-            // Stretched out, the droplet thins at the front and drains at the back; the neck between them is the
-            // film's smooth join, which thins and snaps as they part.
-            add(lead, half * (1 - 0.15 * min(1, stretch / 100)), h * (1 - 0.3 * min(1, stretch / 120)), mound.tint)
-            if mound.flows, stretch > 0.5 {
-                add(trail, half * 0.75, h * max(0, 1 - stretch / 150), mound.tint)
+        var frame = FluidFrame(width: width, height: height, inset: inset)
+        let cy = height / 2
+        let fullHalfHeight = max(0, height / 2 - inset - clearance)
+        for id in beads.keys.sorted() {
+            let bead = beads[id]!
+            let size = max(0, bead.size.value)
+            guard size > 0.01 else { continue }
+            let lead = bead.center.value, trail = bead.trail.value
+            let stretch = bead.flows ? abs(lead - trail) : 0
+            let squash = bead.wobble.value * 0.08
+            // Shrinking, it rounds up into a ball before it vanishes rather than thinning into a sliver.
+            let halfHeight = fullHalfHeight * min(1, size).squareRoot() * (1 + squash)
+            let halfWidth = max(halfHeight, max(0, bead.halfWidth.value) * size * (1 - squash))
+            // Stretched out, the front thins and the back drains; the smooth union between them is the neck, which
+            // thins and snaps as they part and closes again as the back catches up.
+            let thin = min(1, stretch / 160)
+            let front = SIMD4(Float(lead), Float(cy), Float(halfWidth * (1 - 0.15 * thin)), Float(halfHeight * (1 - 0.2 * thin)))
+            frame.beads.append(front)
+            frame.tints.append(bead.tint)
+            if stretch > 0.5 {
+                let drain = max(0, 1 - stretch / 240)
+                frame.beads.append(SIMD4(Float(trail), Float(cy), Float(max(halfHeight, halfWidth * 0.7) * drain), Float(halfHeight * drain)))
+                frame.tints.append(bead.tint)
             }
-            let strength = mound.spikes.value
-            guard strength > 0.01, half > 4 else { continue }
-            let count = min(9, max(3, Int(half * 2 / 9)))
-            let span = half * 0.8
-            let pull = magnetized && abs(magnet.value - lead) < half + 12 ? magnet.value : lead
-            for i in 0..<count {
-                let x = lead - span + 2 * span * Double(i) / Double(count - 1)
-                let near = exp(-pow((x - pull) / max(8, half * 0.55), 2))
-                // Uneven like real peaks, but the same unevenness every time.
-                let jitter = 0.8 + 0.2 * abs(sin(Double(i) * 12.9898 + half))
-                let room = max(0, inner - h - 1.5)
-                let spike = min(room, strength * inner * 0.42 * near * jitter)
-                if spike > 0.2 { frame.spikes.append(SIMD4(Float(x), Float(spike), 4.2, 0)) }
+            let strength = bead.spikes.value
+            guard strength > 0.02 else { continue }
+            // Spikes stand out of the rounded ends, where the glass leaves them room: more on the end nearer the
+            // pointer, evenly on a pulse.
+            let lean = magnet.flatMap { abs($0 - lead) < Double(front.z) + 20 ? max(-1, min(1, ($0 - lead) / Double(front.z))) : nil }
+            let r = Double(front.w), straight = max(0, Double(front.z) - r)
+            for (index, degrees) in [-56.0, -28, 0, 28, 56, 124, 152, 180, 208, 236].enumerated() {
+                let a = degrees * .pi / 180
+                let (nx, ny) = (cos(a), sin(a))
+                let x = lead + (nx > 0 ? straight : -straight) + r * nx, y = cy + r * ny
+                let weight = lean.map { max(0, nx * $0) } ?? 1
+                let jitter = 0.7 + 0.3 * abs(sin(Double(index) * 12.9898 + Double(id.count)))
+                let length = strength * 9 * weight * jitter * abs(nx).squareRoot()
+                guard length > 0.6 else { continue }
+                frame.spikes.append(SIMD4(Float(x - nx * 2), Float(y - ny * 2), Float(x + nx * length), Float(y + ny * length)))
             }
-        }
-        for ripple in ripples {
-            let fade = exp(-ripple.age * 2.4)
-            frame.ripples.append(SIMD4(Float(ripple.origin), Float(2.4 * fade), 14, Float(ripple.age * 55)))
         }
         return frame
     }

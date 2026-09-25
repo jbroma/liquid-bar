@@ -124,17 +124,20 @@ struct BarView: View {
         let focus = model.workspaces.focused.map { "workspace:\($0)" }
         if let focus, !menuMode.active, let frame = frames[focus] {
             let tint = model.workspaces.focused.flatMap { model.workspaces.apps(on: $0).first }.flatMap(AppIcons.tint)
-            places.append(Gather(id: "droplet", minX: frame.minX + 3, maxX: frame.maxX - 3, height: 0.7,
+            places.append(Gather(id: "droplet", minX: frame.minX, maxX: frame.maxX,
                                  spikes: slot.owner == focus ? 0.5 : 0, tint: tint?.fluidTint() ?? .zero, flows: true))
         }
-        if let owner = slot.owner, owner != focus, let frame = frames[owner] {
-            places.append(Gather(id: owner, minX: frame.minX + 2, maxX: frame.maxX - 2, height: 0.6, spikes: spikes(owner),
-                                 tint: tint(owner)?.fluidTint() ?? .zero))
+        // Items report their content's frame; the bead leaves it room at the rounded ends. Workspace buttons pad
+        // themselves. Every item is listed so a bead shrinking away keeps hugging its item as it collapses.
+        for (id, frame) in frames.sorted(by: { $0.key < $1.key }) where id != focus {
+            let pad: CGFloat = id.hasPrefix("workspace:") ? 0 : 7
+            places.append(Gather(id: id, minX: frame.minX - pad, maxX: frame.maxX + pad, spikes: spikes(id),
+                                 tint: tint(id)?.fluidTint() ?? .zero, present: id == slot.owner))
         }
         return places
     }
 
-    /// Volume spikes stand as tall as the level; everything else reaches up at half strength.
+    /// Volume spikes stand as tall as the level; everything else reaches for the pointer at half strength.
     private func spikes(_ id: String) -> Double {
         guard id == "volume" else { return 0.5 }
         return model.volume.muted ? 0.05 : max(0.08, Double(model.volume.level) / 100)
@@ -380,7 +383,7 @@ struct WorkspaceButton: View {
                 }
             }
             .padding(.leading, apps.isEmpty ? 8 : 7)
-            .padding(.trailing, apps.isEmpty ? 8 : 5)
+            .padding(.trailing, apps.isEmpty ? 8 : 7)
             .frame(height: height)
         }
         .contentShape(Capsule())

@@ -101,7 +101,7 @@ extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
     /// A click lands where the real pointer is, so warp there first. "tick" advances the clock a minute, and
-    /// "banner on|off" stands in for a notification banner. "scene running|needsInput|done|error|nowPlaying|clear" shows fake
+    /// "banner on|off" stands in for a notification banner, "slow <factor>" slows the fluid down for frame-by-frame captures, and "focus <workspace>" moves the bar's focus alone. "scene running|needsInput|done|error|nowPlaying|clear" shows fake
     /// agents or music in the island.
     func installDebugInput() {
         // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
@@ -117,6 +117,9 @@ extension AppDelegate {
             MainActor.assumeIsolated {
                 guard let self, let parts = command?.split(separator: " ") else { return }
                 if parts == ["tick"] { return self.model.now += 60 }
+                // Moves the bar's focus without switching AeroSpace, so captures never take the user's workspace away.
+                if parts.count == 2, parts[0] == "focus" { return self.model.workspaces.focused = String(parts[1]) }
+                if parts.count == 2, parts[0] == "slow", let factor = Double(parts[1]) { return FluidController.slowdown = max(1, factor) }
                 if parts.count == 2, parts[0] == "scene" { return self.fakes?.show(String(parts[1])) ?? () }
                 if parts == ["banner", "on"] || parts == ["banner", "off"] {
                     // Stands in for a banner when this process has no Accessibility access to see real ones.
