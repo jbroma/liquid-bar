@@ -122,10 +122,10 @@ final class MenuMode {
     /// Clicking the focused workspace: menus on, or off again. Without Accessibility access it explains why not.
     func toggle(_ app: FrontApp, at screenPoint: NSPoint) {
         if active { return end() }
-        if !show(app) { AppMenus.explainAccess(appName: app.name, at: screenPoint) }
+        if !show(app), !AXIsProcessTrusted() { AppMenus.explainAccess(appName: app.name, at: screenPoint) }
     }
 
-    /// Shows the app's menus; false without Accessibility access.
+    /// Shows the app's menus; false without Accessibility access or when the app has none.
     @discardableResult
     func show(_ app: FrontApp) -> Bool {
         guard !active else { return true }

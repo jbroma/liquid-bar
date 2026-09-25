@@ -3,12 +3,12 @@ import AppKit
 import LiquidBarCore
 import SwiftUI
 
-/// Fake agent states for checking the island by eye, and a fake track for the now playing pill: the debug hook's `scene <name>` shows one, and
-/// `scene clear` hands the bar back to the real sources.
+/// Fake agent states for checking the island by eye, and a fake track for the now playing pill when nothing plays.
+/// The debug hook's `scene <name>` shows one; `scene clear` hands the bar back to the real sources.
 final class FakeAgents {
     let model: BarModel
     let reloadAgents: () -> Void
-    private var saved: (nowPlaying: NowPlaying?, artwork: NSImage?)?
+    private var fakeTrack = false
 
     init(model: BarModel, reloadAgents: @escaping () -> Void) {
         self.model = model
@@ -17,7 +17,7 @@ final class FakeAgents {
 
     func show(_ scene: String) {
         if scene == "clear" { return end() }
-        begin()
+        model.faking = true
         let now = Date()
         switch scene {
         case "running":
@@ -31,28 +31,22 @@ final class FakeAgents {
         case "error":
             agents([.running, .error, .idle], now)
         case "nowPlaying":
-            agents([.idle, .idle, .idle], now)
-            let track = saved?.nowPlaying ?? NowPlaying(player: .spotify, title: "Feel Like Summer", artist: "lovelytheband", trackID: "fake", playing: true)
-            model.artwork = saved?.artwork ?? Self.artwork
-            model.nowPlaying = track
+            guard model.nowPlaying == nil else { return }
+            fakeTrack = true
+            model.artwork = Self.artwork
+            model.nowPlaying = NowPlaying(player: .spotify, title: "Feel Like Summer", artist: "lovelytheband", trackID: "fake", playing: true)
         default:
             FileHandle.standardError.write(Data("liquid-bar: unknown scene \(scene)\n".utf8))
         }
     }
 
-    private func begin() {
-        guard !model.faking else { return }
-        saved = (model.nowPlaying, model.artwork)
-        model.faking = true
-        model.nowPlaying = nil
-    }
-
     private func end() {
-        guard model.faking else { return }
+        if fakeTrack {
+            model.nowPlaying = nil
+            model.artwork = nil
+            fakeTrack = false
+        }
         model.faking = false
-        model.nowPlaying = saved?.nowPlaying
-        model.artwork = saved?.artwork
-        saved = nil
         reloadAgents()
     }
 

@@ -1,8 +1,8 @@
 # liquid-bar
 
-A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger.
+A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
 
-Left of the notch: the Apple menu, AeroSpace workspaces with the icons of their apps, and the front app. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
+Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens tinted with its front app's icon colour. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock. The notch itself shows what your [T3 Code](https://github.com/pingdotgg/t3code) agents are doing.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -47,7 +47,7 @@ Other targets:
 
 The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
 
-- **Accessibility** lets the bar show the front app's menus and step aside for notification banners. Clicking the front app without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Accessibility** lets the bar show the front app's menus, select a thread in T3 Code, and step aside for notification banners. Clicking the focused workspace without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
 - **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 
 The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
@@ -61,7 +61,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | `height` | number, 24 to 80 | `40` | Bar height in points. Pills are 6 points shorter. |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
-| `left` | array of widgets | `["apple", "workspaces", "frontApp"]` | Widgets left of the notch. |
+| `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "clock"]` | Widgets right of the notch. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
@@ -74,12 +74,11 @@ A widget is one of these names, or a script object:
 | Name | At rest | On hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
-| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace is highlighted. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. |
-| `frontApp` | Icon and name of the front app. | The focused window's title. Click swaps the workspaces for the app's menus. |
-| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Title, artist, and previous, play or pause, and next buttons. |
+| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a lens tinted with the colour of its front app's icon. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
+| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The glass takes the artwork's colour, and the artwork's colours drift behind it while the track plays. | Title, artist, and previous, play or pause, and next buttons. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |
-| `battery` | Level symbol and percentage. Green on AC power, yellow at 40% or less, red at 20% or less. | Time left, or time to full while charging, and a level bar. |
+| `battery` | Level symbol and percentage. The glass is green, yellow at 40% or less, and red at 20% or less. A band of light sweeps across it while it charges. | Time left, or time to full while charging, and a level bar. |
 | `clock` | Time. | Date and time with seconds, like "Friday 25 September · 19:58:12". Click opens the calendar. |
 
 A script object is the SketchyBar-style escape hatch:
@@ -99,7 +98,7 @@ A script object is the SketchyBar-style escape hatch:
 ```json
 {
   "workspaces": [{"id": "1"}, {"id": "2"}, {"id": "3"}],
-  "left": ["apple", "workspaces", "frontApp"],
+  "left": ["apple", "workspaces"],
   "right": [
     "nowPlaying",
     {"script": "curl -s 'wttr.in?format=%t'", "symbol": "cloud.sun", "interval": 900, "on": ["weather"], "click": "open -a Weather"},
@@ -109,10 +108,30 @@ A script object is the SketchyBar-style escape hatch:
 }
 ```
 
+## The agent island
+
+The notch shows your T3 Code agents. It is not a widget and has no config key.
+
+- With no agent working, waiting, or failing, the notch is bare.
+- While a thread runs, waits on you, or has failed, black ears grow out of the notch. The left ear shows the thread's project, with its initial on a chip in the provider's colour (coral for Claude, white for Codex). The right ear shows the status and, with more than one active thread, their count. Dots orbit while an agent works, an amber dot breathes while it waits for an approval or an answer, and a red mark shows a failure. The most urgent thread leads: waiting, then failed, then working.
+- When a turn finishes or a thread starts waiting on you, the island grows for 3 seconds with the thread's title and what happened. A finished turn gets a green check that draws itself.
+- Hovering the island, or the bare notch, drops it into a panel listing the active threads and the threads updated in the last 12 hours, at most six. Each row shows the status, title, project, provider, and how long the agent has been working or since the thread last changed.
+- Clicking a row, the ears, or the grown island opens that thread: the bar focuses T3 Code's window through AeroSpace and selects the thread in T3's sidebar through Accessibility. T3 Code has no link that opens a thread, so without Accessibility access, or for a thread the sidebar has collapsed, the bar only brings T3 Code to the front.
+
+The bar reads T3 Code's own database, `~/.t3/userdata/state.sqlite`, and only reads it. It re-reads 250 ms after T3 Code writes to the database's write-ahead log, so nothing runs while T3 Code is idle or not installed. If a T3 Code update changes the tables the bar reads, the bar logs one line to stderr and the island stays bare.
+
+To see exactly what the bar reads, run:
+
+```sh
+/Applications/LiquidBar.app/Contents/MacOS/liquid-bar agents
+```
+
+It prints one thread per line: ID, project, title, provider, status, the state of the latest turn, and the last update. Pass a path to read another copy of the database.
+
 ## Behavior
 
 - One pill per bar is expanded at a time. Hovering expands a pill after 90 ms, so sweeping the pointer across the bar does not open every pill. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the pill for 2.2 s. A detail that does not fit beside the notch is left out.
-- The front app's menus: clicking the front app replaces the workspaces with the app's menu titles, read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, clicking the app again, switching apps, or moving the pointer away for 1.5 s brings the workspaces back.
+- The front app's menus: pushing the pointer into the top edge of the screen, or clicking the focused workspace, turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
 - The calendar opens below the clock: a month grid with week numbers and today highlighted. Scroll, the arrow keys, or the chevrons change the month. Esc or a click elsewhere closes it.
 - Notification banners: while one is on screen, the right-hand pills slide up out of its way and come back when it leaves. This needs Accessibility access.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
@@ -121,5 +140,5 @@ Everything updates from system events: `aerospace subscribe`, IOKit power notifi
 
 ## Layout
 
-- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
-- `Sources/LiquidBar` is the app: panels, SwiftUI views, the data sources, the calendar, and the Apple and app menus.
+- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the T3 Code reader and status rollup, the island's presentation rules, colour extraction, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
+- `Sources/LiquidBar` is the app: panels, SwiftUI views, the notch island, the data sources, the calendar, and the Apple and app menus.

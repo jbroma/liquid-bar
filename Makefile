@@ -14,7 +14,7 @@ app:
 	codesign --force --sign "$(SIGN)" $(APP)
 
 run: app
-	open $(APP)
+	open -n $(APP)
 
 test:
 	swift test
