@@ -2,6 +2,12 @@ import AppKit
 import LiquidBarCore
 import Observation
 
+struct FrontApp: Equatable {
+    var name: String
+    var bundleID: String
+    var pid: pid_t
+}
+
 @Observable
 final class BarModel {
     var config = Config()
@@ -15,6 +21,7 @@ final class BarModel {
     var artwork: NSImage?
     /// Where notification banners are on screen (top-left origin), nil when none is showing.
     var banner: CGRect?
+    var frontApp: FrontApp?
 
     func focus(_ workspace: String) {
         workspaces.focused = workspace

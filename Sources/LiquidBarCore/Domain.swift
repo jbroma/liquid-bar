@@ -110,7 +110,7 @@ public struct Config: Equatable, Sendable {
     public var height: Double = 40
     public var margin: Double = 10
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
-    public var left: [Widget] = [.apple, .workspaces]
+    public var left: [Widget] = [.apple, .workspaces, .frontApp]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .clock]
     public var clicks: [String: String] = [
         "volume": "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'",
@@ -238,4 +238,24 @@ public func monthGrid(for date: Date, calendar: Calendar) -> [Date] {
     let lead = (calendar.component(.weekday, from: month) - calendar.firstWeekday + 7) % 7
     let start = calendar.date(byAdding: .day, value: -lead, to: month)!
     return (0..<42).map { calendar.date(byAdding: .day, value: $0, to: start)! }
+}
+
+/// Modifier keys of a menu shortcut as the Accessibility API reports them in `AXMenuItemCmdModifiers`:
+/// Command is implied unless bit 3 is set; bits 0, 1 and 2 add Shift, Option and Control.
+public struct ShortcutModifiers: OptionSet, Sendable {
+    public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
+
+    public static let command = ShortcutModifiers(rawValue: 1 << 0)
+    public static let shift = ShortcutModifiers(rawValue: 1 << 1)
+    public static let option = ShortcutModifiers(rawValue: 1 << 2)
+    public static let control = ShortcutModifiers(rawValue: 1 << 3)
+
+    public init(axMask: Int) {
+        var modifiers: ShortcutModifiers = axMask & 8 == 0 ? .command : []
+        if axMask & 1 != 0 { modifiers.insert(.shift) }
+        if axMask & 2 != 0 { modifiers.insert(.option) }
+        if axMask & 4 != 0 { modifiers.insert(.control) }
+        self = modifiers
+    }
 }

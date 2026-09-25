@@ -31,6 +31,7 @@ struct BarView: View {
     /// items would show through the gaps between pills. The band covers it from then until the pointer leaves.
     @State private var banded = false
     @State private var slot = ExpansionSlot()
+    @State private var menuMode = MenuMode()
     @State private var retract: Task<Void, Never>?
 
     var body: some View {
@@ -56,6 +57,7 @@ struct BarView: View {
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
         .environment(slot)
+        .environment(menuMode)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
@@ -125,6 +127,7 @@ struct WidgetView: View {
     let widget: LiquidBarCore.Widget
     let screenFrame: CGRect
     let pillHeight: CGFloat
+    @Environment(MenuMode.self) private var menuMode
 
     var body: some View {
         switch widget {
@@ -133,11 +136,17 @@ struct WidgetView: View {
                 .fixedSize()
                 .pill(height: pillHeight, padding: 11)
         case .workspaces:
-            WorkspaceStrip(model: model, itemHeight: pillHeight - 6)
-                .fixedSize()
-                .pill(height: pillHeight, padding: 3)
+            if !menuMode.active {
+                WorkspaceStrip(model: model, itemHeight: pillHeight - 6)
+                    .fixedSize()
+                    .pill(height: pillHeight, padding: 3)
+                    .transition(.scale(0.8, anchor: .leading).combined(with: .opacity))
+            }
         case .frontApp:
-            EmptyView()
+            if let app = model.frontApp {
+                FrontAppPill(model: model, app: app, screenFrame: screenFrame)
+                    .pill(height: pillHeight, padding: 8)
+            }
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)

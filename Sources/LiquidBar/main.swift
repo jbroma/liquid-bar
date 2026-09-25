@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
-        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model)]
+        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model), FrontAppSource(model: model)]
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
@@ -88,6 +88,14 @@ extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
     func installDebugInput() {
+        // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
+        // so debug builds close them after 4s by themselves.
+        NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { note in
+            nonisolated(unsafe) let menu = note.object as? NSMenu
+            guard menu?.supermenu == nil else { return }
+            let timer = Timer(timeInterval: 4, repeats: false) { _ in menu?.cancelTracking() }
+            RunLoop.main.add(timer, forMode: .common)
+        }
         DistributedNotificationCenter.default().addObserver(forName: .init("dev.liquidbar.debug"), object: nil, queue: .main) { [weak self] note in
             let command = note.object as? String
             MainActor.assumeIsolated {

@@ -77,3 +77,11 @@ import Testing
     calendar.firstWeekday = 1  // Sunday
     #expect(day(monthGrid(for: Date(timeIntervalSince1970: 1_790_364_425), calendar: calendar)[0]) == "8/30")
 }
+
+@Test func menuShortcutModifiersFromAccessibilityMask() {
+    #expect(ShortcutModifiers(axMask: 0) == [.command])
+    #expect(ShortcutModifiers(axMask: 1) == [.command, .shift])
+    #expect(ShortcutModifiers(axMask: 3) == [.command, .shift, .option])
+    #expect(ShortcutModifiers(axMask: 12) == [.control])
+    #expect(ShortcutModifiers(axMask: 8) == [])
+}

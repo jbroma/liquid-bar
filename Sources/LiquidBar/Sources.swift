@@ -438,3 +438,19 @@ final class NowPlayingSource {
         }
     }
 }
+
+/// The frontmost app. The bar never activates, so this is always the app the user works in.
+final class FrontAppSource {
+    init(model: BarModel) {
+        func read(_ app: NSRunningApplication?) {
+            guard let app, let name = app.localizedName else { return }
+            let front = FrontApp(name: name, bundleID: app.bundleIdentifier ?? "", pid: app.processIdentifier)
+            if front != model.frontApp { model.frontApp = front }
+        }
+        read(NSWorkspace.shared.frontmostApplication)
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            MainActor.assumeIsolated { read(app) }
+        }
+    }
+}
