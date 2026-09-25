@@ -2,7 +2,7 @@
 
 A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
 
-Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens tinted with its front app's icon colour. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock. The notch itself shows what your [T3 Code](https://github.com/pingdotgg/t3code) agents are doing.
+Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens tinted with its front app's icon colour. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -60,6 +60,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | --- | --- | --- | --- |
 | `height` | number, 24 to 80 | `40` | Bar height in points. Pills are 6 points shorter. |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
+| `agents` | boolean | `false` | Turns on the experimental agent island (see below). |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "clock"]` | Widgets right of the notch. |
@@ -75,10 +76,10 @@ A widget is one of these names, or a script object:
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
 | `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a lens tinted with the colour of its front app's icon. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
-| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The glass takes the artwork's colour, and the artwork's colours drift behind it while the track plays. | Title, artist, and previous, play or pause, and next buttons. |
+| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The glass takes the artwork's colour. | Title, artist, and previous, play or pause, and next buttons. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |
-| `battery` | Level symbol and percentage. The glass is green, yellow at 40% or less, and red at 20% or less. A band of light sweeps across it while it charges. | Time left, or time to full while charging, and a level bar. |
+| `battery` | Level symbol and percentage. The glass is green, yellow at 40% or less, and red at 20% or less. | Time left, or time to full while charging, and a level bar. |
 | `clock` | Time. | Date and time with seconds, like "Friday 25 September · 19:58:12". Click opens the calendar. |
 
 A script object is the SketchyBar-style escape hatch:
@@ -108,9 +109,9 @@ A script object is the SketchyBar-style escape hatch:
 }
 ```
 
-## The agent island
+## The agent island (experimental, off)
 
-The notch shows your T3 Code agents. It is not a widget and has no config key.
+The notch can show your [T3 Code](https://github.com/pingdotgg/t3code) agents. The island is experimental and off by default. With it off, the bar shows no island, watches nothing, and never opens T3 Code's database. Set `"agents": true` in the config to turn it on.
 
 - With no agent working, waiting, or failing, the notch is bare.
 - While a thread runs, waits on you, or has failed, black ears grow out of the notch. The left ear shows the thread's project, with its initial on a chip in the provider's colour (coral for Claude, white for Codex). The right ear shows the status and, with more than one active thread, their count. Dots orbit while an agent works, an amber dot breathes while it waits for an approval or an answer, and a red mark shows a failure. The most urgent thread leads: waiting, then failed, then working.

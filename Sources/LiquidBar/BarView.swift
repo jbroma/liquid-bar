@@ -87,7 +87,7 @@ struct BarView: View {
 
     /// Room the notch island's ears take beside the notch.
     private var ears: CGFloat {
-        IslandGeometry(notch: .zero).earWidth(model.islandContent)
+        model.config.agents ? IslandGeometry(notch: .zero).earWidth(model.islandContent) : 0
     }
 
     private var yielding: Bool {
@@ -223,7 +223,7 @@ struct WidgetView: View {
             .pill(height: pillHeight, padding: 3)
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
-                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, colors: model.artworkColors, control: model.control)
+                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
                     .pill(height: pillHeight, padding: 6, tint: model.artworkColors.first?.glassTint.color)
                     .transition(.scale(0.6).combined(with: .opacity))
             }
@@ -238,7 +238,6 @@ struct WidgetView: View {
         case .battery:
             if let battery = model.battery {
                 BatteryPill(battery: battery)
-                    .overlay { if battery.onAC && battery.percent < 100 { Shimmer().clipShape(Capsule()) } }
                     .pill(height: pillHeight, tint: battery.levelTint.color)
                     .onTapGesture { model.click(widget) }
             }

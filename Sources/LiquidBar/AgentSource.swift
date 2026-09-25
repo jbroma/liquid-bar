@@ -18,6 +18,12 @@ final class AgentSource {
         rewatch()
     }
 
+    // A resumed dispatch source lives until cancelled, so turning agents off must cancel the watches explicitly.
+    isolated deinit {
+        pending?.cancel()
+        watches.forEach { $0.cancel() }
+    }
+
     private func rewatch() {
         watches.forEach { $0.cancel() }
         let wal = URL(fileURLWithPath: database.path + "-wal")

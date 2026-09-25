@@ -21,7 +21,7 @@ final class BarModel {
     var artwork: NSImage? {
         didSet { artworkColors = artwork?.palette() ?? [] }
     }
-    /// The artwork's two dominant colours, for the now playing pill's tint and drift.
+    /// The artwork's two dominant colours, for the now playing pill's tint.
     private(set) var artworkColors: [RGB] = []
     /// Where notification banners are on screen (top-left origin), nil when none is showing.
     var banner: CGRect?

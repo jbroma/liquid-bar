@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var islands: [IslandPanel] = []
     var aerospace: AeroSpaceSource?
     var sources: [AnyObject] = []
+    var agentSource: AgentSource?
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
@@ -20,10 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model), FrontAppSource(model: model)]
-        let agentSource = AgentSource(model: model)
-        sources.append(agentSource)
         #if DEBUG
-        fakes = FakeAgents(model: model, reloadAgents: agentSource.reload)
+        fakes = FakeAgents(model: model) { [weak self] in self?.agentSource?.reload() }
         #endif
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
@@ -54,16 +53,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func apply(_ config: Config) {
-        let resized = config.height != model.config.height
+        let rebuild = config.height != model.config.height || config.agents != model.config.agents
         model.config = config
         scripts?.load(config.left + config.right)
-        if resized && !panels.isEmpty { rebuildPanels() }
+        if config.agents != (agentSource != nil) {
+            agentSource = config.agents ? AgentSource(model: model) : nil
+            if !config.agents { model.receive([]) }
+        }
+        if rebuild && !panels.isEmpty { rebuildPanels() }
     }
 
     func rebuildPanels() {
         (panels + islands).forEach { $0.close() }
         panels = NSScreen.screens.map(makePanel)
-        islands = NSScreen.screens.map { IslandPanel(screen: $0, model: model, barHeight: model.config.height) }
+        islands = model.config.agents ? NSScreen.screens.map { IslandPanel(screen: $0, model: model, barHeight: model.config.height) } : []
     }
 
     func makePanel(for screen: NSScreen) -> NSPanel {

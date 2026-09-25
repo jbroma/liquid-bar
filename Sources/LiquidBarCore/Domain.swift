@@ -108,6 +108,8 @@ public enum Widget: Equatable, Hashable, Sendable {
 public struct Config: Equatable, Sendable {
     public var height: Double = 40
     public var margin: Double = 10
+    /// The experimental T3 Code agent island. Off by default: no island, no watcher, no database access.
+    public var agents = false
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .clock]
