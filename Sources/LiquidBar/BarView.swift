@@ -25,34 +25,45 @@ struct BarView: View {
     let screenFrame: CGRect
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
-    /// The auto-hidden native menu bar slides in under us while the pointer is in the strip and its status items
-    /// would show through the gaps between pills, so a backdrop covers each side until it has gone again.
-    @State private var covering = false
-    @State private var uncover: Task<Void, Never>?
+    /// Height of the notch, 0 on a screen without one.
+    let notchHeight: CGFloat
+    /// macOS reveals the auto-hidden native menu bar under us when the pointer touches the top edge, and its status
+    /// items would show through the gaps between pills. The band covers it from then until the pointer leaves.
+    @State private var banded = false
+    @State private var retract: Task<Void, Never>?
 
     var body: some View {
         let config = model.config
         let pillHeight = config.height - 6
-        HStack(spacing: 0) {
-            island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
-            Spacer(minLength: 0)
-            island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
+        ZStack {
+            NotchBand(
+                extended: banded,
+                notch: leftWidth.flatMap { left in rightWidth.map { left...(screenFrame.width - $0) } },
+                restingHeight: notchHeight
+            )
+            HStack(spacing: 0) {
+                island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
+                Spacer(minLength: 0)
+                island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
+            }
         }
         .font(.system(size: 13, weight: .semibold))
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .onHover { inside in
-            uncover?.cancel()
-            if inside {
-                withAnimation(spring) { covering = true }
-            } else {
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+                retract?.cancel()
+                if !banded && location.y <= 3 { withAnimation(spring) { banded = true } }
+            case .ended:
+                guard banded else { return }
                 // The native bar lingers for a moment after the pointer leaves.
-                uncover = Task {
+                retract = Task {
                     try? await Task.sleep(for: .seconds(0.7))
                     guard !Task.isCancelled else { return }
-                    withAnimation(spring) { covering = false }
+                    withAnimation(spring) { banded = false }
                 }
             }
         }
@@ -61,9 +72,6 @@ struct BarView: View {
     private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?, pillHeight: CGFloat) -> some View {
         let margin = model.config.margin
         return ZStack(alignment: alignment) {
-            if covering {
-                Backdrop().transition(.opacity)
-            }
             GlassEffectContainer(spacing: 4) {
                 HStack(spacing: 6) {
                     ForEach(Array(widgets.enumerated()), id: \.offset) { _, widget in
@@ -75,16 +83,6 @@ struct BarView: View {
         .padding(alignment == .leading ? .leading : .trailing, margin)
         .frame(width: width, alignment: alignment)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
-    }
-}
-
-/// Covers one side of the notch, full strip height, behind the pills and outside their glass container so they
-/// keep their own shapes. Tinted clear glass hides the native status items without muddying the pills on top.
-struct Backdrop: View {
-    var body: some View {
-        Color.clear
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .glassEffect(.clear.tint(.black.opacity(0.3)), in: .rect)
     }
 }
 

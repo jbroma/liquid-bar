@@ -72,7 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             model: model,
             screenFrame: screen.frame,
             leftWidth: screen.auxiliaryTopLeftArea?.width,
-            rightWidth: screen.auxiliaryTopRightArea?.width
+            rightWidth: screen.auxiliaryTopRightArea?.width,
+            notchHeight: screen.safeAreaInsets.top
         ))
         host.sizingOptions = []
         panel.contentView = host
