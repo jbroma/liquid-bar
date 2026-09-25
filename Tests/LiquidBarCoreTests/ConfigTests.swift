@@ -10,7 +10,7 @@ private func decode(_ json: String) throws -> Config {
     let config = try decode("{}")
     #expect(config.height == 40)
     #expect(config.left == [.apple, .workspaces])
-    #expect(config.right == [.volume, .wifi, .battery, .clock])
+    #expect(config.right == [.nowPlaying, .volume, .wifi, .battery, .clock])
     #expect(config.workspaces.map(\.id) == ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
     #expect(config.clicks["clock"] == nil)
 }

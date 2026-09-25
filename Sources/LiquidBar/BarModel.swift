@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import LiquidBarCore
 import Observation
 
@@ -11,6 +11,8 @@ final class BarModel {
     var network = NetworkState(kind: .offline)
     var now = Date()
     var scriptLabels: [String: String] = [:]
+    var nowPlaying: NowPlaying?
+    var artwork: NSImage?
 
     func focus(_ workspace: String) {
         workspaces.focused = workspace
@@ -27,6 +29,12 @@ final class BarModel {
         let level = volume.stepped(steps)
         volume = VolumeState(level: level, muted: volume.muted && level == 0, device: volume.device)
         setSystemVolume(level)
+    }
+
+    /// "playpause", "next track" or "previous track"; both players understand the same commands.
+    func control(_ command: String) {
+        guard let player = nowPlaying?.player else { return }
+        Task { _ = await run(["osascript", "-e", "tell application \"\(player.appName)\" to \(command)"]) }
     }
 
     func click(_ widget: Widget) {

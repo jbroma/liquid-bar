@@ -206,3 +206,129 @@ struct ClockPill: View {
         }
     }
 }
+
+/// Artwork and a live equalizer at rest; title, artist and transport controls in the detail. Pulses on track change.
+/// It takes plain state so it can live anywhere, not only in the right island.
+struct NowPlayingPill: View {
+    let nowPlaying: NowPlaying
+    let artwork: NSImage?
+    let control: (String) -> Void
+
+    var body: some View {
+        LivePill(pulse: nowPlaying.trackID) {
+            HStack(spacing: 7) {
+                Group {
+                    if let artwork {
+                        Image(nsImage: artwork).resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Image(systemName: "music.note")
+                    }
+                }
+                .frame(width: 22, height: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
+                Equalizer(playing: nowPlaying.playing)
+                    .frame(width: 14, height: 14)
+            }
+        } detail: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Marquee(text: nowPlaying.title, font: .system(size: 11, weight: .bold), width: 150)
+                    Marquee(text: nowPlaying.artist, font: .system(size: 10, weight: .semibold), width: 150)
+                        .foregroundStyle(Color.barWhite.opacity(0.7))
+                }
+                HStack(spacing: 2) {
+                    TransportButton(symbol: "backward.fill") { control("previous track") }
+                    TransportButton(symbol: nowPlaying.playing ? "pause.fill" : "play.fill") { control("playpause") }
+                    TransportButton(symbol: "forward.fill") { control("next track") }
+                }
+            }
+        }
+        .animation(spring, value: nowPlaying)
+    }
+}
+
+private struct TransportButton: View {
+    let symbol: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 12, weight: .bold))
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 26, height: 24)
+            .background { if hovering { Capsule().fill(.white.opacity(0.14)) } }
+            .contentShape(Capsule())
+            .onHover { hovering = $0 }
+            .onTapGesture(perform: action)
+    }
+}
+
+/// One line of text that scrolls back and forth when it is wider than `width`. It only animates while visible.
+struct Marquee: View {
+    let text: String
+    let font: Font
+    let width: CGFloat
+    @State private var textWidth: CGFloat = 0
+    @State private var scrolled = false
+
+    var body: some View {
+        let overflow = max(0, textWidth - width)
+        Text(text)
+            .font(font)
+            .lineLimit(1)
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { textWidth = $0 }
+            .offset(x: scrolled ? -overflow : 0)
+            .frame(width: min(textWidth, width), alignment: .leading)
+            .clipped()
+            .task(id: overflow) {
+                scrolled = false
+                guard overflow > 0 else { return }
+                // Hold, glide to the end at 30pt/s, hold, glide back.
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    withAnimation(.linear(duration: overflow / 30)) { scrolled.toggle() }
+                    try? await Task.sleep(for: .seconds(overflow / 30))
+                }
+            }
+    }
+}
+
+/// Four bars bouncing while playing, resting low when paused. Core Animation runs the bounce in the render server,
+/// so a playing track costs the bar no CPU; a SwiftUI symbol effect redraws every frame on the main thread.
+struct Equalizer: NSViewRepresentable {
+    let playing: Bool
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        view.wantsLayer = true
+        for index in 0..<4 {
+            let bar = CALayer()
+            bar.backgroundColor = NSColor(Color.barGreen).cgColor
+            bar.cornerRadius = 1
+            bar.anchorPoint = CGPoint(x: 0.5, y: 0)
+            bar.frame = CGRect(x: CGFloat(index) * 3.5 + 0.5, y: 1, width: 2.2, height: 12)
+            view.layer?.addSublayer(bar)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        for (index, bar) in (view.layer?.sublayers ?? []).enumerated() {
+            bar.removeAllAnimations()
+            bar.backgroundColor = NSColor(playing ? Color.barGreen : Color.barWhite.opacity(0.5)).cgColor
+            bar.transform = CATransform3DMakeScale(1, playing ? 1 : 0.25, 1)
+            guard playing else { continue }
+            let bounce = CABasicAnimation(keyPath: "transform.scale.y")
+            bounce.fromValue = 0.2
+            bounce.toValue = 1
+            bounce.duration = [0.42, 0.31, 0.5, 0.37][index]
+            bounce.autoreverses = true
+            bounce.repeatCount = .infinity
+            bounce.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            bar.add(bounce, forKey: "bounce")
+        }
+    }
+}

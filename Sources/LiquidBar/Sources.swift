@@ -355,3 +355,86 @@ final class ScriptRunner {
         }
     }
 }
+
+/// Spotify and Music announce every play, pause and track change with a distributed notification, which needs no
+/// permission. A paused player stays in the bar for five minutes.
+final class NowPlayingSource {
+    let model: BarModel
+    private var hide: Task<Void, Never>?
+    private var artworkTask: Task<Void, Never>?
+    private let artworkCache = NSCache<NSString, NSImage>()
+
+    init(model: BarModel) {
+        self.model = model
+        artworkCache.countLimit = 20
+        let notifications: [NowPlaying.Player: String] = [
+            .spotify: "com.spotify.client.PlaybackStateChanged",
+            .music: "com.apple.Music.playerInfo",
+        ]
+        for (player, name) in notifications {
+            DistributedNotificationCenter.default().addObserver(forName: .init(name), object: nil, queue: .main) { [weak self] note in
+                let state = note.userInfo.flatMap { parseNowPlaying($0, player: player) }
+                MainActor.assumeIsolated { self?.update(state, from: player) }
+            }
+        }
+        #if !DEBUG
+        // Debug builds run from a terminal, which would own the Automation prompt instead of LiquidBar.
+        queryRunningPlayers()
+        #endif
+    }
+
+    private func update(_ state: NowPlaying?, from player: NowPlaying.Player) {
+        // One player stopping must not hide the other.
+        guard state != nil || model.nowPlaying?.player == player else { return }
+        if state?.trackID != model.nowPlaying?.trackID { loadArtwork(state) }
+        model.nowPlaying = state
+        hide?.cancel()
+        guard let state, !state.playing else { return }
+        hide = Task {
+            try? await Task.sleep(for: .seconds(300))
+            guard !Task.isCancelled else { return }
+            model.nowPlaying = nil
+        }
+    }
+
+    /// Spotify artwork comes from its public oEmbed endpoint; Music shows its app icon.
+    private func loadArtwork(_ state: NowPlaying?) {
+        artworkTask?.cancel()
+        guard let state else { return model.artwork = nil }
+        if let cached = artworkCache.object(forKey: state.trackID as NSString) { return model.artwork = cached }
+        model.artwork = AppIcons.icon(state.player.rawValue)
+        guard state.player == .spotify, let id = spotifyTrackID(state.trackID) else { return }
+        artworkTask = Task {
+            struct OEmbed: Decodable { let thumbnail_url: URL }
+            guard let (json, _) = try? await URLSession.shared.data(from: URL(string: "https://open.spotify.com/oembed?url=spotify:track:\(id)")!),
+                  let oembed = try? JSONDecoder().decode(OEmbed.self, from: json),
+                  let (data, _) = try? await URLSession.shared.data(from: oembed.thumbnail_url),
+                  let image = NSImage(data: data), !Task.isCancelled
+            else { return }
+            artworkCache.setObject(image, forKey: state.trackID as NSString)
+            model.artwork = image
+        }
+    }
+
+    /// Players post nothing until their state changes, so ask a running one once at launch.
+    private func queryRunningPlayers() {
+        for player in [NowPlaying.Player.spotify, .music]
+        where !NSRunningApplication.runningApplications(withBundleIdentifier: player.rawValue).isEmpty {
+            let idProperty = player == .spotify ? "id" : "persistent ID"
+            let script = """
+                tell application "\(player.appName)" to if player state is not stopped then ¬
+                return (player state as string) & linefeed & name of current track & linefeed & artist of current track & linefeed & (\(idProperty) of current track as string)
+                """
+            Task {
+                guard let output = await run(["osascript", "-e", script]) else { return }
+                let fields = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+                guard fields.count >= 4 else { return }
+                let info: [AnyHashable: Any] = [
+                    "Player State": fields[0].capitalized, "Name": fields[1], "Artist": fields[2],
+                    player == .spotify ? "Track ID" : "PersistentID": fields[3],
+                ]
+                update(parseNowPlaying(info, player: player), from: player)
+            }
+        }
+    }
+}

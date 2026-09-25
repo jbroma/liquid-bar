@@ -78,6 +78,7 @@ struct BarView: View {
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
                     }
                 }
+                .animation(spring, value: model.nowPlaying == nil)
             }
         }
         .padding(alignment == .leading ? .leading : .trailing, margin)
@@ -122,6 +123,14 @@ struct WidgetView: View {
         case .workspaces:
             WorkspaceStrip(model: model, itemHeight: pillHeight - 6)
                 .pill(height: pillHeight, padding: 3)
+        case .frontApp:
+            EmptyView()
+        case .nowPlaying:
+            if let nowPlaying = model.nowPlaying {
+                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
+                    .pill(height: pillHeight, padding: 6)
+                    .transition(.scale(0.6).combined(with: .opacity))
+            }
         case .volume:
             VolumePill(model: model)
                 .pill(height: pillHeight)
