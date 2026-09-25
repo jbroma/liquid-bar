@@ -243,6 +243,12 @@ public struct FluidSim: Sendable {
             frame.beads.append(front)
             frame.tints.append(bead.tint)
             if stretch > 0.5 {
+                // The neck: a thread between front and back that thins as they part and snaps past 90pt.
+                let neck = halfHeight * 0.55 * max(0, 1 - stretch / 90)
+                if neck > 2 {
+                    frame.beads.append(SIMD4(Float((lead + trail) / 2), Float(cy), Float(stretch / 2 + neck), Float(neck)))
+                    frame.tints.append(bead.tint)
+                }
                 let drain = max(0, 1 - stretch / 240)
                 frame.beads.append(SIMD4(Float(trail), Float(cy), Float(max(halfHeight, halfWidth * 0.7) * drain), Float(halfHeight * drain)))
                 frame.tints.append(bead.tint)

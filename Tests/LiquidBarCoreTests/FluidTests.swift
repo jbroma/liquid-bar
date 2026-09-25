@@ -41,10 +41,12 @@ private func vessel() -> FluidSim {
 @Test func theDropletStretchesNecksAndReformsAtTheNewWorkspace() {
     var sim = vessel()
     sim.gather([Gather(id: "droplet", minX: 240, maxX: 270, flows: true)])
-    sim.step(0.1)
-    let stretched = sim.frame.beads.map(\.x)
-    #expect(stretched.count == 2)
-    #expect(stretched[0] > stretched[1])  // the front leads, the back trails
+    sim.step(0.04)
+    // Front, neck and back: the front leads, the neck sits between, the back trails.
+    let stretched = sim.frame.beads
+    #expect(stretched.count == 3)
+    #expect(stretched[0].x > stretched[1].x && stretched[1].x > stretched[2].x)
+    #expect(stretched[1].w < stretched[0].w / 2)
     settle(&sim)
     #expect(sim.frame.beads.map(\.x) == [255])
 }
