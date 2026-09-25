@@ -160,3 +160,49 @@ private struct NetworkDetail: View {
         }
     }
 }
+
+/// Date and time as two capsules at rest; hovering merges them into one with the long date and ticking seconds.
+/// Click opens the calendar, unless `clicks` sets a command for `clock`.
+struct ClockPill: View {
+    let model: BarModel
+    let screenFrame: CGRect
+    let pillHeight: CGFloat
+    @Namespace private var glass
+    @State private var frame = CGRect.zero
+
+    var body: some View {
+        let now = model.now
+        LivePill(pulse: 0) { expanded in
+            HStack(spacing: 6) {
+                if expanded {
+                    // The seconds timer exists only while this view does.
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text("\(longDateText(context.date)) · \(clockText(context.date, seconds: true))")
+                            .contentTransition(.numericText())
+                            .animation(spring, value: context.date)
+                    }
+                    .pill(height: pillHeight)
+                    .glassEffectID("time", in: glass)
+                } else {
+                    Text(dateText(now))
+                        .pill(height: pillHeight)
+                        .glassEffectID("date", in: glass)
+                    Text(clockText(now))
+                        .contentTransition(.numericText())
+                        .animation(spring, value: now)
+                        .pill(height: pillHeight)
+                        .glassEffectID("time", in: glass)
+                }
+            }
+        }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+        .onTapGesture {
+            if let command = model.config.clicks["clock"] {
+                shell(command)
+            } else {
+                let top = screenFrame.maxY - model.config.height
+                CalendarPopover.toggle(anchor: NSRect(x: screenFrame.minX + frame.minX, y: top, width: frame.width, height: model.config.height))
+            }
+        }
+    }
+}

@@ -86,7 +86,7 @@ public struct ScriptWidget: Equatable, Hashable, Sendable, Codable {
 }
 
 public enum Widget: Equatable, Hashable, Sendable {
-    case apple, workspaces, volume, wifi, battery, clock, date
+    case apple, workspaces, volume, wifi, battery, clock
     case script(ScriptWidget)
 
     /// The key used in `clicks`; script widgets carry their own `click`.
@@ -98,7 +98,6 @@ public enum Widget: Equatable, Hashable, Sendable {
         case .wifi: "wifi"
         case .battery: "battery"
         case .clock: "clock"
-        case .date: "date"
         case .script: "script"
         }
     }
@@ -119,14 +118,11 @@ public struct Config: Equatable, Sendable {
         .init(id: "9", symbol: "music.note"),
     ]
     public var left: [Widget] = [.apple, .workspaces]
-    public var right: [Widget] = [.volume, .wifi, .battery, .clock, .date]
+    public var right: [Widget] = [.volume, .wifi, .battery, .clock]
     public var clicks: [String: String] = [
         "volume": "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'",
         "wifi": "open 'x-apple.systempreferences:com.apple.Network-Settings.extension'",
         "battery": "open 'x-apple.systempreferences:com.apple.Battery-Settings.extension'",
-        // `open -a 'Notification Center'` fails on macOS 26; clicking the clock menu extra needs Accessibility access.
-        "clock": #"osascript -e 'tell application "System Events" to tell process "ControlCenter" to click (first menu bar item of menu bar 1 whose value of attribute "AXIdentifier" is "com.apple.menuextra.clock")'"#,
-        "date": "open -a Calendar",
     ]
 
     public init() {}
@@ -219,14 +215,19 @@ extension NetworkState {
     }
 }
 
-/// "19:27", like `date '+%H:%M'`.
-public func clockText(_ date: Date, timeZone: TimeZone = .current) -> String {
-    format(date, "HH:mm", timeZone)
+/// "19:27", or "19:27:05" with seconds.
+public func clockText(_ date: Date, seconds: Bool = false, timeZone: TimeZone = .current) -> String {
+    format(date, seconds ? "HH:mm:ss" : "HH:mm", timeZone)
 }
 
-/// "Fri. 25 Sep.", like `date '+%a. %d %b.'`.
+/// "Fri 25 Sep".
 public func dateText(_ date: Date, timeZone: TimeZone = .current) -> String {
-    format(date, "EEE. dd MMM.", timeZone)
+    format(date, "EEE d MMM", timeZone)
+}
+
+/// "Friday 25 September".
+public func longDateText(_ date: Date, timeZone: TimeZone = .current) -> String {
+    format(date, "EEEE d MMMM", timeZone)
 }
 
 private func format(_ date: Date, _ pattern: String, _ timeZone: TimeZone) -> String {
@@ -235,4 +236,13 @@ private func format(_ date: Date, _ pattern: String, _ timeZone: TimeZone) -> St
     formatter.timeZone = timeZone
     formatter.dateFormat = pattern
     return formatter.string(from: date)
+}
+
+/// Six full weeks covering the month that contains `date`, starting on the calendar's first weekday,
+/// so the grid never changes height between months.
+public func monthGrid(for date: Date, calendar: Calendar) -> [Date] {
+    let month = calendar.dateInterval(of: .month, for: date)!.start
+    let lead = (calendar.component(.weekday, from: month) - calendar.firstWeekday + 7) % 7
+    let start = calendar.date(byAdding: .day, value: -lead, to: month)!
+    return (0..<42).map { calendar.date(byAdding: .day, value: $0, to: start)! }
 }

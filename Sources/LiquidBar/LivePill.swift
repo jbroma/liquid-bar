@@ -11,26 +11,18 @@ enum Expansion: Equatable {
     case collapsed, hovered, pulsed(until: Date)
 }
 
-/// Shows `compact` at rest and slides `detail` in beside it. Hover expands after a short intent delay, so sweeping
-/// the pointer across the bar does not flicker every pill; a change of `pulse` expands it by itself for a moment.
-struct LivePill<Pulse: Equatable, Compact: View, Detail: View>: View {
+/// Expands on hover after a short intent delay, so sweeping the pointer across the bar does not flicker every pill,
+/// and by itself for a moment when `pulse` changes. `content` draws the pill for the current state.
+struct LivePill<Pulse: Equatable, Content: View>: View {
     var pulse: Pulse
-    var pinned = false
-    var spacing: CGFloat = 8
-    @ViewBuilder var compact: () -> Compact
-    @ViewBuilder var detail: () -> Detail
+    @ViewBuilder var content: (_ expanded: Bool) -> Content
     @State private var expansion = Expansion.collapsed
     @State private var inside = false
     @State private var pending: Task<Void, Never>?
+    @State private var appeared = Date.distantFuture
 
     var body: some View {
-        HStack(spacing: spacing) {
-            compact()
-            if pinned || expansion != .collapsed {
-                detail()
-                    .transition(.blurReplace.combined(with: .scale(0.7, anchor: .leading)))
-            }
-        }
+        content(expansion != .collapsed)
         .contentShape(Rectangle())
         .onHover { hovering in
             inside = hovering
@@ -44,7 +36,10 @@ struct LivePill<Pulse: Equatable, Compact: View, Detail: View>: View {
                 }
             }
         }
+        .onAppear { appeared = Date() }
         .onChange(of: pulse) {
+            // Sources report their first real state just after launch; that is not news.
+            guard appeared.timeIntervalSinceNow < -2 else { return }
             if inside {
                 set(.hovered, after: 0)
             } else {
@@ -60,6 +55,32 @@ struct LivePill<Pulse: Equatable, Compact: View, Detail: View>: View {
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled, expansion != next else { return }
             withAnimation(spring) { expansion = next }
+        }
+    }
+}
+
+extension LivePill {
+    /// The common shape: `compact` always, `detail` sliding in from its trailing edge.
+    init<Compact: View, Detail: View>(
+        pulse: Pulse,
+        @ViewBuilder compact: @escaping () -> Compact,
+        @ViewBuilder detail: @escaping () -> Detail
+    ) where Content == CompactDetail<Compact, Detail> {
+        self.init(pulse: pulse) { CompactDetail(expanded: $0, compact: compact, detail: detail) }
+    }
+}
+
+struct CompactDetail<Compact: View, Detail: View>: View {
+    let expanded: Bool
+    let compact: () -> Compact
+    let detail: () -> Detail
+
+    var body: some View {
+        HStack(spacing: 8) {
+            compact()
+            if expanded {
+                detail().transition(.blurReplace.combined(with: .scale(0.7, anchor: .leading)))
+            }
         }
     }
 }

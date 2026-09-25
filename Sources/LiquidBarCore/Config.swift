@@ -5,7 +5,7 @@ public struct ConfigError: Error, CustomStringConvertible {
 }
 
 extension Widget: Decodable {
-    static let named: [Widget] = [.apple, .workspaces, .volume, .wifi, .battery, .clock, .date]
+    static let named: [Widget] = [.apple, .workspaces, .volume, .wifi, .battery, .clock]
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()

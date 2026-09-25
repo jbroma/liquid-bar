@@ -10,19 +10,19 @@ private func decode(_ json: String) throws -> Config {
     let config = try decode("{}")
     #expect(config.height == 40)
     #expect(config.left == [.apple, .workspaces])
-    #expect(config.right == [.volume, .wifi, .battery, .clock, .date])
+    #expect(config.right == [.volume, .wifi, .battery, .clock])
     #expect(config.workspaces.map(\.id) == ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
-    #expect(config.clicks["date"] == "open -a Calendar")
+    #expect(config.clicks["clock"] == nil)
 }
 
 @Test func overridesOnlyTheKeysGiven() throws {
     let config = try decode("""
-        {"height": 36, "workspaces": [{"id": "1", "symbol": "star"}], "clicks": {"date": "open -a Fantastical"}}
+        {"height": 36, "workspaces": [{"id": "1", "symbol": "star"}], "clicks": {"clock": "open -a Fantastical"}}
         """)
     #expect(config.height == 36)
     #expect(config.margin == 10)
     #expect(config.workspaces == [Workspace(id: "1", symbol: "star")])
-    #expect(config.clicks["date"] == "open -a Fantastical")
+    #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")
 }
 
@@ -38,6 +38,7 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func rejectsInvalidConfig() {
     #expect(throws: (any Error).self) { try decode(#"{"right": ["clok"]}"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"right": ["date"]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"height": 400}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"symbol": "cloud"}]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"script": "date", "interval": 0}]}"#) }

@@ -138,17 +138,7 @@ struct WidgetView: View {
                     .onTapGesture { model.click(widget) }
             }
         case .clock:
-            Text(clockText(model.now))
-                .contentTransition(.numericText())
-                .animation(spring, value: model.now)
-                .pill(height: pillHeight)
-                .onTapGesture { model.click(widget) }
-        case .date:
-            Text(dateText(model.now))
-                .contentTransition(.numericText())
-                .animation(spring, value: model.now)
-                .pill(height: pillHeight)
-                .onTapGesture { model.click(widget) }
+            ClockPill(model: model, screenFrame: screenFrame, pillHeight: pillHeight)
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }
@@ -165,13 +155,19 @@ struct WidgetView: View {
 
 /// SwiftUI has no scroll-wheel hook for plain views; this overlay takes only scroll events and lets clicks and hover through.
 struct ScrollCatcher: NSViewRepresentable {
+    /// Points of precise (trackpad) scrolling per step.
+    var step: CGFloat = 10
     let onScroll: (Int) -> Void
 
     func makeNSView(context: Context) -> CatcherView { CatcherView() }
-    func updateNSView(_ view: CatcherView, context: Context) { view.onScroll = onScroll }
+    func updateNSView(_ view: CatcherView, context: Context) {
+        view.onScroll = onScroll
+        view.step = step
+    }
 
     final class CatcherView: NSView {
         var onScroll: (Int) -> Void = { _ in }
+        var step: CGFloat = 10
         private var pending: CGFloat = 0
 
         override func hitTest(_ point: NSPoint) -> NSView? {
@@ -185,7 +181,7 @@ struct ScrollCatcher: NSViewRepresentable {
                 if delta != 0 { onScroll(delta > 0 ? 1 : -1) }
                 return
             }
-            pending += delta / 10
+            pending += delta / step
             let steps = Int(pending)
             if steps != 0 {
                 pending -= CGFloat(steps)

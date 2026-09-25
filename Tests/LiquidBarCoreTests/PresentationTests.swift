@@ -51,10 +51,29 @@ import Testing
     #expect(VolumeState(level: 1, muted: false).stepped(-1) == 0)
 }
 
-@Test func clockAndDateMatchSketchyBarFormat() {
-    let date = Date(timeIntervalSince1970: 1_790_364_420)  // 2026-09-25 19:27 UTC
+@Test func clockAndDateText() {
+    let date = Date(timeIntervalSince1970: 1_790_364_425)  // 2026-09-25 19:27:05 UTC
     let utc = TimeZone(identifier: "UTC")!
     #expect(clockText(date, timeZone: utc) == "19:27")
-    #expect(dateText(date, timeZone: utc) == "Fri. 25 Sep.")
-    #expect(dateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thu. 28 May.")
+    #expect(clockText(date, seconds: true, timeZone: utc) == "19:27:05")
+    #expect(dateText(date, timeZone: utc) == "Fri 25 Sep")
+    #expect(longDateText(date, timeZone: utc) == "Friday 25 September")
+    #expect(dateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thu 28 May")
+}
+
+@Test func monthGridStartsOnFirstWeekday() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "UTC")!
+    calendar.firstWeekday = 2  // Monday
+    let day: (Date) -> String = { date in
+        let c = calendar.dateComponents([.month, .day], from: date)
+        return "\(c.month!)/\(c.day!)"
+    }
+    let september = monthGrid(for: Date(timeIntervalSince1970: 1_790_364_425), calendar: calendar)
+    #expect(september.count == 42)
+    #expect(day(september[0]) == "8/31")
+    #expect(day(september[1]) == "9/1")
+    #expect(day(september[41]) == "10/11")
+    calendar.firstWeekday = 1  // Sunday
+    #expect(day(monthGrid(for: Date(timeIntervalSince1970: 1_790_364_425), calendar: calendar)[0]) == "8/30")
 }
