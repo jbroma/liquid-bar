@@ -87,6 +87,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
+    /// A click lands where the real pointer is, so warp there first. "tick" advances the clock a minute, and
+    /// "banner on|off" stands in for a notification banner.
     func installDebugInput() {
         // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
         // so debug builds close them after 4s by themselves.
@@ -100,6 +102,7 @@ extension AppDelegate {
             let command = note.object as? String
             MainActor.assumeIsolated {
                 guard let self, let parts = command?.split(separator: " ") else { return }
+                if parts == ["tick"] { return self.model.now += 60 }
                 if parts == ["banner", "on"] || parts == ["banner", "off"] {
                     // Stands in for a banner when this process has no Accessibility access to see real ones.
                     let screen = NSScreen.screens[0].frame

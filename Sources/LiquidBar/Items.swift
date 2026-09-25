@@ -73,9 +73,9 @@ struct BatteryPill: View {
                     .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: battery.onAC)
+                // Changes every few minutes at rest, so it swaps without a transition, like the clock.
                 Text("\(battery.percent)%")
                     .font(.system(size: 12, weight: .bold))
-                    .contentTransition(.numericText(value: Double(battery.percent)))
             }
         } detail: {
             VStack(alignment: .leading, spacing: 4) {
@@ -83,7 +83,7 @@ struct BatteryPill: View {
                 Meter(value: Double(battery.percent) / 100, tint: battery.tint.color)
             }
         }
-        .animation(spring, value: battery)
+        .animation(spring, value: battery.onAC)
     }
 }
 
@@ -187,9 +187,8 @@ struct ClockPill: View {
                     }
                     .transition(.blurReplace)
                 } else {
+                    // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
                     Text(clockText(now))
-                        .contentTransition(.numericText())
-                        .animation(spring, value: now)
                         .fixedSize()
                         .transition(.blurReplace)
                 }

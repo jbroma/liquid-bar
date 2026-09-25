@@ -1,4 +1,6 @@
 APP := build/LiquidBar.app
+# A stable identity keeps the Accessibility and Automation grants across rebuilds; ad-hoc signing loses them.
+SIGN ?= $(or $(shell security find-identity -p codesigning -v | awk -F'"' '/Apple Development|Developer ID Application/ { print $$2; exit }'),-)
 AGENT := $(HOME)/Library/LaunchAgents/dev.liquidbar.plist
 
 .PHONY: app run test install uninstall clean
@@ -9,7 +11,7 @@ app:
 	mkdir -p $(APP)/Contents/MacOS
 	cp .build/release/liquid-bar $(APP)/Contents/MacOS/
 	cp Support/Info.plist $(APP)/Contents/
-	codesign --force --sign - $(APP)
+	codesign --force --sign "$(SIGN)" $(APP)
 
 run: app
 	open $(APP)

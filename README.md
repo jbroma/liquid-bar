@@ -1,6 +1,8 @@
 # liquid-bar
 
-A macOS 26 menu bar replacement drawn in Liquid Glass. It shows AeroSpace workspaces on the left and volume, Wi-Fi, battery, clock, and date on the right, and it covers the native menu bar completely. With no config file it reproduces the SketchyBar setup in `~/.config/sketchybar`.
+A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger.
+
+Left of the notch: the Apple menu, AeroSpace workspaces with the icons of their apps, and the front app. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -17,6 +19,8 @@ Other targets:
 - `make app` builds `build/LiquidBar.app` only.
 - `make run` builds the app and opens it. A newly started bar quits any running one, so repeated runs never stack two bars.
 - `make test` runs the unit tests.
+
+`make app` signs with the first Apple Development or Developer ID identity in your keychain, so macOS keeps the Accessibility and Automation grants across rebuilds. Without one it signs ad hoc, and every rebuild asks for the grants again. Set `SIGN=` to pick an identity, for example `make app SIGN=-` for ad hoc.
 
 ## Migrate from SketchyBar
 
@@ -35,18 +39,18 @@ Other targets:
 
 	liquid-bar subscribes to AeroSpace itself and retries until AeroSpace is running, so it needs no startup hook.
 
-3. Keep the native menu bar on auto-hide (`defaults write NSGlobalDomain _HIHideMenuBar -bool true`). liquid-bar sits one level above the menu bar, so the auto-hidden bar never shows through when the pointer touches the top edge.
+3. Keep the native menu bar on auto-hide (`defaults write NSGlobalDomain _HIHideMenuBar -bool true`). liquid-bar sits one level above the menu bar. When the pointer touches the top edge, macOS slides its menu bar in underneath, and a black band grows out of the notch to cover it until the pointer leaves.
 
 4. Run `make install`.
 
 ## Permissions
 
-The bar needs no permissions for its normal work. Two actions can trigger a permission prompt the first time you use them:
+The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
 
-- Clicking the clock opens Notification Center by clicking the clock in Control Center. macOS asks for Accessibility access for LiquidBar.
-- **Restart…**, **Shut Down…**, and **Log Out…** in the Apple menu send an Apple event to `loginwindow`, which shows the usual confirmation dialog. macOS can ask whether LiquidBar may control `loginwindow`.
+- **Accessibility** lets the bar show the front app's menus and step aside for notification banners. Clicking the front app without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 
-The Apple menu's **Force Quit** item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke, which would need Accessibility access for every user.
+The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
 
 ## Configure
 
@@ -54,18 +58,31 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `height` | number, 24 to 80 | `40` | Bar height in points. Glass capsules are 6 points shorter. |
-| `margin` | number | `10` | Space between the screen edge and the outer capsules. |
-| `workspaces` | array of `{"id", "symbol"}` | workspaces `1` to `9` | AeroSpace workspace names and the SF Symbol drawn for each. |
-| `left` | array of widgets | `["apple", "workspaces"]` | Widgets in the left capsule. |
-| `right` | array of widgets | `["volume", "wifi", "battery", "clock", "date"]` | Widgets on the right, one capsule each. |
+| `height` | number, 24 to 80 | `40` | Bar height in points. Pills are 6 points shorter. |
+| `margin` | number | `10` | Space between the screen edge and the outer pills. |
+| `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
+| `left` | array of widgets | `["apple", "workspaces", "frontApp"]` | Widgets left of the notch. |
+| `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "clock"]` | Widgets right of the notch. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
-The default clicks open the Sound, Network, and Battery settings panes, Notification Center, and Calendar. The `apple` widget opens the Apple menu unless `clicks` sets a command for `apple`.
+The default clicks open the Sound, Network, and Battery settings panes. The `apple` widget opens the Apple menu and `clock` opens the calendar, unless `clicks` sets a command for them.
 
 ### Widgets
 
-A widget is one of the names `apple`, `workspaces`, `volume`, `wifi`, `battery`, `clock`, `date`, or a script object:
+A widget is one of these names, or a script object:
+
+| Name | At rest | On hover |
+| --- | --- | --- |
+| `apple` | Apple logo. Click opens the Apple menu. | |
+| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace is highlighted. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. |
+| `frontApp` | Icon and name of the front app. | The focused window's title. Click swaps the workspaces for the app's menus. |
+| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Title, artist, and previous, play or pause, and next buttons. |
+| `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
+| `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |
+| `battery` | Level symbol and percentage. Green on AC power, yellow at 40% or less, red at 20% or less. | Time left, or time to full while charging, and a level bar. |
+| `clock` | Time. | Date and time with seconds, like "Friday 25 September · 19:58:12". Click opens the calendar. |
+
+A script object is the SketchyBar-style escape hatch:
 
 | Key | Type | Meaning |
 | --- | --- | --- |
@@ -81,29 +98,28 @@ A widget is one of the names `apple`, `workspaces`, `volume`, `wifi`, `battery`,
 
 ```json
 {
-  "workspaces": [
-    {"id": "1", "symbol": "terminal"},
-    {"id": "2", "symbol": "globe"},
-    {"id": "3", "symbol": "apple.terminal"}
-  ],
+  "workspaces": [{"id": "1"}, {"id": "2"}, {"id": "3"}],
+  "left": ["apple", "workspaces", "frontApp"],
   "right": [
+    "nowPlaying",
     {"script": "curl -s 'wttr.in?format=%t'", "symbol": "cloud.sun", "interval": 900, "on": ["weather"], "click": "open -a Weather"},
-    "volume", "wifi", "battery", "clock", "date"
+    "volume", "wifi", "battery", "clock"
   ],
-  "clicks": {"date": "open -a Fantastical"}
+  "clicks": {"clock": "open -a Fantastical"}
 }
 ```
 
 ## Behavior
 
-- Workspaces: the focused workspace has a highlight that slides to the new workspace, and its symbol bounces. Workspaces with windows are brighter than empty ones. When AeroSpace leaves the `main` mode, a badge shows the mode name. Clicking a workspace runs `aerospace workspace <id>`.
-- Volume: scroll over the volume capsule to change the volume in steps of 2. Hovering or scrolling widens the capsule to show the level, and it collapses 1.5 seconds after the last interaction.
-- Battery: the symbol is green while on AC power, yellow at 40% or less, and red at 20% or less.
-- Screens: every screen gets its own bar. On a screen with a notch, the left capsule stays left of the notch and the right capsules stay right of it.
+- One pill per bar is expanded at a time. Hovering expands a pill after 90 ms, so sweeping the pointer across the bar does not open every pill. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the pill for 2.2 s. A detail that does not fit beside the notch is left out.
+- The front app's menus: clicking the front app replaces the workspaces with the app's menu titles, read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, clicking the app again, switching apps, or moving the pointer away for 1.5 s brings the workspaces back.
+- The calendar opens below the clock: a month grid with week numbers and today highlighted. Scroll, the arrow keys, or the chevrons change the month. Esc or a click elsewhere closes it.
+- Notification banners: while one is on screen, the right-hand pills slide up out of its way and come back when it leaves. This needs Accessibility access.
+- Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
-Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, and `NWPathMonitor`. The only timers are the clock, which fires on each minute boundary, and script intervals.
+Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling and ticking seconds run only while their detail is visible.
 
 ## Layout
 
-- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace output parsing, and display rules. `Tests/LiquidBarCoreTests` covers it.
-- `Sources/LiquidBar` is the app: panels, SwiftUI views, the data sources, and the Apple menu.
+- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
+- `Sources/LiquidBar` is the app: panels, SwiftUI views, the data sources, the calendar, and the Apple and app menus.

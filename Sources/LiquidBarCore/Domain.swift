@@ -128,11 +128,12 @@ public enum Tint: Equatable, Sendable {
 extension BatteryState {
     public var symbol: String {
         if onAC { return "battery.100percent.bolt" }
+        // Nearest of the five drawn levels, so 26% shows a quarter, not an empty battery.
         switch percent {
-        case 90...: return "battery.100percent"
-        case 70..<90: return "battery.75percent"
-        case 50..<70: return "battery.50percent"
-        case 30..<50: return "battery.25percent"
+        case 88...: return "battery.100percent"
+        case 63..<88: return "battery.75percent"
+        case 38..<63: return "battery.50percent"
+        case 13..<38: return "battery.25percent"
         default: return "battery.0percent"
         }
     }

@@ -9,7 +9,9 @@ import Testing
     #expect(BatteryState(percent: 20, power: onBattery).tint == .red)
     #expect(BatteryState(percent: 12, power: .charging(minutesToFull: 80)).tint == .green)
     #expect(BatteryState(percent: 80, power: .pluggedIn).tint == .green)
-    #expect(BatteryState(percent: 49, power: onBattery).symbol == "battery.25percent")
+    #expect(BatteryState(percent: 49, power: onBattery).symbol == "battery.50percent")
+    #expect(BatteryState(percent: 26, power: onBattery).symbol == "battery.25percent")
+    #expect(BatteryState(percent: 9, power: onBattery).symbol == "battery.0percent")
     #expect(BatteryState(percent: 95, power: onBattery).symbol == "battery.100percent")
     #expect(BatteryState(percent: 12, power: .charging(minutesToFull: nil)).symbol == "battery.100percent.bolt")
 }
