@@ -3,7 +3,7 @@ import AppKit
 import LiquidBarCore
 import SwiftUI
 
-/// Fake agent and music states for checking the island by eye: the debug hook's `scene <name>` shows one, and
+/// Fake agent states for checking the island by eye, and a fake track for the now playing pill: the debug hook's `scene <name>` shows one, and
 /// `scene clear` hands the bar back to the real sources.
 final class FakeAgents {
     let model: BarModel
@@ -35,7 +35,6 @@ final class FakeAgents {
             let track = saved?.nowPlaying ?? NowPlaying(player: .spotify, title: "Feel Like Summer", artist: "lovelytheband", trackID: "fake", playing: true)
             model.artwork = saved?.artwork ?? Self.artwork
             model.nowPlaying = track
-            model.announce(.track(track))
         default:
             FileHandle.standardError.write(Data("liquid-bar: unknown scene \(scene)\n".utf8))
         }

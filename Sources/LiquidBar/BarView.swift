@@ -97,6 +97,7 @@ struct BarView: View {
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
                     }
                 }
+                .animation(spring, value: model.nowPlaying == nil)
             }
         }
         // Islands get a finite width beside the notch, so an expanded pill's detail yields instead of overflowing.
@@ -151,6 +152,12 @@ struct WidgetView: View {
             if let app = model.frontApp {
                 FrontAppPill(model: model, app: app, screenFrame: screenFrame)
                     .pill(height: pillHeight, padding: 8)
+            }
+        case .nowPlaying:
+            if let nowPlaying = model.nowPlaying {
+                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
+                    .pill(height: pillHeight, padding: 6)
+                    .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
             VolumePill(model: model)

@@ -207,7 +207,48 @@ struct ClockPill: View {
     }
 }
 
-struct TransportButton: View {
+/// Artwork and a live equalizer at rest; title, artist and transport controls in the detail. Pulses on track change.
+/// It takes plain state so it can live anywhere, not only in the right island.
+struct NowPlayingPill: View {
+    let nowPlaying: NowPlaying
+    let artwork: NSImage?
+    let control: (String) -> Void
+
+    var body: some View {
+        LivePill(id: "nowPlaying", pulse: nowPlaying.trackID) {
+            HStack(spacing: 7) {
+                Group {
+                    if let artwork {
+                        Image(nsImage: artwork).resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Image(systemName: "music.note")
+                    }
+                }
+                .frame(width: 22, height: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
+                Equalizer(playing: nowPlaying.playing)
+                    .frame(width: 14, height: 14)
+            }
+        } detail: {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Marquee(text: nowPlaying.title, font: .system(size: 11, weight: .bold), width: 150)
+                    Marquee(text: nowPlaying.artist, font: .system(size: 10, weight: .semibold), width: 150)
+                        .foregroundStyle(Color.barWhite.opacity(0.7))
+                }
+                HStack(spacing: 2) {
+                    TransportButton(symbol: "backward.fill") { control("previous track") }
+                    TransportButton(symbol: nowPlaying.playing ? "pause.fill" : "play.fill") { control("playpause") }
+                    TransportButton(symbol: "forward.fill") { control("next track") }
+                }
+            }
+        }
+        .animation(spring, value: nowPlaying)
+    }
+}
+
+private struct TransportButton: View {
     let symbol: String
     let action: () -> Void
     @State private var hovering = false

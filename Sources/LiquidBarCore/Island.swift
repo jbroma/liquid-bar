@@ -1,17 +1,14 @@
 import Foundation
 
-/// What the notch island is about. Agents win over music; with neither, the island is the bare notch.
+/// What the notch island shows: the coding agents at work, or nothing (the bare notch).
 public enum IslandContent: Equatable, Sendable {
     case idle
     case agents(AgentSummary)
-    case nowPlaying(NowPlaying)
 
-    public init(agents: [AgentThread], nowPlaying: NowPlaying?) {
+    public init(agents: [AgentThread]) {
         let active = agents.filter(\.isActive)
         if let lead = active.min(by: { ($0.status.urgency, $1.updatedAt) < ($1.status.urgency, $0.updatedAt) }) {
             self = .agents(AgentSummary(lead: lead, count: active.count))
-        } else if let nowPlaying {
-            self = .nowPlaying(nowPlaying)
         } else {
             self = .idle
         }
@@ -42,16 +39,10 @@ extension AgentStatus {
     }
 }
 
-/// Something worth a moment of the island's attention.
-public enum IslandPulse: Equatable, Sendable {
-    /// A thread that finished (status `.done`) or started waiting on the user.
-    case agent(AgentThread)
-    case track(NowPlaying)
-}
-
 public enum IslandPresentation: Equatable, Sendable {
     case ears
-    case pulse(IslandPulse)
+    /// A thread that just finished (status `.done`) or started waiting on the user.
+    case pulse(AgentThread)
     case expanded
 }
 
@@ -64,7 +55,7 @@ public struct IslandPresenter: Equatable, Sendable {
 
     public private(set) var hoveredSince: Date?
     public private(set) var leftAt: Date?
-    public private(set) var pulse: IslandPulse?
+    public private(set) var pulse: AgentThread?
     public private(set) var pulseEnd: Date?
 
     public init() {}
@@ -85,7 +76,7 @@ public struct IslandPresenter: Equatable, Sendable {
         pulseEnd = nil
     }
 
-    public mutating func pulse(_ pulse: IslandPulse, at now: Date) {
+    public mutating func pulse(_ pulse: AgentThread, at now: Date) {
         self.pulse = pulse
         pulseEnd = now + Self.pulseLength
     }

@@ -16,17 +16,12 @@ struct IslandGeometry {
 
     nonisolated static let flare: CGFloat = 6
     static let rowHeight: CGFloat = 46
-    static let cardHeight: CGFloat = 64
 
     func earWidth(_ content: IslandContent) -> CGFloat {
-        switch content {
-        case .idle: 0
-        case .agents: 118
-        case .nowPlaying: 44
-        }
+        content == .idle ? 0 : 118
     }
 
-    func size(_ content: IslandContent, _ presentation: IslandPresentation, rows: Int, card: Bool) -> CGSize {
+    func size(_ content: IslandContent, _ presentation: IslandPresentation, rows: Int) -> CGSize {
         // Idle, the shape waits well inside the hardware notch, flares and all, so nothing shows.
         let hidden = CGSize(width: max(0, notch.width - 40), height: max(0, notch.height - 8))
         let ears = content == .idle ? hidden : CGSize(width: notch.width + 2 * earWidth(content), height: band)
@@ -34,8 +29,7 @@ struct IslandGeometry {
         case .ears: return ears
         case .pulse: return CGSize(width: max(ears.width, 390), height: band + 50)
         case .expanded:
-            let list = CGFloat(rows) * Self.rowHeight + (card ? Self.cardHeight : 0) + (rows > 0 && card ? 4 : 0)
-            return CGSize(width: max(ears.width, 440), height: band + 6 + list + 6)
+            return CGSize(width: max(ears.width, 440), height: band + 6 + CGFloat(rows) * Self.rowHeight + 6)
         }
     }
 
@@ -66,7 +60,7 @@ final class IslandController {
         update()
     }
 
-    func pulse(_ pulse: IslandPulse) {
+    func pulse(_ pulse: AgentThread) {
         presenter.pulse(pulse, at: Date())
         update()
     }
@@ -85,7 +79,7 @@ final class IslandController {
 }
 
 extension BarModel {
-    var islandContent: IslandContent { IslandContent(agents: agents, nowPlaying: nowPlaying) }
+    var islandContent: IslandContent { IslandContent(agents: agents) }
     var islandThreadList: [AgentThread] { islandThreads(agents, now: Date()) }
 }
 
@@ -119,7 +113,7 @@ final class IslandPanel: NSPanel {
         isReleasedWhenClosed = false
         appearance = NSAppearance(named: .darkAqua)
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        controller.canExpand = { [model] in !model.islandThreadList.isEmpty || model.nowPlaying != nil }
+        controller.canExpand = { [model] in !model.islandThreadList.isEmpty }
         let host = NSHostingView(rootView: IslandView(model: model, controller: controller, geometry: geometry))
         host.sizingOptions = []
         host.frame = NSRect(origin: .zero, size: Self.maxSize)
@@ -134,7 +128,7 @@ final class IslandPanel: NSPanel {
     static let maxSize = CGSize(width: 560, height: 520)
 
     private var targetSize: CGSize {
-        geometry.size(model.islandContent, controller.presentation, rows: model.islandThreadList.count, card: model.nowPlaying != nil)
+        geometry.size(model.islandContent, controller.presentation, rows: model.islandThreadList.count)
     }
 
     private func follow() {
@@ -180,15 +174,15 @@ struct IslandView: View {
         let content = model.islandContent
         let presentation = controller.presentation
         let threads = model.islandThreadList
-        let size = geometry.size(content, presentation, rows: threads.count, card: model.nowPlaying != nil)
+        let size = geometry.size(content, presentation, rows: threads.count)
         let shape = IslandShape(bottomRadius: geometry.radius(presentation))
         ZStack(alignment: .top) {
             if content == .idle && presentation == .expanded {
                 // Dropped down from the bare notch: name what the panel lists.
                 HStack {
-                    Text(threads.isEmpty ? "Now Playing" : "T3 Code")
+                    Text("T3 Code")
                     Spacer()
-                    if !threads.isEmpty { Text("\(threads.count) recent") }
+                    Text("\(threads.count) recent")
                 }
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.barWhite.opacity(0.5))
@@ -196,17 +190,16 @@ struct IslandView: View {
                 .frame(height: geometry.barHeight)
                 .transition(.opacity)
             } else {
-                EarsRow(content: content, notchWidth: geometry.notch.width, earWidth: geometry.earWidth(content), height: geometry.barHeight,
-                        artwork: model.artwork)
+                EarsRow(content: content, notchWidth: geometry.notch.width, height: geometry.barHeight)
             }
-            if case .pulse(let pulse) = presentation {
-                PulseRow(pulse: pulse, artwork: model.artwork)
+            if case .pulse(let thread) = presentation {
+                PulseRow(thread: thread)
                     .frame(height: 50)
                     .padding(.top, geometry.band)
                     .transition(.blurReplace.combined(with: .scale(0.85, anchor: .top)).combined(with: .opacity))
             }
             if presentation == .expanded {
-                IslandPanelContent(model: model, threads: threads, open: open)
+                IslandPanelContent(threads: threads, open: open)
                     .padding(.top, geometry.band + 6)
                     .transition(.blurReplace.combined(with: .scale(0.92, anchor: .top)).combined(with: .opacity))
             }
@@ -223,14 +216,14 @@ struct IslandView: View {
         .onTapGesture {
             // The panel's rows handle their own clicks; a tap on the ears or a pulse opens the thread they show.
             guard presentation != .expanded else { return }
-            if case .pulse(.agent(let thread)) = presentation { return open(thread) }
+            if case .pulse(let thread) = presentation { return open(thread) }
             if case .agents(let summary) = content { open(summary.lead) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .foregroundStyle(Color.barWhite)
         .animation(islandSpring, value: content)
         .animation(islandSpring, value: threads.map(\.id))
-        .onChange(of: model.pulse) { if let pulse = model.pulse { controller.pulse(pulse.kind) } }
+        .onChange(of: model.pulse) { if let pulse = model.pulse { controller.pulse(pulse.thread) } }
         .onChange(of: content) { controller.update() }
     }
 
@@ -280,9 +273,7 @@ struct IslandShape: Shape {
 private struct EarsRow: View {
     let content: IslandContent
     let notchWidth: CGFloat
-    let earWidth: CGFloat
     let height: CGFloat
-    let artwork: NSImage?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -297,8 +288,6 @@ private struct EarsRow: View {
                             .truncationMode(.tail)
                     }
                     .id(summary.lead.id)
-                case .nowPlaying:
-                    Artwork(image: artwork, size: 22, radius: 6)
                 case .idle:
                     EmptyView()
                 }
@@ -319,8 +308,6 @@ private struct EarsRow: View {
                         }
                         AgentIndicator(status: summary.lead.status, size: 16)
                     }
-                case .nowPlaying(let nowPlaying):
-                    Equalizer(playing: nowPlaying.playing).frame(width: 14, height: 14)
                 case .idle:
                     EmptyView()
                 }
@@ -333,29 +320,19 @@ private struct EarsRow: View {
     }
 }
 
-/// The line under the notch during a pulse: what happened and to which thread, or the new track.
+/// The line under the notch during a pulse: what happened and to which thread.
 private struct PulseRow: View {
-    let pulse: IslandPulse
-    let artwork: NSImage?
+    let thread: AgentThread
 
     var body: some View {
         HStack(spacing: 11) {
-            switch pulse {
-            case .agent(let thread):
-                AgentIndicator(status: thread.status, size: 22)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(thread.title).font(.system(size: 13, weight: .bold)).lineLimit(1)
-                    Text("\(thread.status.headline) · \(thread.project)")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(thread.status.color.opacity(0.9))
-                        .lineLimit(1)
-                }
-            case .track(let nowPlaying):
-                Artwork(image: artwork, size: 30, radius: 7)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(nowPlaying.title).font(.system(size: 13, weight: .bold)).lineLimit(1)
-                    Text(nowPlaying.artist).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color.barWhite.opacity(0.65)).lineLimit(1)
-                }
+            AgentIndicator(status: thread.status, size: 22)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(thread.title).font(.system(size: 13, weight: .bold)).lineLimit(1)
+                Text("\(thread.status.headline) · \(thread.project)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(thread.status.color.opacity(0.9))
+                    .lineLimit(1)
             }
             Spacer(minLength: 0)
         }
@@ -365,26 +342,17 @@ private struct PulseRow: View {
     }
 }
 
-/// The drop-down: recent threads, then what is playing.
+/// The drop-down: recent threads. Elapsed times tick only while it is open.
 private struct IslandPanelContent: View {
-    let model: BarModel
     let threads: [AgentThread]
     let open: (AgentThread) -> Void
 
     var body: some View {
-        VStack(spacing: 4) {
-            if !threads.isEmpty {
-                // Elapsed times tick only while the panel is open.
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    VStack(spacing: 0) {
-                        ForEach(threads) { thread in
-                            ThreadRow(thread: thread, now: context.date) { open(thread) }
-                        }
-                    }
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            VStack(spacing: 0) {
+                ForEach(threads) { thread in
+                    ThreadRow(thread: thread, now: context.date) { open(thread) }
                 }
-            }
-            if let nowPlaying = model.nowPlaying {
-                NowPlayingCard(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
             }
         }
         .padding(.horizontal, 6)
@@ -427,51 +395,6 @@ private struct ThreadRow: View {
         .onHover { hovering = $0 }
         .onTapGesture(perform: open)
         .animation(.easeOut(duration: 0.15), value: hovering)
-    }
-}
-
-private struct NowPlayingCard: View {
-    let nowPlaying: NowPlaying
-    let artwork: NSImage?
-    let control: (String) -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Artwork(image: artwork, size: 44, radius: 10)
-                .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
-            VStack(alignment: .leading, spacing: 2) {
-                Marquee(text: nowPlaying.title, font: .system(size: 13, weight: .bold), width: 190)
-                Marquee(text: nowPlaying.artist, font: .system(size: 11, weight: .semibold), width: 190)
-                    .foregroundStyle(Color.barWhite.opacity(0.65))
-            }
-            Spacer(minLength: 0)
-            HStack(spacing: 2) {
-                TransportButton(symbol: "backward.fill") { control("previous track") }
-                TransportButton(symbol: nowPlaying.playing ? "pause.fill" : "play.fill") { control("playpause") }
-                TransportButton(symbol: "forward.fill") { control("next track") }
-            }
-        }
-        .padding(.horizontal, 10)
-        .frame(height: IslandGeometry.cardHeight)
-        .background { RoundedRectangle(cornerRadius: 24, style: .continuous).fill(.white.opacity(0.07)) }
-    }
-}
-
-struct Artwork: View {
-    let image: NSImage?
-    let size: CGFloat
-    let radius: CGFloat
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-            } else {
-                Image(systemName: "music.note").font(.system(size: size * 0.5, weight: .bold))
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }
 
