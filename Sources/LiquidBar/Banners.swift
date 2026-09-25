@@ -1,8 +1,9 @@
 import AppKit
 import ApplicationServices
 
-/// Tracks notification banners through the Accessibility API: Notification Center's UI process creates a window per
-/// banner and destroys it when the banner goes. Without Accessibility access it does nothing, and it attaches once
+/// Tracks notification banners through the Accessibility API: while a banner shows, Notification Center's UI process
+/// has a screen-sized window with the AXSystemDialog subrole, created with the banner and destroyed after it. Its
+/// other windows are desktop widgets and stay put. Without Accessibility access it does nothing, and it attaches once
 /// access is granted.
 final class BannerWatcher {
     let model: BarModel
@@ -63,12 +64,14 @@ final class BannerWatcher {
     }
 
     private func track(_ window: AXUIElement) {
-        guard let observer, !banners.contains(where: { CFEqual($0, window) }) else { return }
+        var subrole: CFTypeRef?
+        AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subrole)
+        guard let observer, subrole as? String == kAXSystemDialogSubrole, !banners.contains(where: { CFEqual($0, window) }) else { return }
         banners.append(window)
         AXObserverAddNotification(observer, window, kAXUIElementDestroyedNotification as CFString, Unmanaged.passUnretained(self).toOpaque())
     }
 
-    /// The union of the banners' frames, in top-left-origin screen points.
+    /// The union of the banner windows' frames, in top-left-origin screen points.
     private func publish() {
         let frames = banners.compactMap(frame)
         let union = frames.dropFirst().reduce(frames.first) { $0?.union($1) }
