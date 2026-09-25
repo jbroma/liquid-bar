@@ -1,75 +1,79 @@
+import LiquidBarCore
 import SwiftUI
 
 /// The one spring every motion in the bar uses.
 let spring = Animation.spring(response: 0.38, dampingFraction: 0.8)
 
-private let hoverIntent = 0.09
-private let linger = 0.9
-private let pulseLength = 2.2
+/// The single expanded pill of one bar. Pills report hover and pulses here; `ExpansionInputs` decides the owner,
+/// and one timer re-evaluates it when the answer can next change.
+@Observable
+final class ExpansionSlot {
+    private(set) var owner: String?
+    @ObservationIgnored private var inputs = ExpansionInputs<String>()
+    @ObservationIgnored private var timer: Task<Void, Never>?
+    @ObservationIgnored private let created = Date()
 
-enum Expansion: Equatable {
-    case collapsed, hovered, pulsed(until: Date)
-}
-
-/// Expands on hover after a short intent delay, so sweeping the pointer across the bar does not flicker every pill,
-/// and by itself for a moment when `pulse` changes. `content` draws the pill for the current state.
-struct LivePill<Pulse: Equatable, Content: View>: View {
-    var pulse: Pulse
-    @ViewBuilder var content: (_ expanded: Bool) -> Content
-    @State private var expansion = Expansion.collapsed
-    @State private var inside = false
-    @State private var pending: Task<Void, Never>?
-    @State private var appeared = Date.distantFuture
-
-    var body: some View {
-        content(expansion != .collapsed)
-        .contentShape(Rectangle())
-        .onHover { hovering in
-            inside = hovering
-            if hovering {
-                expansion == .hovered ? pending?.cancel() : set(.hovered, after: hoverIntent)
-            } else {
-                switch expansion {
-                case .collapsed: pending?.cancel()
-                case .hovered: set(.collapsed, after: linger)
-                case .pulsed(let until): set(.collapsed, after: max(until.timeIntervalSinceNow, linger))
-                }
-            }
+    func hover(_ id: String, _ inside: Bool) {
+        let now = Date()
+        if inside {
+            inputs.inside = .init(id, now)
+        } else if inputs.inside?.id == id {
+            inputs.inside = nil
+            if owner == id { inputs.left = .init(id, now) }
         }
-        .onAppear { appeared = Date() }
-        .onChange(of: pulse) {
-            // Sources report their first real state just after launch; that is not news.
-            guard appeared.timeIntervalSinceNow < -2 else { return }
-            if inside {
-                set(.hovered, after: 0)
-            } else {
-                withAnimation(spring) { expansion = .pulsed(until: Date().addingTimeInterval(pulseLength)) }
-                set(.collapsed, after: pulseLength)
-            }
-        }
+        update()
     }
 
-    private func set(_ next: Expansion, after delay: Double) {
-        pending?.cancel()
-        pending = Task {
-            try? await Task.sleep(for: .seconds(delay))
-            guard !Task.isCancelled, expansion != next else { return }
-            withAnimation(spring) { expansion = next }
+    func pulse(_ id: String) {
+        // Sources report their first real state just after launch; that is not news.
+        guard created.timeIntervalSinceNow < -2 else { return }
+        inputs.pulse = .init(id, Date() + ExpansionInputs<String>.pulseLength)
+        update()
+    }
+
+    private func update() {
+        let (next, recheck) = inputs.owner(now: Date(), current: owner)
+        if next != owner { withAnimation(spring) { owner = next } }
+        timer?.cancel()
+        guard let recheck else { return }
+        timer = Task {
+            try? await Task.sleep(for: .seconds(recheck.timeIntervalSinceNow))
+            guard !Task.isCancelled else { return }
+            update()
         }
+    }
+}
+
+/// A pill that expands when it owns its bar's `ExpansionSlot`: on hover, or by itself for a moment when `pulse`
+/// changes. `content` draws the pill for the current state.
+struct LivePill<Pulse: Equatable, Content: View>: View {
+    let id: String
+    var pulse: Pulse
+    @ViewBuilder var content: (_ expanded: Bool) -> Content
+    @Environment(ExpansionSlot.self) private var slot
+
+    var body: some View {
+        content(slot.owner == id)
+            .contentShape(Rectangle())
+            .onHover { slot.hover(id, $0) }
+            .onChange(of: pulse) { slot.pulse(id) }
     }
 }
 
 extension LivePill {
     /// The common shape: `compact` always, `detail` sliding in from its trailing edge.
     init<Compact: View, Detail: View>(
+        id: String,
         pulse: Pulse,
         @ViewBuilder compact: @escaping () -> Compact,
         @ViewBuilder detail: @escaping () -> Detail
     ) where Content == CompactDetail<Compact, Detail> {
-        self.init(pulse: pulse) { CompactDetail(expanded: $0, compact: compact, detail: detail) }
+        self.init(id: id, pulse: pulse) { CompactDetail(expanded: $0, compact: compact, detail: detail) }
     }
 }
 
+/// The detail yields when the island has no room for it, so an expanded pill never pushes its island past the
+/// notch or the screen edge.
 struct CompactDetail<Compact: View, Detail: View>: View {
     let expanded: Bool
     let compact: () -> Compact
@@ -77,9 +81,13 @@ struct CompactDetail<Compact: View, Detail: View>: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            compact()
+            compact().fixedSize()
             if expanded {
-                detail().transition(.blurReplace.combined(with: .scale(0.7, anchor: .leading)))
+                ViewThatFits(in: .horizontal) {
+                    detail().fixedSize()
+                    Color.clear.frame(width: 0)
+                }
+                .transition(.blurReplace.combined(with: .scale(0.7, anchor: .leading)))
             }
         }
     }

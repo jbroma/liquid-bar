@@ -37,7 +37,7 @@ struct VolumePill: View {
     var body: some View {
         let volume = model.volume
         let level = volume.muted ? 0 : volume.level
-        LivePill(pulse: volume) {
+        LivePill(id: "volume", pulse: volume) {
             Image(systemName: volume.symbol)
                 .frame(width: 18)
                 .contentTransition(.symbolEffect(.replace))
@@ -66,7 +66,7 @@ struct BatteryPill: View {
     let battery: BatteryState
 
     var body: some View {
-        LivePill(pulse: battery.onAC) {
+        LivePill(id: "battery", pulse: battery.onAC) {
             HStack(spacing: 5) {
                 Image(systemName: battery.symbol)
                     .font(.system(size: 15, weight: .regular))
@@ -93,7 +93,7 @@ struct NetworkPill: View {
     let network: NetworkState
 
     var body: some View {
-        LivePill(pulse: network.kind) {
+        LivePill(id: "wifi", pulse: network.kind) {
             Image(systemName: network.symbol)
                 .frame(width: 18)
                 .contentTransition(.symbolEffect(.replace))
@@ -172,14 +172,19 @@ struct ClockPill: View {
 
     var body: some View {
         let now = model.now
-        LivePill(pulse: 0) { expanded in
+        LivePill(id: "clock", pulse: 0) { expanded in
             HStack(spacing: 6) {
                 if expanded {
                     // The seconds timer exists only while this view does.
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text("\(longDateText(context.date)) · \(clockText(context.date, seconds: true))")
-                            .contentTransition(.numericText())
-                            .animation(spring, value: context.date)
+                        let time = clockText(context.date, seconds: true)
+                        ViewThatFits(in: .horizontal) {
+                            Text("\(longDateText(context.date)) · \(time)")
+                            Text("\(dateText(context.date)) · \(time)")
+                            Text(time)
+                        }
+                        .contentTransition(.numericText())
+                        .animation(spring, value: context.date)
                     }
                     .pill(height: pillHeight)
                     .glassEffectID("time", in: glass)
@@ -215,7 +220,7 @@ struct NowPlayingPill: View {
     let control: (String) -> Void
 
     var body: some View {
-        LivePill(pulse: nowPlaying.trackID) {
+        LivePill(id: "nowPlaying", pulse: nowPlaying.trackID) {
             HStack(spacing: 7) {
                 Group {
                     if let artwork {

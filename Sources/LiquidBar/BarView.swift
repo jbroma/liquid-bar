@@ -30,6 +30,7 @@ struct BarView: View {
     /// macOS reveals the auto-hidden native menu bar under us when the pointer touches the top edge, and its status
     /// items would show through the gaps between pills. The band covers it from then until the pointer leaves.
     @State private var banded = false
+    @State private var slot = ExpansionSlot()
     @State private var retract: Task<Void, Never>?
 
     var body: some View {
@@ -50,6 +51,7 @@ struct BarView: View {
         .font(.system(size: 13, weight: .semibold))
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
+        .environment(slot)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
@@ -81,7 +83,9 @@ struct BarView: View {
                 .animation(spring, value: model.nowPlaying == nil)
             }
         }
+        // Islands get a finite width beside the notch, so an expanded pill's detail yields instead of overflowing.
         .padding(alignment == .leading ? .leading : .trailing, margin)
+        .padding(alignment == .leading ? .trailing : .leading, 8)
         .frame(width: width, alignment: alignment)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
     }
@@ -89,9 +93,7 @@ struct BarView: View {
 
 extension View {
     func pill(height: CGFloat, padding: CGFloat = 12) -> some View {
-        // Pills size to their content; long detail text caps its own width instead of wrapping.
-        fixedSize()
-            .padding(.horizontal, padding)
+        self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
             .glassEffect(.regular.interactive(), in: .capsule)
@@ -119,9 +121,11 @@ struct WidgetView: View {
         switch widget {
         case .apple:
             AppleButton(model: model, screenFrame: screenFrame)
+                .fixedSize()
                 .pill(height: pillHeight, padding: 11)
         case .workspaces:
             WorkspaceStrip(model: model, itemHeight: pillHeight - 6)
+                .fixedSize()
                 .pill(height: pillHeight, padding: 3)
         case .frontApp:
             EmptyView()
@@ -155,6 +159,7 @@ struct WidgetView: View {
                 }
             }
             .animation(spring, value: model.scriptLabels[script.script])
+            .fixedSize()
             .pill(height: pillHeight)
             .onTapGesture { model.click(widget) }
         }
@@ -266,7 +271,7 @@ struct WorkspaceButton: View {
     let action: () -> Void
 
     var body: some View {
-        LivePill(pulse: Set(apps)) { expanded in
+        LivePill(id: "workspace:\(id)", pulse: Set(apps)) { expanded in
             HStack(spacing: 5) {
                 Text(id)
                     .font(.system(size: 11, weight: .bold))
