@@ -117,10 +117,21 @@ struct WorkspaceStrip: View {
                     occupied: model.workspaces.occupied.contains(workspace.id),
                     height: itemHeight,
                     ns: ns
-                )
+                ) { model.focus(workspace.id) }
+            }
+            if model.workspaces.mode != "main" {
+                Text(model.workspaces.mode)
+                    .font(.system(size: 11, weight: .bold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.barYellow)
+                    .padding(.horizontal, 9)
+                    .frame(height: itemHeight - 4)
+                    .background(Capsule().fill(Color.barYellow.opacity(0.18)))
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
         .animation(spring, value: model.workspaces.focused)
+        .animation(spring, value: model.workspaces.mode)
     }
 }
 
@@ -130,6 +141,7 @@ struct WorkspaceButton: View {
     let occupied: Bool
     let height: CGFloat
     let ns: Namespace.ID
+    let action: () -> Void
     @State private var hovering = false
     @State private var bounce = 0
 
@@ -157,6 +169,7 @@ struct WorkspaceButton: View {
         }
         .contentShape(Capsule())
         .onHover { hovering = $0 }
+        .onTapGesture(perform: action)
         .onChange(of: focused) { if focused { bounce += 1 } }
     }
 }

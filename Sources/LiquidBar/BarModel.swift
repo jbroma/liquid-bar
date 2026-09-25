@@ -11,4 +11,9 @@ final class BarModel {
     var network = NetworkState.offline
     var now = Date()
     var scriptLabels: [String: String] = [:]
+
+    func focus(_ workspace: String) {
+        workspaces.focused = workspace
+        Task { _ = await run(["aerospace", "workspace", workspace]) }
+    }
 }
