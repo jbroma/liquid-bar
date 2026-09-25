@@ -128,24 +128,14 @@ struct WidgetView: View {
                 .pill(height: pillHeight)
                 .onTapGesture { model.click(widget) }
         case .wifi:
-            Image(systemName: model.network.symbol)
-                .contentTransition(.symbolEffect(.replace))
+            NetworkPill(network: model.network)
                 .pill(height: pillHeight)
                 .onTapGesture { model.click(widget) }
         case .battery:
             if let battery = model.battery {
-                HStack(spacing: 5) {
-                    Image(systemName: battery.symbol)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
-                        .contentTransition(.symbolEffect(.replace))
-                    Text("\(battery.percent)%")
-                        .font(.system(size: 12, weight: .bold))
-                        .contentTransition(.numericText(value: Double(battery.percent)))
-                }
-                .animation(spring, value: battery)
-                .pill(height: pillHeight)
-                .onTapGesture { model.click(widget) }
+                BatteryPill(battery: battery)
+                    .pill(height: pillHeight)
+                    .onTapGesture { model.click(widget) }
             }
         case .clock:
             Text(clockText(model.now))
@@ -169,45 +159,6 @@ struct WidgetView: View {
             .animation(spring, value: model.scriptLabels[script.script])
             .pill(height: pillHeight)
             .onTapGesture { model.click(widget) }
-        }
-    }
-}
-
-/// Scroll changes the level in steps of 2; the detail names the output device and shows the level.
-struct VolumePill: View {
-    let model: BarModel
-
-    var body: some View {
-        let volume = model.volume
-        let level = volume.muted ? 0 : volume.level
-        LivePill(pulse: volume) {
-            Image(systemName: volume.symbol)
-                .frame(width: 18)
-                .contentTransition(.symbolEffect(.replace))
-        } detail: {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(volume.device)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.barWhite.opacity(0.7))
-                        .lineLimit(1)
-                    Capsule()
-                        .fill(.white.opacity(0.2))
-                        .frame(width: 72, height: 4)
-                        .overlay(alignment: .leading) {
-                            Capsule().fill(Color.barWhite).frame(width: 72 * CGFloat(level) / 100)
-                        }
-                }
-                .frame(minWidth: 72, alignment: .leading)
-                Text("\(level)%")
-                    .font(.system(size: 12, weight: .bold))
-                    .frame(width: 34, alignment: .trailing)
-                    .contentTransition(.numericText(value: Double(level)))
-            }
-        }
-        .animation(spring, value: level)
-        .overlay {
-            ScrollCatcher { steps in model.nudgeVolume(steps) }
         }
     }
 }

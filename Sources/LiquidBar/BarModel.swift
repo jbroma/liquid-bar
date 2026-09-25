@@ -8,7 +8,7 @@ final class BarModel {
     var workspaces = WorkspaceState()
     var battery: BatteryState?
     var volume = VolumeState(level: 0, muted: false)
-    var network = NetworkState.offline
+    var network = NetworkState(kind: .offline)
     var now = Date()
     var scriptLabels: [String: String] = [:]
 

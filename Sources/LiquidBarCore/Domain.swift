@@ -23,12 +23,24 @@ public struct WorkspaceState: Equatable, Sendable {
 }
 
 public struct BatteryState: Equatable, Sendable {
-    public var percent: Int
-    public var charging: Bool
+    public enum Power: Equatable, Sendable {
+        /// Minutes are nil while macOS is still estimating.
+        case battery(minutesLeft: Int?)
+        case charging(minutesToFull: Int?)
+        /// On AC but not charging: full, or held by optimized charging.
+        case pluggedIn
+    }
 
-    public init(percent: Int, charging: Bool) {
+    public var percent: Int
+    public var power: Power
+
+    public init(percent: Int, power: Power) {
         self.percent = percent
-        self.charging = charging
+        self.power = power
+    }
+
+    public var onAC: Bool {
+        if case .battery = power { false } else { true }
     }
 }
 
@@ -44,8 +56,17 @@ public struct VolumeState: Equatable, Sendable {
     }
 }
 
-public enum NetworkState: Equatable, Sendable {
-    case wifi, wired, offline
+public struct NetworkState: Equatable, Sendable {
+    public enum Kind: Equatable, Sendable { case wifi, wired, offline }
+
+    public var kind: Kind
+    /// BSD name of the primary interface, like "en0".
+    public var interface: String?
+
+    public init(kind: Kind, interface: String? = nil) {
+        self.kind = kind
+        self.interface = interface
+    }
 }
 
 public struct ScriptWidget: Equatable, Hashable, Sendable, Codable {
@@ -117,7 +138,7 @@ public enum Tint: Equatable, Sendable {
 
 extension BatteryState {
     public var symbol: String {
-        if charging { return "battery.100percent.bolt" }
+        if onAC { return "battery.100percent.bolt" }
         switch percent {
         case 90...: return "battery.100percent"
         case 70..<90: return "battery.75percent"
@@ -128,7 +149,7 @@ extension BatteryState {
     }
 
     public var tint: Tint {
-        if charging { return .green }
+        if onAC { return .green }
         if percent <= 20 { return .red }
         if percent <= 40 { return .yellow }
         return .normal
@@ -149,9 +170,48 @@ extension VolumeState {
     }
 }
 
+extension BatteryState {
+    /// "3:12 left", "Charging, 1:05 to full", "Charged".
+    public var detail: String {
+        switch power {
+        case .battery(let minutes?): "\(durationText(minutes)) left"
+        case .battery(nil): "Estimating time left"
+        case .charging(let minutes?): "Charging, \(durationText(minutes)) to full"
+        case .charging(nil): "Charging"
+        case .pluggedIn: percent >= 95 ? "Charged" : "Not charging"
+        }
+    }
+}
+
+/// 192 -> "3:12".
+public func durationText(_ minutes: Int) -> String {
+    "\(minutes / 60):" + String(format: "%02d", minutes % 60)
+}
+
+/// "2.4 MB/s", "120 KB/s": decimal units like Activity Monitor, one decimal below 10.
+public func throughputText(_ bytesPerSecond: Double) -> String {
+    let units = ["KB/s", "MB/s", "GB/s"]
+    var value = bytesPerSecond / 1000
+    var unit = 0
+    while value >= 1000, unit < units.count - 1 {
+        value /= 1000
+        unit += 1
+    }
+    let digits = unit > 0 && value < 10 ? "%.1f" : "%.0f"
+    return String(format: digits, value) + " " + units[unit]
+}
+
+/// Wi-Fi signal as 0...3 bars from RSSI in dBm.
+public func signalBars(rssi: Int) -> Int {
+    if rssi >= -60 { return 3 }
+    if rssi >= -70 { return 2 }
+    if rssi >= -80 { return 1 }
+    return 0
+}
+
 extension NetworkState {
     public var symbol: String {
-        switch self {
+        switch kind {
         case .wifi: "wifi"
         case .wired: "network"
         case .offline: "wifi.slash"

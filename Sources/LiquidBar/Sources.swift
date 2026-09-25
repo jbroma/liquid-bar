@@ -97,7 +97,8 @@ final class BatterySource {
         let callback: IOPowerSourceCallbackType = { context in
             MainActor.assumeIsolated {
                 let source = Unmanaged<BatterySource>.fromOpaque(context!).takeUnretainedValue()
-                source.model.battery = readBattery()
+                let battery = readBattery()
+                if battery != source.model.battery { source.model.battery = battery }
             }
         }
         if let loop = IOPSNotificationCreateRunLoopSource(callback, context)?.takeRetainedValue() {
@@ -117,9 +118,13 @@ nonisolated func readBattery() -> BatteryState? {
               let current = d[kIOPSCurrentCapacityKey] as? Int,
               let max = d[kIOPSMaxCapacityKey] as? Int, max > 0
         else { continue }
-        // Like `pmset -g batt | grep 'AC Power'`: plugged in counts as charging.
-        let onAC = d[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue
-        return BatteryState(percent: current * 100 / max, charging: onAC)
+        // IOKit reports -1 minutes while it is still estimating.
+        func minutes(_ key: String) -> Int? { (d[key] as? Int).flatMap { $0 >= 0 ? $0 : nil } }
+        let power: BatteryState.Power =
+            d[kIOPSPowerSourceStateKey] as? String != kIOPSACPowerValue ? .battery(minutesLeft: minutes(kIOPSTimeToEmptyKey))
+            : d[kIOPSIsChargingKey] as? Bool == true ? .charging(minutesToFull: minutes(kIOPSTimeToFullChargeKey))
+            : .pluggedIn
+        return BatteryState(percent: current * 100 / max, power: power)
     }
     return nil
 }
@@ -205,14 +210,30 @@ final class NetworkSource {
 
     init(model: BarModel) {
         monitor.pathUpdateHandler = { path in
-            let state: NetworkState =
-                path.status != .satisfied ? .offline
-                : path.availableInterfaces.contains { $0.type == .wifi } ? .wifi
-                : .wired
-            MainActor.assumeIsolated { model.network = state }
+            let primary = path.availableInterfaces.first
+            let state = NetworkState(
+                kind: path.status != .satisfied ? .offline : primary?.type == .wifi ? .wifi : .wired,
+                interface: path.status == .satisfied ? primary?.name : nil
+            )
+            MainActor.assumeIsolated { if state != model.network { model.network = state } }
         }
         monitor.start(queue: .main)
     }
+}
+
+/// Received and sent byte counters of one interface. They are 32-bit and wrap, so callers subtract with `&-`.
+nonisolated func interfaceBytes(_ name: String) -> (received: UInt32, sent: UInt32)? {
+    var list: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&list) == 0, let first = list else { return nil }
+    defer { freeifaddrs(list) }
+    for entry in sequence(first: first, next: { $0.pointee.ifa_next }) {
+        let ifa = entry.pointee
+        guard ifa.ifa_addr?.pointee.sa_family == UInt8(AF_LINK), String(cString: ifa.ifa_name) == name,
+              let data = ifa.ifa_data?.assumingMemoryBound(to: if_data.self).pointee
+        else { continue }
+        return (data.ifi_ibytes, data.ifi_obytes)
+    }
+    return nil
 }
 
 final class ClockSource {
