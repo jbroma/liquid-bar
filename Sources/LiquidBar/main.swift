@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
-        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model)]
+        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model)]
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
@@ -91,7 +91,14 @@ extension AppDelegate {
         DistributedNotificationCenter.default().addObserver(forName: .init("dev.liquidbar.debug"), object: nil, queue: .main) { [weak self] note in
             let command = note.object as? String
             MainActor.assumeIsolated {
-                guard let self, let parts = command?.split(separator: " "), parts.count >= 3,
+                guard let self, let parts = command?.split(separator: " ") else { return }
+                if parts == ["banner", "on"] || parts == ["banner", "off"] {
+                    // Stands in for a banner when this process has no Accessibility access to see real ones.
+                    let screen = NSScreen.screens[0].frame
+                    self.model.banner = parts[1] == "on" ? CGRect(x: screen.maxX - 360, y: 16, width: 344, height: 56) : nil
+                    return
+                }
+                guard parts.count >= 3,
                       let x = Double(parts[1]), let y = Double(parts[2]) else { return }
                 let top = NSScreen.screens[0].frame.maxY
                 let point = NSPoint(x: x, y: top - y)

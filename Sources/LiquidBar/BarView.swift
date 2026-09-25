@@ -46,6 +46,10 @@ struct BarView: View {
                 island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
                 Spacer(minLength: 0)
                 island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
+                    // A notification banner slides in right under the right island; step out of its way.
+                    .offset(y: yielding ? -config.height : 0)
+                    .opacity(yielding ? 0 : 1)
+                    .animation(spring, value: yielding)
             }
         }
         .font(.system(size: 13, weight: .semibold))
@@ -69,6 +73,11 @@ struct BarView: View {
                 }
             }
         }
+    }
+
+    private var yielding: Bool {
+        guard let banner = model.banner else { return false }
+        return banner.minX < screenFrame.maxX && banner.maxX > screenFrame.midX
     }
 
     private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?, pillHeight: CGFloat) -> some View {

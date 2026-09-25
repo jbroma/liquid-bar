@@ -13,6 +13,8 @@ final class BarModel {
     var scriptLabels: [String: String] = [:]
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
+    /// Where notification banners are on screen (top-left origin), nil when none is showing.
+    var banner: CGRect?
 
     func focus(_ workspace: String) {
         workspaces.focused = workspace
