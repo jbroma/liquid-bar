@@ -107,8 +107,8 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
     }
 }
 
-/// Whether one bar's left island shows the front app's menu titles instead of the workspaces. Esc, clicking the
-/// app again, or the pointer staying away for 1.5s morphs it back.
+/// Whether one bar's left island shows the front app's menu titles instead of the workspaces. Esc, switching apps, or
+/// the pointer leaving the bar morphs it back.
 @Observable
 final class MenuMode {
     private(set) var titles: [AppMenuTitle]?
@@ -119,17 +119,24 @@ final class MenuMode {
 
     var active: Bool { titles != nil }
 
+    /// Clicking the focused workspace: menus on, or off again. Without Accessibility access it explains why not.
     func toggle(_ app: FrontApp, at screenPoint: NSPoint) {
         if active { return end() }
-        guard let titles = AppMenus.titles(pid: app.pid) else {
-            return AppMenus.explainAccess(appName: app.name, at: screenPoint)
-        }
+        if !show(app) { AppMenus.explainAccess(appName: app.name, at: screenPoint) }
+    }
+
+    /// Shows the app's menus; false without Accessibility access.
+    @discardableResult
+    func show(_ app: FrontApp) -> Bool {
+        guard !active else { return true }
+        guard let titles = AppMenus.titles(pid: app.pid), !titles.isEmpty else { return false }
         withAnimation(spring) { self.titles = titles }
         // Global key events need Accessibility access, which reading the menus already proved.
         escape = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.keyCode == 53 else { return }
             MainActor.assumeIsolated { self?.end() }
         }
+        return true
     }
 
     func open(_ title: AppMenuTitle, at screenPoint: NSPoint) {
@@ -144,7 +151,7 @@ final class MenuMode {
         leave?.cancel()
         guard !inside, active else { return }
         leave = Task {
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(0.7))
             guard !Task.isCancelled, !dropdownOpen else { return }
             end()
         }

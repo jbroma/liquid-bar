@@ -59,14 +59,21 @@ struct BarView: View {
         .animation(spring, value: ears)
         .environment(slot)
         .environment(menuMode)
+        .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
             case .active(let location):
                 retract?.cancel()
-                if !banded && location.y <= 3 { withAnimation(spring) { banded = true } }
+                menuMode.hover(true)
+                // Pushing into the top edge, where macOS reveals its menu bar, shows the front app's menus.
+                if !banded && location.y <= 3 {
+                    withAnimation(spring) { banded = true }
+                    if let app = model.frontApp { menuMode.show(app) }
+                }
             case .ended:
+                menuMode.hover(false)
                 guard banded else { return }
                 // The native bar lingers for a moment after the pointer leaves.
                 retract = Task {
@@ -187,6 +194,11 @@ struct WidgetView: View {
     let pillHeight: CGFloat
     @Environment(MenuMode.self) private var menuMode
 
+    /// The screen point just below the bar at the left edge of `rect`, a global frame in this bar.
+    private func belowBar(_ rect: CGRect) -> NSPoint {
+        NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - model.config.height + 2)
+    }
+
     var body: some View {
         switch widget {
         case .apple:
@@ -194,17 +206,21 @@ struct WidgetView: View {
                 .fixedSize()
                 .pill(height: pillHeight, padding: 11)
         case .workspaces:
-            if !menuMode.active {
-                WorkspaceStrip(model: model, itemHeight: pillHeight - 6)
-                    .fixedSize()
-                    .pill(height: pillHeight, padding: 3)
-                    .transition(.scale(0.8, anchor: .leading).combined(with: .opacity))
+            // One glass pill for both, so swapping workspaces for menus morphs the capsule instead of replacing it.
+            Group {
+                if let titles = menuMode.titles {
+                    MenuStrip(titles: titles) { menuMode.open($0, at: belowBar($1)) }
+                        .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
+                } else {
+                    WorkspaceStrip(model: model, itemHeight: pillHeight - 6) { frame in
+                        // Clicking the focused workspace, whose front app is in front, shows that app's menus.
+                        if let app = model.frontApp { menuMode.toggle(app, at: belowBar(frame)) }
+                    }
+                    .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
+                }
             }
-        case .frontApp:
-            if let app = model.frontApp {
-                FrontAppPill(model: model, app: app, screenFrame: screenFrame)
-                    .pill(height: pillHeight, padding: 8)
-            }
+            .fixedSize()
+            .pill(height: pillHeight, padding: 3)
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, colors: model.artworkColors, control: model.control)
@@ -306,9 +322,12 @@ struct AppleButton: View {
 struct WorkspaceStrip: View {
     let model: BarModel
     let itemHeight: CGFloat
+    /// A click on the already focused workspace, with its global frame.
+    let focusedTap: (CGRect) -> Void
     @State private var frames: [String: CGRect] = [:]
     @State private var lead: CGFloat = 0
     @State private var trail: CGFloat = 0
+    @State private var stripOrigin = CGPoint.zero
 
     var body: some View {
         let focused = model.workspaces.focused
@@ -320,7 +339,13 @@ struct WorkspaceStrip: View {
                     apps: model.workspaces.apps(on: workspace.id),
                     focused: focused == workspace.id,
                     height: itemHeight
-                ) { model.focus(workspace.id) }
+                ) {
+                    if focused == workspace.id, let frame = frames[workspace.id] {
+                        focusedTap(frame.offsetBy(dx: stripOrigin.x, dy: 0))
+                    } else {
+                        model.focus(workspace.id)
+                    }
+                }
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("strip")) } action: { frames[workspace.id] = $0 }
             }
             if model.workspaces.mode != "main" {
@@ -342,6 +367,7 @@ struct WorkspaceStrip: View {
             }
         }
         .coordinateSpace(.named("strip"))
+        .onGeometryChange(for: CGPoint.self) { $0.frame(in: .global).origin } action: { stripOrigin = $0 }
         .onChange(of: focusedFrame) { old, new in
             guard let new else { return }
             guard let old, abs(old.midX - new.midX) > 1 else {

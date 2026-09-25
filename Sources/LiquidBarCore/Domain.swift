@@ -87,7 +87,7 @@ public struct ScriptWidget: Equatable, Hashable, Sendable, Codable {
 }
 
 public enum Widget: Equatable, Hashable, Sendable {
-    case apple, workspaces, frontApp, nowPlaying, volume, wifi, battery, clock
+    case apple, workspaces, nowPlaying, volume, wifi, battery, clock
     case script(ScriptWidget)
 
     /// The key used in `clicks`; script widgets carry their own `click`.
@@ -95,7 +95,6 @@ public enum Widget: Equatable, Hashable, Sendable {
         switch self {
         case .apple: "apple"
         case .workspaces: "workspaces"
-        case .frontApp: "frontApp"
         case .nowPlaying: "nowPlaying"
         case .volume: "volume"
         case .wifi: "wifi"
@@ -110,7 +109,7 @@ public struct Config: Equatable, Sendable {
     public var height: Double = 40
     public var margin: Double = 10
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
-    public var left: [Widget] = [.apple, .workspaces, .frontApp]
+    public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .clock]
     public var clicks: [String: String] = [
         "volume": "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'",

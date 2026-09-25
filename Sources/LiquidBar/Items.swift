@@ -343,54 +343,18 @@ struct Equalizer: NSViewRepresentable {
     }
 }
 
-/// The front app's icon and name, with the focused window's title on hover. Clicking it swaps the workspaces for
-/// the app's menu titles, each opening a native dropdown of that menu.
-struct FrontAppPill: View {
-    let model: BarModel
-    let app: FrontApp
-    let screenFrame: CGRect
-    @Environment(MenuMode.self) private var menuMode
-    @State private var frame = CGRect.zero
+/// The front app's menu titles, the app's own menu first and in bold, like the native menu bar. Each opens a native
+/// dropdown of that menu.
+struct MenuStrip: View {
+    let titles: [AppMenuTitle]
+    let open: (AppMenuTitle, CGRect) -> Void
 
     var body: some View {
-        LivePill(id: "frontApp", pulse: 0) { expanded in
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(nsImage: AppIcons.icon(app.bundleID))
-                        .resizable()
-                        .frame(width: 20, height: 20)
-                    // In menu mode the app menu's own bold title takes the name's place, like the native menu bar.
-                    if !menuMode.active {
-                        Text(app.name)
-                            .font(.system(size: 13, weight: .bold))
-                            .fixedSize()
-                            .contentTransition(.interpolate)
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { menuMode.toggle(app, at: screenPoint(frame)) }
-                if let titles = menuMode.titles {
-                    HStack(spacing: 0) {
-                        ForEach(titles) { title in
-                            MenuTitleButton(title: title, bold: title.id == titles.first?.id) { menuMode.open(title, at: screenPoint($0)) }
-                        }
-                    }
-                    .transition(.blurReplace.combined(with: .scale(0.8, anchor: .leading)))
-                } else if expanded {
-                    WindowTitle(key: "\(app.pid)-\(model.workspaces.recency.first ?? 0)")
-                        .transition(.blurReplace.combined(with: .scale(0.8, anchor: .leading)))
-                }
+        HStack(spacing: 0) {
+            ForEach(titles) { title in
+                MenuTitleButton(title: title, bold: title.id == titles.first?.id) { open(title, $0) }
             }
         }
-        .animation(spring, value: app)
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-        .onHover { menuMode.hover($0) }
-        .onChange(of: app.pid) { menuMode.end() }
-    }
-
-    /// Below the bar, at the left edge of `rect` (a global frame in this bar).
-    private func screenPoint(_ rect: CGRect) -> NSPoint {
-        NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - model.config.height + 2)
     }
 }
 
@@ -415,24 +379,6 @@ private struct MenuTitleButton: View {
     }
 }
 
-/// The focused window's title, read from AeroSpace while visible.
-private struct WindowTitle: View {
-    let key: String
-    @State private var title = ""
-
-    var body: some View {
-        Text(title)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Color.barWhite.opacity(0.7))
-            .lineLimit(1)
-            .frame(maxWidth: 260, alignment: .leading)
-            .fixedSize()
-            .task(id: key) {
-                let output = await run(["aerospace", "list-windows", "--focused", "--format", "%{window-title}"])
-                title = output?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            }
-    }
-}
 
 /// Two colours sliding across each other, driven by Core Animation so it costs the bar no CPU.
 struct GradientDrift: NSViewRepresentable {
