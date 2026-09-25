@@ -19,6 +19,11 @@ final class FluidController: NSObject {
 
     init(source: FluidSim.End) {
         sim = FluidSim(source: source)
+        super.init()
+        // A new desktop picture, or the space's own, changes what the fluid reflects.
+        let redraw: @Sendable (Notification) -> Void = { [weak self] _ in MainActor.assumeIsolated { self?.draw() } }
+        NotificationCenter.default.addObserver(forName: Wallpaper.changed, object: nil, queue: .main, using: redraw)
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main, using: redraw)
     }
 
     func resize(_ size: CGSize) {
@@ -127,10 +132,14 @@ struct Vessel<Content: View>: View {
     var body: some View {
         let places = places(frames)
         content
+            // Clear glass over a light wallpaper leaves white text faint; a soft shadow keeps it readable.
+            .shadow(color: .black.opacity(0.35), radius: 1.5, y: 0.5)
             .environment(\.fluidFrame) { id, frame in frames[id] = frame }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: source == .leading ? .trailing : .leading)
             .frame(height: height)
             .coordinateSpace(.named(VesselSpace.name))
+            // The glass sits behind the fluid: in front, it blurred the black into a smudge. The shader draws the front
+            // glass's sheen over the fluid instead.
             .background {
                 FluidLayer(controller: controller)
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { controller.resize($0) }
@@ -149,6 +158,7 @@ struct Vessel<Content: View>: View {
             }
     }
 }
+
 
 enum VesselSpace {
     static let name = "vessel"

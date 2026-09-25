@@ -1,6 +1,7 @@
 import AppKit
 import LiquidBarCore
 import Metal
+import MetalKit
 import QuartzCore
 
 /// The ferrofluid shader, compiled from source at launch: the offline Metal compiler is an optional Xcode download,
@@ -10,14 +11,16 @@ let ferroShaderSource = """
 using namespace metal;
 
 struct Header {
-    float2 size;      // view size in points
-    float scale;      // pixels per point
-    float inset;      // glass wall thickness
-    float4 tint;      // rim colour away from tinted beads
+    float2 size;       // view size in points
+    float scale;       // pixels per point
+    float inset;       // glass wall thickness
+    float4 tint;       // light colour away from tinted beads
+    float2 envOrigin;  // wallpaper uv at the view's top-left corner
+    float2 envScale;   // wallpaper uv per point
     int beads;
     int spikes;
-    int pad0;
-    int pad1;
+    int hasEnv;
+    int pad;
 };
 
 struct VOut { float4 position [[position]]; };
@@ -50,51 +53,94 @@ static float spike(float2 p, float4 s) {
     return length(pa - ba * h) - mix(2.4, 0.35, h);
 }
 
+static float wall(float2 p, constant Header &u) {
+    float r = u.size.y / 2 - u.inset;
+    float2 c = float2(clamp(p.x, u.size.y / 2, u.size.x - u.size.y / 2), u.size.y / 2);
+    return length(p - c) - r;
+}
+
 static float field(float2 p, constant Header &u, constant float4 *beads, constant float4 *spikes) {
     float d = 1e5;
     for (int i = 0; i < u.beads; i++) d = smin(d, capsule(p, beads[i]), 9.0);
     for (int i = 0; i < u.spikes; i++) d = smin(d, spike(p, spikes[i]), 2.5);
     // The glass holds it: nothing crosses the vessel's inner wall.
-    float r = u.size.y / 2 - u.inset;
-    float2 c = float2(clamp(p.x, u.size.y / 2, u.size.x - u.size.y / 2), u.size.y / 2);
-    return max(d, length(p - c) - r);
+    return max(d, wall(p, u));
 }
 
-// The rim colour at p: each bead's own colour near it, the header's colour elsewhere.
+// The colour of light near p: each bead's content colour close to it, a neutral sky elsewhere.
 static float3 tintAt(float2 p, constant Header &u, constant float4 *beads, constant float4 *tints) {
-    float3 sum = u.tint.rgb * u.tint.a * 0.25;
-    float weight = 0.25;
+    float3 sum = u.tint.rgb * 0.3;
+    float weight = 0.3;
     for (int i = 0; i < u.beads; i++) {
-        float w = exp(-max(capsule(p, beads[i]), 0.0) / 6);
-        sum += tints[i].rgb * tints[i].a * w;
-        weight += tints[i].a * w;
+        float w = exp(-max(capsule(p, beads[i]), 0.0) / 6) * tints[i].a;
+        sum += tints[i].rgb * w;
+        weight += w;
     }
     return sum / weight;
 }
 
+static float roundRect(float2 p, float2 extent, float r) {
+    float2 q = abs(p) - extent + r;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+
 fragment float4 ferroFragment(VOut in [[stage_in]], constant Header &u [[buffer(0)]], constant float4 *beads [[buffer(1)]],
-                              constant float4 *spikes [[buffer(2)]], constant float4 *tints [[buffer(3)]]) {
+                              constant float4 *spikes [[buffer(2)]], constant float4 *tints [[buffer(3)]],
+                              texture2d<float> env [[texture(0)]]) {
+    constexpr sampler mirror(address::mirrored_repeat, filter::linear, mip_filter::linear);
     float2 p = in.position.xy / u.scale;
     float d = field(p, u, beads, spikes);
     float alpha = clamp(0.5 - d * u.scale, 0.0, 1.0);
-    if (alpha <= 0) return float4(0);
-    // A domed body: the normal leans outward over a wide rounded edge and faces the viewer in the middle.
-    float h = 0.35;
+    // Where the fluid touches the glass it darkens it a little, like a wet contact line.
+    float contact = 0.16 * exp(-max(d, 0.0) / 2.0) * clamp(-wall(p, u) * u.scale, 0.0, 1.0);
+    if (alpha <= 0) return float4(0, 0, 0, contact);
+
+    // A domed body: its height rises as a quarter ellipse from the rim to the middle, so the silhouette is a wall
+    // turning away from the viewer and only the centre line faces it.
+    float h = 0.3;
     float2 g = float2(field(p + float2(h, 0), u, beads, spikes) - field(p - float2(h, 0), u, beads, spikes),
                       field(p + float2(0, h), u, beads, spikes) - field(p - float2(0, h), u, beads, spikes));
     float2 outward = length(g) > 0.0001 ? normalize(g) : float2(0, -1);
-    float t = 1 - clamp(-d / 7.0, 0.0, 1.0);
-    t = t * t * (3 - 2 * t);
-    float3 n = normalize(float3(outward * t, sqrt(max(0.0, 1 - t * t))));
+    float radius = 12.5;
+    float x = clamp(-d / radius, 0.0, 1.0);
+    float slope = min((1 - x) / max(sqrt(1 - (1 - x) * (1 - x)), 0.03), 30.0) * 1.3;
+    float3 n = normalize(float3(outward * slope, 1));
     float3 v = float3(0, 0, 1);
-    float3 key = normalize(float3(-0.45, -0.7, 0.55));   // y grows down, so light from above has negative y
-    float3 fill = normalize(float3(0.6, 0.35, 0.72));
-    float spec = pow(max(dot(n, normalize(key + v)), 0.0), 110.0) * 1.6 + pow(max(dot(n, normalize(fill + v)), 0.0), 36.0) * 0.14;
-    float fresnel = pow(1 - n.z, 2.0);
-    // The environment: a pale sky above, a dark floor below.
-    float3 env = mix(float3(0.03, 0.03, 0.035), float3(0.55, 0.6, 0.68), clamp(0.5 - n.y * 0.9, 0.0, 1.0));
-    float3 color = float3(0.008) + env * fresnel * 0.42 + tintAt(p, u, beads, tints) * fresnel * 0.9 + spec;
-    return float4(min(color, 1.0) * alpha, alpha);
+    float3 r = 2 * n.z * n - v;
+
+    // Black oil reflects like a dielectric: little facing the viewer, a mirror toward the silhouette.
+    float fresnel = 0.05 + 0.95 * pow(1 - n.z, 2.6);
+
+    // The environment is the wallpaper around and above the bar, bent by the surface and blurred where it is flat.
+    float3 world = u.tint.rgb * 0.4;
+    if (u.hasEnv != 0) {
+        float2 uv = u.envOrigin + p * u.envScale + r.xy * float2(0.14, 0.12);
+        world = env.sample(mirror, uv, level(1.0 + 3.5 * n.z)).rgb;
+    }
+    // The room is brighter above than below.
+    float up = clamp(0.5 - r.y * 0.5, 0.0, 1.0);
+    world = world * (0.35 + 1.1 * up) + 0.05 * up * up;
+    float3 light = tintAt(p, u, beads, tints);
+
+    // A small softbox up and to the left: it lands only on the upper left of the rounded end, as a crisp window.
+    float box = 1 - smoothstep(-0.05, 0.1, roundRect(r.xy - float2(-0.62, -0.52), float2(0.22, 0.1), 0.1));
+    // The vessel's front glass lies over the fluid: a faint sheen across its upper half and a bright hairline where
+    // the glass wall curves away at the top, both over the black only.
+    float fromTop = (p.y - u.inset) / (u.size.y - 2 * u.inset);
+    float sheen = 0.05 * (1 - smoothstep(0.0, 0.55, fromTop));
+    float hairline = 0.22 * exp(-abs(wall(p, u) + 0.8) * 2.2) * (1 - smoothstep(0.2, 0.5, fromTop));
+
+    float3 color = float3(0.004, 0.004, 0.006) * (1 - fresnel)
+                 + world * fresnel
+                 + light * fresnel * 0.22
+                 + float3(box * 0.32)
+                 + float3(sheen + hairline);
+    // Ordered dither keeps the dark gradients from banding.
+    uint2 pix = uint2(in.position.xy) % 4;
+    const float bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
+    color += (bayer[pix.y * 4 + pix.x] / 16.0 - 0.5) / 255.0;
+    float a = alpha + contact * (1 - alpha);
+    return float4(min(max(color, 0.0), 1.0) * alpha, a);
 }
 """
 
@@ -103,10 +149,12 @@ private struct Header {
     var scale: Float
     var inset: Float
     var tint: SIMD4<Float>
+    var envOrigin: SIMD2<Float>
+    var envScale: SIMD2<Float>
     var beads: Int32
     var spikes: Int32
-    var pad0: Int32 = 0
-    var pad1: Int32 = 0
+    var hasEnv: Int32
+    var pad: Int32 = 0
 }
 
 @MainActor
@@ -127,6 +175,49 @@ enum FerroPipeline {
             return nil
         }
     }()
+}
+
+/// The desktop picture of each screen as a small mipmapped texture, for the fluid to reflect. Loaded once per picture.
+@MainActor
+enum Wallpaper {
+    private static var cache: [URL: MTLTexture] = [:]
+    /// Posted when a screen's picture may have changed; fluid views redraw with the new reflection.
+    static let changed = Notification.Name("dev.liquidbar.wallpaper")
+    #if DEBUG
+    /// A stand-in picture for captures on other backdrops.
+    static var override: URL?
+    #endif
+
+    static func texture(for screen: NSScreen) -> MTLTexture? {
+        var url = NSWorkspace.shared.desktopImageURL(for: screen)
+        #if DEBUG
+        url = override ?? url
+        #endif
+        guard let url, let device = FerroPipeline.device else { return nil }
+        if let texture = cache[url] { return texture }
+        guard let image = NSImage(contentsOf: url)?.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        // A quarter of a 4K picture is plenty for a blurred reflection.
+        let width = 1024, height = max(1, Int(Double(width) * Double(image.height) / Double(image.width)))
+        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let small = context.makeImage(),
+              let texture = try? MTKTextureLoader(device: device).newTexture(cgImage: small, options: [.generateMipmaps: true, .SRGB: false])
+        else { return nil }
+        cache[url] = texture
+        return texture
+    }
+
+    /// The wallpaper uv at a screen point (top-left origin within the screen), for a picture that fills the screen.
+    static func mapping(texture: MTLTexture, screen: CGSize) -> (origin: CGPoint, perPoint: CGSize) {
+        let image = CGSize(width: texture.width, height: texture.height)
+        let fill = max(screen.width / image.width, screen.height / image.height)
+        let shown = CGSize(width: image.width * fill, height: image.height * fill)
+        let offset = CGPoint(x: (shown.width - screen.width) / 2, y: (shown.height - screen.height) / 2)
+        return (CGPoint(x: offset.x / shown.width, y: offset.y / shown.height), CGSize(width: 1 / shown.width, height: 1 / shown.height))
+    }
 }
 
 /// A transparent Metal layer that draws one frame of ferrofluid when asked, and nothing otherwise.
@@ -174,15 +265,27 @@ final class FerroView: NSView {
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = buffer.makeRenderCommandEncoder(descriptor: pass) else { return }
-        // Away from any tinted bead the rim reflects a cool, neutral sky.
+        // Where this view sits on its screen's wallpaper.
+        var origin = SIMD2<Float>(0, 0), perPoint = SIMD2<Float>(0, 0)
+        let screen = window?.screen
+        let env = screen.flatMap(Wallpaper.texture)
+        if let screen, let env, let window {
+            let rect = window.convertToScreen(convert(bounds, to: nil))
+            let map = Wallpaper.mapping(texture: env, screen: screen.frame.size)
+            let topLeft = CGPoint(x: rect.minX - screen.frame.minX, y: screen.frame.maxY - rect.maxY)
+            origin = SIMD2(Float(map.origin.x + topLeft.x * map.perPoint.width), Float(map.origin.y + topLeft.y * map.perPoint.height))
+            perPoint = SIMD2(Float(map.perPoint.width), Float(map.perPoint.height))
+        }
         var header = Header(size: SIMD2(Float(frame.width), Float(frame.height)), scale: Float(scale), inset: Float(frame.inset),
-                            tint: SIMD4(0.55, 0.62, 0.75, 0.6), beads: Int32(frame.beads.count), spikes: Int32(frame.spikes.count))
+                            tint: SIMD4(0.62, 0.68, 0.8, 1), envOrigin: origin, envScale: perPoint,
+                            beads: Int32(frame.beads.count), spikes: Int32(frame.spikes.count), hasEnv: env == nil ? 0 : 1)
         encoder.setRenderPipelineState(state)
         encoder.setFragmentBytes(&header, length: MemoryLayout<Header>.stride, index: 0)
         for (index, array) in [frame.beads, frame.spikes, frame.tints].enumerated() {
             var data = array.isEmpty ? [SIMD4<Float>.zero] : array
             encoder.setFragmentBytes(&data, length: MemoryLayout<SIMD4<Float>>.stride * data.count, index: index + 1)
         }
+        encoder.setFragmentTexture(env, index: 0)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
         buffer.present(drawable)
