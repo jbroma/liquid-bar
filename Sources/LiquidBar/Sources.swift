@@ -167,6 +167,40 @@ nonisolated func setSystemVolume(_ level: Int) {
     if level > 0 { set(device, mute, UInt32(0)) }
 }
 
+nonisolated func setMuted(_ muted: Bool) {
+    set(defaultOutputDevice(), mute, UInt32(muted ? 1 : 0))
+}
+
+nonisolated func setDefaultOutputDevice(_ device: AudioObjectID) {
+    set(AudioObjectID(kAudioObjectSystemObject), defaultOutput, device)
+}
+
+struct OutputDevice: Identifiable, Equatable {
+    let id: AudioObjectID
+    let name: String
+    let symbol: String
+}
+
+/// Every visible device that can play sound, in CoreAudio's order.
+nonisolated func outputDevices() -> [OutputDevice] {
+    var addr = address(kAudioHardwarePropertyDevices)
+    var size: UInt32 = 0
+    let system = AudioObjectID(kAudioObjectSystemObject)
+    guard AudioObjectGetPropertyDataSize(system, &addr, 0, nil, &size) == noErr else { return [] }
+    var ids = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+    guard AudioObjectGetPropertyData(system, &addr, 0, nil, &size, &ids) == noErr else { return [] }
+    return ids.compactMap { id in
+        var streams = address(kAudioDevicePropertyStreams, kAudioDevicePropertyScopeOutput)
+        var streamsSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(id, &streams, 0, nil, &streamsSize) == noErr, streamsSize > 0,
+              (get(id, address(kAudioDevicePropertyIsHidden), UInt32(0)) ?? 0) == 0
+        else { return nil }
+        let name = deviceName(id)
+        let transport = get(id, address(kAudioDevicePropertyTransportType), UInt32(0)) ?? 0
+        return OutputDevice(id: id, name: name, symbol: outputDeviceSymbol(transport: transport, name: name))
+    }
+}
+
 nonisolated func deviceName(_ device: AudioObjectID) -> String {
     var addr = address(kAudioObjectPropertyName)
     var name: Unmanaged<CFString>?

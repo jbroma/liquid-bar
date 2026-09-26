@@ -181,6 +181,19 @@ struct MenuTitle: View {
     }
 }
 
+/// The dimmed heading of a group of rows, like "Output".
+struct MenuSection: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(secondary)
+            .padding(.horizontal, 8)
+            .frame(height: 20)
+    }
+}
+
 struct MenuSeparator: View {
     var body: some View {
         Rectangle()
