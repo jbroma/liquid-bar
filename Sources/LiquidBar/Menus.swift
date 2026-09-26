@@ -1,4 +1,5 @@
 import CoreAudio
+import CoreWLAN
 import LiquidBarCore
 import SwiftUI
 
@@ -80,11 +81,52 @@ struct DeviceIcon: View {
     }
 }
 
+/// Like the Wi-Fi menu extra: the network, its address and live throughput. Throughput is sampled once a second only
+/// while the menu is open.
 struct NetworkMenu: View {
     let network: NetworkState
+    @State private var name: String?
+    @State private var bars: Int?
+    @State private var address: String?
+    @State private var rates: (down: Double, up: Double)?
 
     var body: some View {
-        MenuBody { MenuTitle(title: "Wi-Fi") }
+        MenuBody {
+            MenuTitle(title: network.kind == .wired ? "Ethernet" : "Wi-Fi", accessory: network.interface ?? "Not Connected")
+            if network.kind != .offline {
+                MenuRow {
+                    DeviceIcon(symbol: network.symbol, selected: true)
+                    // The SSID needs Location access; without it CoreWLAN returns nil and the signal stands in.
+                    Text(name ?? (network.kind == .wifi ? "Wi-Fi Network" : "Connected")).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if let bars { Image(systemName: "wifi", variableValue: Double(bars) / 3).foregroundStyle(secondary) }
+                }
+                MenuSeparator()
+                MenuValue(title: "IP Address", value: address ?? "None")
+                MenuValue(title: "Download", value: throughputText(rates?.down ?? 0))
+                MenuValue(title: "Upload", value: throughputText(rates?.up ?? 0))
+            }
+            MenuSeparator()
+            SettingsButton(title: "Network Settings…", pane: "com.apple.Network-Settings.extension")
+        }
+        .task(id: network) { await sample() }
+    }
+
+    private func sample() async {
+        let wifi = network.kind == .wifi ? CWWiFiClient.shared().interface() : nil
+        name = wifi?.ssid()
+        bars = wifi.map { signalBars(rssi: $0.rssiValue()) }
+        address = network.interface.flatMap(ipv4Address)
+        guard let interface = network.interface, var last = interfaceBytes(interface) else { return }
+        var lastTime = Date()
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(1))
+            guard let now = interfaceBytes(interface) else { return }
+            let elapsed = Date().timeIntervalSince(lastTime)
+            rates = (Double(now.received &- last.received) / elapsed, Double(now.sent &- last.sent) / elapsed)
+            last = now
+            lastTime = Date()
+        }
     }
 }
 

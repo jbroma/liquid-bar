@@ -277,6 +277,21 @@ nonisolated func interfaceBytes(_ name: String) -> (received: UInt32, sent: UInt
     return nil
 }
 
+/// The interface's IPv4 address, like "192.168.1.23".
+nonisolated func ipv4Address(_ name: String) -> String? {
+    var list: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&list) == 0, let first = list else { return nil }
+    defer { freeifaddrs(list) }
+    for entry in sequence(first: first, next: { $0.pointee.ifa_next }) {
+        let ifa = entry.pointee
+        guard let addr = ifa.ifa_addr, addr.pointee.sa_family == UInt8(AF_INET), String(cString: ifa.ifa_name) == name else { continue }
+        var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        guard getnameinfo(addr, socklen_t(addr.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 else { continue }
+        return String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+    }
+    return nil
+}
+
 final class ClockSource {
     let model: BarModel
     private var timer: Timer?

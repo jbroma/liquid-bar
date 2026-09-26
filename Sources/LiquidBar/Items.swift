@@ -1,4 +1,3 @@
-import CoreWLAN
 import LiquidBarCore
 import SwiftUI
 
