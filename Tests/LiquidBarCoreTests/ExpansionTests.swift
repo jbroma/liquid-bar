@@ -8,17 +8,16 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
 
 @Test func hoverExpandsOnlyAfterIntent() {
     let inputs = Inputs(inside: .init("volume", t0))
-    #expect(inputs.owner(now: at(0.05), current: nil).id == nil)
-    #expect(inputs.owner(now: at(0.05), current: nil).recheck == at(0.09))
-    #expect(inputs.owner(now: at(0.1), current: nil).id == "volume")
+    #expect(inputs.owner(now: at(0.02), current: nil).id == nil)
+    #expect(inputs.owner(now: at(0.02), current: nil).recheck == at(0.04))
+    #expect(inputs.owner(now: at(0.05), current: nil).id == "volume")
 }
 
-@Test func sweepingAcrossPillsExpandsOneAtATime() {
-    // The pointer rested on volume, then moved to battery: battery takes the slot once intent passes,
-    // volume collapses at that moment instead of lingering beside it.
+@Test func slidingToAnotherPillWhileOneIsOpenSwitchesAtOnce() {
+    // Like the native menu bar: volume's dropdown is open and the pointer moves to battery, which opens with no
+    // intent delay while volume closes.
     let inputs = Inputs(inside: .init("battery", at(1)), left: .init("volume", at(1)))
-    #expect(inputs.owner(now: at(1.05), current: "volume").id == "volume")
-    #expect(inputs.owner(now: at(1.1), current: "volume").id == "battery")
+    #expect(inputs.owner(now: at(1), current: "volume") == ("battery", at(1.5)))
 }
 
 @Test func leavingLingersThenCollapses() {
@@ -44,10 +43,9 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     let leaving = Inputs(pulse: .init("volume", at(2.2)), left: .init("battery", at(1.5)))
     #expect(leaving.owner(now: at(1.6), current: "battery") == ("battery", at(2)))
     #expect(leaving.owner(now: at(2.1), current: "battery").id == nil)
-    // The pointer arrives on battery during volume's pulse: volume closes, battery opens once intent passes.
+    // The pointer arrives on battery during volume's pulse: the open dropdown moves to battery at once.
     let arriving = Inputs(inside: .init("battery", at(1)), pulse: .init("volume", at(2.2)))
-    #expect(arriving.owner(now: at(1.05), current: "volume") == (nil, at(1.09)))
-    #expect(arriving.owner(now: at(1.1), current: "volume").id == "battery")
+    #expect(arriving.owner(now: at(1), current: "volume") == ("battery", nil))
 }
 
 @Test func pulseOpensWhileNothingIsHovered() {

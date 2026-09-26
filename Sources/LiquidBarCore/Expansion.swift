@@ -1,9 +1,10 @@
 import Foundation
 
-/// Which one item of a bar is open. Hover claims the slot after a short intent delay (so sweeping the pointer
-/// across the bar does not open every item) and keeps it for a moment after the pointer leaves; a pulse claims it
-/// for a fixed time while the pointer is on no item, and the pointer coming to an item ends it. The pointer resting
-/// in the open item's dropdown keeps it over everything.
+/// Which one item of a bar is open. Hover claims an empty slot after a short intent delay, so sweeping the pointer
+/// across the bar does not open every item, and an occupied one at once, like sliding along the native menu bar. It
+/// keeps the slot for a moment after the pointer leaves. A pulse claims it for a fixed time while the pointer is on
+/// no item, and the pointer coming to an item ends it. The pointer resting in the open item's dropdown keeps it over
+/// everything.
 public struct ExpansionInputs<ID: Hashable & Sendable>: Equatable, Sendable {
     public struct Mark: Equatable, Sendable {
         public var id: ID
@@ -31,7 +32,7 @@ public struct ExpansionInputs<ID: Hashable & Sendable>: Equatable, Sendable {
         self.holding = holding
     }
 
-    public static var hoverIntent: TimeInterval { 0.09 }
+    public static var hoverIntent: TimeInterval { 0.04 }
     public static var linger: TimeInterval { 0.5 }
     public static var pulseLength: TimeInterval { 2.2 }
 
@@ -40,8 +41,8 @@ public struct ExpansionInputs<ID: Hashable & Sendable>: Equatable, Sendable {
         // A pulse is news until the pointer comes to an item.
         let pointerSince = [inside?.time, left?.time].compactMap { $0 }.max()
         let pulseEnd = pulse.flatMap { $0.time > now && (pointerSince ?? .distantPast) < $0.time - Self.pulseLength ? $0.time : nil }
-        // Re-entering the expanded pill keeps it without waiting for intent again.
-        let intentEnd = inside.flatMap { $0.id == current ? nil : $0.time + Self.hoverIntent }.flatMap { $0 > now ? $0 : nil }
+        // Intent applies only while nothing is open; re-entering the open pill keeps it without waiting again.
+        let intentEnd = inside.flatMap { current != nil ? nil : $0.time + Self.hoverIntent }.flatMap { $0 > now ? $0 : nil }
         let lingerEnd = left.map { $0.time + Self.linger }.flatMap { $0 > now ? $0 : nil }
         if holding, let current { return (current, nil) }
         let id: ID? =

@@ -70,7 +70,7 @@ struct BarView: View {
         let margin = model.config.margin
         return ZStack(alignment: alignment) {
             GlassEffectContainer(spacing: 4) {
-                HStack(spacing: 6) {
+                HStack(spacing: 0) {
                     ForEach(widgets.filter(isShown), id: \.self) { widget in
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, barHeight: height)
                     }
@@ -79,9 +79,9 @@ struct BarView: View {
                 .animation(spring, value: model.nowPlaying == nil)
             }
         }
-        // Islands get a finite width beside the notch.
-        .padding(alignment == .leading ? .leading : .trailing, margin)
-        .padding(alignment == .leading ? .trailing : .leading, 8)
+        // Islands get a finite width beside the notch. Each item's hit area already reaches half a gap past it.
+        .padding(alignment == .leading ? .leading : .trailing, margin - itemGap / 2)
+        .padding(alignment == .leading ? .trailing : .leading, 8 - itemGap / 2)
         .frame(width: width, alignment: alignment)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
     }
@@ -138,9 +138,6 @@ struct WidgetView: View {
         switch widget {
         case .apple:
             AppleButton(model: model, screenFrame: screenFrame, barHeight: barHeight)
-                .fixedSize()
-                .padding(.horizontal, 3)
-                .frame(height: pillHeight)
         case .workspaces:
             Group {
                 if let titles = menuMode.titles {
@@ -154,8 +151,8 @@ struct WidgetView: View {
                     .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
                 }
             }
-            .fixedSize()
-            .frame(height: pillHeight)
+            .fixedSize(horizontal: true, vertical: false)
+            .barHitArea()
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 MenuPill(id: widget.name, pulse: nowPlaying.trackID, height: pillHeight, padding: 4) {
@@ -192,6 +189,7 @@ struct WidgetView: View {
                 .frame(width: 16)
                 .fixedSize()
                 .pill(height: pillHeight)
+                .barHitArea()
                 .onTapGesture {
                     haptic()
                     MenuExtras.toggleControlCenter(explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - barHeight + 2))
@@ -210,6 +208,7 @@ struct WidgetView: View {
             .animation(spring, value: model.scriptLabels[script.script])
             .fixedSize()
             .pill(height: pillHeight)
+            .barHitArea()
             .onTapGesture { model.click(widget) }
         }
     }
@@ -264,6 +263,8 @@ struct AppleButton: View {
         Image(systemName: "apple.logo")
             .font(.system(size: 14, weight: .semibold))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+            .padding(.horizontal, 3)
+            .barHitArea()
             .onTapGesture {
                 if let command = model.config.clicks["apple"] {
                     shell(command)
@@ -354,7 +355,7 @@ struct WorkspaceButton: View {
     let action: () -> Void
 
     var body: some View {
-        LivePill(id: "workspace:\(id)", pulse: Set(apps)) { expanded in
+        LivePill(id: "workspace:\(id)", pulse: Set(apps), gap: 0) { expanded in
             HStack(spacing: 4) {
                 Text(id)
                     .font(.system(size: 10, weight: .semibold))
@@ -369,7 +370,6 @@ struct WorkspaceButton: View {
             .padding(.horizontal, apps.isEmpty ? 7 : 6)
             .frame(minWidth: height, minHeight: height)
         }
-        .contentShape(Capsule())
         .onTapGesture(perform: action)
     }
 }

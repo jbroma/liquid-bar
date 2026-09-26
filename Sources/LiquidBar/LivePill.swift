@@ -72,15 +72,33 @@ final class ExpansionSlot {
 struct LivePill<Pulse: Equatable, Content: View>: View {
     let id: String
     var pulse: Pulse
+    var gap = itemGap
     @ViewBuilder var content: (_ expanded: Bool) -> Content
     @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
         content(slot.owner == id)
-            .contentShape(Rectangle())
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                slot.frames[id] = $0
+                trace("frame \(id) \(Int($0.minX))...\(Int($0.maxX))")
+            }
+            .barHitArea(gap: gap)
             .onHover { slot.hover(id, $0) }
             .onChange(of: pulse) { slot.pulse(id, "\(pulse)") }
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { trace("frame \(id) \(Int($0.minX))...\(Int($0.maxX))") }
+    }
+}
+
+/// The space between two items in a bar.
+let itemGap: CGFloat = 6
+
+extension View {
+    /// Stretches an item's hover and click area over the full bar height and half the gap to each neighbour, so a
+    /// pointer thrown at the top edge of the screen or between two pills still lands on an item. What is drawn does
+    /// not change.
+    func barHitArea(gap: CGFloat = itemGap) -> some View {
+        padding(.horizontal, gap / 2)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
     }
 }
 
@@ -91,7 +109,6 @@ struct MenuPill<Pulse: Equatable, Label: View>: View {
     let height: CGFloat
     var padding: CGFloat = 10
     @ViewBuilder var label: () -> Label
-    @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
         LivePill(id: id, pulse: pulse) { open in
@@ -100,6 +117,5 @@ struct MenuPill<Pulse: Equatable, Label: View>: View {
                 .padding(.horizontal, open ? 3 : 0)
                 .pill(height: height, padding: padding)
         }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { slot.frames[id] = $0 }
     }
 }
