@@ -76,7 +76,7 @@ A widget is one of these names, or a script object:
 | Name | At rest | On hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
-| `workspaces` | Each workspace shows the icon of its most recently used app, or a dim number when it has no windows. A soft fill marks the focused workspace. | The icons of all its apps fan out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
+| `workspaces` | Each workspace shows its number and the icon of its most recently used app; empty workspaces show a dim number only. A soft fill marks the focused workspace. | The icons of all its apps fan out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
 | `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Title, artist, and previous, play or pause, and next buttons, on one line. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |

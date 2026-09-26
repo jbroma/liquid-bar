@@ -367,12 +367,10 @@ struct WorkspaceButton: View {
 
     var body: some View {
         LivePill(id: "workspace:\(id)", pulse: Set(apps)) { expanded in
-            HStack(spacing: 3) {
-                if apps.isEmpty {
-                    Text(id)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.barWhite.opacity(focused ? 0.85 : 0.35))
-                }
+            HStack(spacing: 4) {
+                Text(id)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : apps.isEmpty ? 0.35 : 0.6))
                 ForEach(apps.prefix(expanded ? 8 : 1), id: \.self) { app in
                     Image(nsImage: AppIcons.icon(app))
                         .resizable()
@@ -380,7 +378,7 @@ struct WorkspaceButton: View {
                         .transition(.scale(0.5).combined(with: .opacity))
                 }
             }
-            .padding(.horizontal, apps.isEmpty ? 7 : 5)
+            .padding(.horizontal, apps.isEmpty ? 7 : 6)
             .frame(minWidth: height, minHeight: height)
         }
         .contentShape(Capsule())
