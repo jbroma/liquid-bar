@@ -70,23 +70,6 @@ struct Artwork: View {
     }
 }
 
-struct TransportButton: View {
-    let symbol: String
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: 11, weight: .bold))
-            .contentTransition(.symbolEffect(.replace))
-            .frame(width: 22, height: 20)
-            .background { if hovering { Capsule().fill(.white.opacity(0.14)) } }
-            .contentShape(Capsule())
-            .onHover { hovering = $0 }
-            .onTapGesture(perform: action)
-    }
-}
-
 /// One line of text that scrolls back and forth when it is wider than `width`. It only animates while visible.
 struct Marquee: View {
     let text: String

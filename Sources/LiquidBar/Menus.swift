@@ -161,12 +161,58 @@ struct BatteryMenu: View {
     }
 }
 
+/// Like the Now Playing module in Control Center: artwork, title, artist and the transport controls.
 struct NowPlayingMenu: View {
     let nowPlaying: NowPlaying?
     let artwork: NSImage?
     let control: (String) -> Void
 
     var body: some View {
-        MenuBody { MenuTitle(title: nowPlaying?.title ?? "") }
+        MenuBody {
+            if let nowPlaying {
+                MenuRow {
+                    Artwork(image: artwork, size: 56, radius: 8)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Marquee(text: nowPlaying.title, font: .system(size: 13, weight: .semibold), width: 176)
+                        Marquee(text: nowPlaying.artist, font: .system(size: 13), width: 176)
+                            .foregroundStyle(secondary)
+                        Text(nowPlaying.player.appName)
+                            .font(.system(size: 11))
+                            .foregroundStyle(secondary)
+                    }
+                    .padding(.leading, 2)
+                }
+                .padding(.vertical, 4)
+                HStack(spacing: 12) {
+                    TransportButton(symbol: "backward.fill") { control("previous track") }
+                    TransportButton(symbol: nowPlaying.playing ? "pause.fill" : "play.fill") { control("playpause") }
+                    TransportButton(symbol: "forward.fill") { control("next track") }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 2)
+                MenuSeparator()
+                MenuButton { shell("open -b \(nowPlaying.player.rawValue)") } content: { Text("Open \(nowPlaying.player.appName)") }
+            }
+        }
+    }
+}
+
+private struct TransportButton: View {
+    let symbol: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 16))
+            .contentTransition(.symbolEffect(.replace))
+            .frame(width: 44, height: 30)
+            .background { RoundedRectangle(cornerRadius: 7).fill(.white.opacity(hovering ? 0.12 : 0)) }
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .onTapGesture {
+                haptic()
+                action()
+            }
     }
 }
