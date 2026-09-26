@@ -49,7 +49,8 @@ Other targets:
 
 The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
 
-- **Accessibility** lets the bar show the front app's menus, open Control Center and other apps' menu bar items, and keep notification banners whole. Clicking the focused workspace or Control Center without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Accessibility** lets the bar show the front app's menus, open other apps' menu bar items, Screen Mirroring and the real Control Center, read and switch Focus, and keep notification banners whole. Clicking the focused workspace or Control Center… without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Bluetooth** lets the Control Center dropdown list paired devices, connect them, and switch Bluetooth. macOS asks the first time the dropdown opens.
 - **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 
 The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
@@ -82,7 +83,7 @@ A widget is one of these names, or a script object:
 | `volume` | Speaker symbol. | A slider that sets the level on click or drag, Mute, the output devices with the current one filled in (click one to switch), and Sound Settings…. Scroll over the pill to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or the signal when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Level meter, power source with the adapter's wattage, time left or to full, condition, maximum capacity and cycle count, and Battery Settings…. |
-| `controlCenter` | Control Center symbol. Needs Accessibility. | Opens the real Control Center, with AirPlay, Bluetooth, Focus, and the rest. Hovering another item closes it, and so does a click anywhere else. |
+| `controlCenter` | Control Center symbol. | Control Center without Wi-Fi, Sound and Now Playing, which have their own items. Glass tiles for Bluetooth (on or off; click switches it), AirDrop (who can see this Mac; click opens the AirDrop window), Focus (click turns the active Focus off, or Do Not Disturb on), Screen Mirroring (opens the real Screen Mirroring menu), Dark Mode, Night Shift, and Screenshot (opens the Screenshot toolbar). Sliders for the built-in display and keyboard brightness. The paired Bluetooth devices with their battery, filled in while connected; click one to connect or disconnect it. Control Center… opens the real one for the rest. A control this Mac lacks reads Unavailable, and its tile opens the matching settings pane instead. |
 | `clock` | Time. | The full date over a month grid with week numbers and today marked. Scroll or the chevrons change the month. |
 
 A script object is the SketchyBar-style escape hatch:
@@ -119,7 +120,9 @@ A script object is the SketchyBar-style escape hatch:
 - Notification banners: macOS draws them below the menu bar's level and, with the menu bar hidden, 16 points from the top of the screen, inside the bar. While one is on screen the bar drops just below it, so the banner shows whole over the black. This needs Accessibility access; without it the bar cuts off the banner's top.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
-Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling runs only while the Wi-Fi dropdown is open.
+Control Center has no public API for most of its controls, so the dropdown uses the private frameworks macOS itself uses, loaded at runtime so a missing one costs a tile, never a crash: DisplayServices for display brightness, CoreBrightness for the keyboard backlight and Night Shift, SkyLight for Dark Mode (no Automation prompt), and `IOBluetoothPreferenceSetControllerPowerState` for Bluetooth power. Focus has neither an API nor a readable store without Full Disk Access, so the Focus tile reads Focus from its menu bar item and switches it by pressing through the real Control Center over Accessibility, which opens Control Center behind the dropdown for about three seconds.
+
+Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling runs only while the Wi-Fi dropdown is open, and Control Center reads its controls only when its dropdown opens, after a change, and on appearance changes while it is open.
 
 ## Layout
 

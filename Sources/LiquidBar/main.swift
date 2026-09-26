@@ -86,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let rightX = screen.auxiliaryTopRightArea.map { screen.frame.width - $0.width } ?? screen.frame.width / 2
         let leftWidth = screen.auxiliaryTopLeftArea?.width ?? screen.frame.width / 2
         let dropdowns = [(0, leftWidth, true), (rightX, screen.frame.width - rightX, false)].map { originX, width, left in
-            let height: CGFloat = 520
+            let height: CGFloat = 640
             let dropdown = panel(
                 NSRect(x: screen.frame.minX + originX, y: frame.minY - height, width: width, height: height),
                 background: .clear,
