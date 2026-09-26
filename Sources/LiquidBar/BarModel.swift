@@ -34,7 +34,10 @@ final class BarModel {
     }
 
     func nudgeVolume(_ steps: Int) {
-        let level = volume.stepped(steps)
+        setVolume(volume.stepped(steps))
+    }
+
+    func setVolume(_ level: Int) {
         volume = VolumeState(level: level, muted: volume.muted && level == 0, device: volume.device)
         setSystemVolume(level)
     }
@@ -46,11 +49,9 @@ final class BarModel {
     }
 
     func click(_ widget: Widget) {
+        let command = if case .script(let script) = widget { script.click } else { config.clicks[widget.name] }
+        guard let command else { return }
         haptic()
-        if case .script(let script) = widget {
-            if let command = script.click { shell(command) }
-        } else if let command = config.clicks[widget.name] {
-            shell(command)
-        }
+        shell(command)
     }
 }

@@ -4,7 +4,9 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BarModel()
+    /// Each screen's bar and, as its child, its dropdown.
     var panels: [NSPanel] = []
+    var slots: [ExpansionSlot] = []
     var aerospace: AeroSpaceSource?
     var sources: [AnyObject] = []
     var scripts: ScriptRunner?
@@ -53,7 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func rebuildPanels() {
         panels.forEach { $0.close() }
-        panels = NSScreen.screens.map(makePanel)
+        slots = NSScreen.screens.map { _ in ExpansionSlot() }
+        panels = zip(NSScreen.screens, slots).flatMap(makePanels)
     }
 
     /// Notification Center draws banners at level 21, below the native menu bar's 24, and without a visible menu bar
@@ -62,28 +65,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panels.forEach { $0.level = showing ? belowBanners : barLevel }
     }
 
-    func makePanel(for screen: NSScreen) -> NSPanel {
+    func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {
         // On a notched screen the bar is exactly the notch's height, so the notch reads as part of the black bar.
         // The native menu bar is one point taller than the notch (33 vs 32); cover all of it. On black the extra
         // point below the notch is invisible.
         let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top + 1 : model.config.height
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
-        let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = barLevel
         // Pure black, like the bezel and the notch on a mini-LED panel.
-        panel.backgroundColor = .black
-        panel.isOpaque = true
-        panel.hasShadow = false
-        panel.isReleasedWhenClosed = false
-        panel.appearance = NSAppearance(named: .darkAqua)
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        let host = NSHostingView(rootView: BarView(
+        let bar = panel(frame, background: .black, root: BarView(
             model: model,
             screenFrame: screen.frame,
             height: height,
             leftWidth: screen.auxiliaryTopLeftArea?.width,
-            rightWidth: screen.auxiliaryTopRightArea?.width
-        ))
+            rightWidth: screen.auxiliaryTopRightArea?.width,
+            slot: slot
+        ).environment(slot))
+        // The dropdown's window spans the right of the notch below the bar, tall enough for the tallest menu. Its clear
+        // pixels let the pointer through, as long as `ignoresMouseEvents` is never set.
+        let originX = screen.auxiliaryTopRightArea.map { screen.frame.width - $0.width } ?? screen.frame.width / 2
+        let dropdownHeight: CGFloat = 520
+        let dropdown = panel(
+            NSRect(x: screen.frame.minX + originX, y: frame.minY - dropdownHeight, width: screen.frame.width - originX, height: dropdownHeight),
+            background: .clear,
+            root: DropdownView(model: model, originX: originX).environment(slot)
+        )
+        dropdown.becomesKeyOnlyIfNeeded = true
+        bar.addChildWindow(dropdown, ordered: .above)
+        return [bar, dropdown]
+    }
+
+    private func panel(_ frame: NSRect, background: NSColor, root: some View) -> NSPanel {
+        let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.level = barLevel
+        panel.backgroundColor = background
+        panel.isOpaque = background == .black
+        panel.hasShadow = false
+        panel.isReleasedWhenClosed = false
+        panel.appearance = NSAppearance(named: .darkAqua)
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        let host = NSHostingView(rootView: root)
         host.sizingOptions = []
         panel.contentView = host
         panel.setFrame(frame, display: false)
@@ -96,8 +116,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
-    /// A click lands where the real pointer is, so warp there first. "tick" advances the clock a minute, and
-    /// "banner on|off" stands in for a notification banner.
+    /// A click lands where the real pointer is, so warp there first. "drag x y x2" drags horizontally from x to x2.
+    /// "tick" advances the clock a minute, "banner on|off" stands in for a notification banner, and
+    /// "hover <item> on|off" stands in for the pointer entering or leaving an item.
     func installDebugInput() {
         // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
         // so debug builds close them after 4s by themselves.
@@ -113,6 +134,7 @@ extension AppDelegate {
                 guard let self, let parts = command?.split(separator: " ") else { return }
                 if parts == ["tick"] { return self.model.now += 60 }
                 if parts == ["banner", "on"] || parts == ["banner", "off"] { return self.setBanner(parts[1] == "on") }
+                if parts.count == 3, parts[0] == "hover" { return self.slots.first?.hover(String(parts[1]), parts[2] == "on") ?? () }
                 guard parts.count >= 3,
                       let x = Double(parts[1]), let y = Double(parts[2]) else { return }
                 let top = NSScreen.screens[0].frame.maxY
@@ -129,8 +151,14 @@ extension AppDelegate {
                     if let event = NSEvent(cgEvent: cg), let view = panel.contentView.flatMap(catcher) { view.scrollWheel(with: event) }
                     return
                 }
-                for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-                    let event = NSEvent.mouseEvent(with: type, location: local, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                var steps: [(NSEvent.EventType, CGFloat)] = [(.leftMouseDown, local.x), (.leftMouseUp, local.x)]
+                if parts[0] == "drag", parts.count == 4, let x2 = Double(parts[3]) {
+                    let end: CGFloat = local.x + CGFloat(x2 - x)
+                    let drags: [(NSEvent.EventType, CGFloat)] = (1...8).map { (.leftMouseDragged, local.x + (end - local.x) * CGFloat($0) / 8) }
+                    steps = [(.leftMouseDown, local.x)] + drags + [(.leftMouseUp, end)]
+                }
+                for (type, x) in steps {
+                    let event = NSEvent.mouseEvent(with: type, location: NSPoint(x: x, y: local.y), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
                                                    windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
                     NSApp.sendEvent(event)
                 }

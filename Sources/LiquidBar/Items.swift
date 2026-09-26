@@ -2,247 +2,76 @@ import CoreWLAN
 import LiquidBarCore
 import SwiftUI
 
-/// The dimmed label that leads a detail.
-struct Caption: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(Color.barWhite.opacity(0.7))
-            .lineLimit(1)
-    }
-}
-
 /// A slim level bar, 0...1.
 struct Meter: View {
     let value: Double
     var tint = Color.barWhite
     var width: CGFloat = 48
+    var height: CGFloat = 4
 
     var body: some View {
         Capsule()
             .fill(.white.opacity(0.2))
-            .frame(width: width, height: 4)
+            .frame(width: width, height: height)
             .overlay(alignment: .leading) {
                 Capsule().fill(tint).frame(width: width * min(1, max(0, value)))
             }
     }
 }
 
-/// Scroll changes the level in steps of 2; the detail names the output device and shows the level.
-struct VolumePill: View {
-    let model: BarModel
-
-    var body: some View {
-        let volume = model.volume
-        let level = volume.muted ? 0 : volume.level
-        LivePill(id: "volume", pulse: volume) {
-            Image(systemName: volume.symbol)
-                .frame(width: 16)
-                .contentTransition(.symbolEffect(.replace))
-        } detail: {
-            HStack(spacing: 6) {
-                Caption(text: volume.device)
-                Meter(value: Double(level) / 100)
-                Text("\(level)%")
-                    .font(.system(size: 11, weight: .bold))
-                    .frame(width: 30, alignment: .trailing)
-                    .contentTransition(.numericText(value: Double(level)))
-            }
-        }
-        .animation(spring, value: level)
-        .overlay {
-            ScrollCatcher { steps in model.nudgeVolume(steps) }
-        }
-    }
-}
-
-/// Pulses on plug and unplug; the detail says how long the battery lasts or how long charging takes.
-struct BatteryPill: View {
+/// The level symbol and percentage. The symbol bounces on plug and unplug.
+struct BatteryLabel: View {
     let battery: BatteryState
 
     var body: some View {
-        LivePill(id: "battery", pulse: battery.onAC) {
-            HStack(spacing: 4) {
-                Image(systemName: battery.symbol)
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
-                    .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: battery.onAC)
-                // Changes every few minutes at rest, so it swaps without a transition, like the clock.
-                Text("\(battery.percent)%")
-                    .font(.system(size: 11, weight: .bold))
-            }
-        } detail: {
-            HStack(spacing: 6) {
-                Caption(text: battery.detail)
-                Meter(value: Double(battery.percent) / 100, tint: battery.tint.color)
-            }
+        HStack(spacing: 4) {
+            Image(systemName: battery.symbol)
+                .font(.system(size: 13, weight: .regular))
+                .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.bounce, value: battery.onAC)
+            // Changes every few minutes at rest, so it swaps without a transition, like the clock.
+            Text("\(battery.percent)%")
+                .font(.system(size: 11, weight: .bold))
         }
         .animation(spring, value: battery.onAC)
     }
 }
 
-/// Pulses when connectivity changes. The detail names the network and shows live throughput, sampled once a
-/// second only while it is visible.
-struct NetworkPill: View {
-    let network: NetworkState
-
-    var body: some View {
-        LivePill(id: "wifi", pulse: network.kind) {
-            Image(systemName: network.symbol)
-                .frame(width: 16)
-                .contentTransition(.symbolEffect(.replace))
-        } detail: {
-            NetworkDetail(network: network)
-        }
-    }
-}
-
-private struct NetworkDetail: View {
-    let network: NetworkState
-    @State private var name: String?
-    @State private var bars: Int?
-    @State private var rates: (down: Double, up: Double)?
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Caption(text: name ?? fallbackName)
-            if name == nil, let bars {
-                Image(systemName: "wifi", variableValue: Double(bars) / 3)
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color.barWhite.opacity(0.7))
-            }
-            if network.kind != .offline {
-                Text("↓ \(throughputText(rates?.down ?? 0))  ↑ \(throughputText(rates?.up ?? 0))")
-                    .font(.system(size: 11, weight: .semibold))
-                    .padding(.leading, 2)
-                    .contentTransition(.numericText())
-            }
-        }
-        .fixedSize()
-        .task(id: network) { await sample() }
-    }
-
-    private var fallbackName: String {
-        switch network.kind {
-        case .wifi: "Wi-Fi"
-        case .wired: "Ethernet"
-        case .offline: "Offline"
-        }
-    }
-
-    private func sample() async {
-        if network.kind == .wifi, let wifi = CWWiFiClient.shared().interface() {
-            // The SSID needs Location access; without it CoreWLAN returns nil and signal bars stand in.
-            name = wifi.ssid()
-            bars = signalBars(rssi: wifi.rssiValue())
-        } else {
-            name = nil
-            bars = nil
-        }
-        guard let interface = network.interface, var last = interfaceBytes(interface) else { return }
-        var lastTime = Date()
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(1))
-            guard let now = interfaceBytes(interface) else { return }
-            let elapsed = Date().timeIntervalSince(lastTime)
-            withAnimation(spring) {
-                rates = (Double(now.received &- last.received) / elapsed, Double(now.sent &- last.sent) / elapsed)
-            }
-            last = now
-            lastTime = Date()
-        }
-    }
-}
-
-/// The time at rest; hovering widens it to the long date with seconds ticking. Click opens the calendar, unless
-/// `clicks` sets a command for `clock`.
-struct ClockPill: View {
-    let model: BarModel
-    let screenFrame: CGRect
-    let barHeight: CGFloat
-    @State private var frame = CGRect.zero
-
-    var body: some View {
-        let now = model.now
-        LivePill(id: "clock", pulse: 0) { expanded in
-            Group {
-                if expanded {
-                    // The seconds timer exists only while this view does.
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        let time = clockText(context.date, seconds: true)
-                        ViewThatFits(in: .horizontal) {
-                            Text("\(longDateText(context.date)) · \(time)")
-                            Text("\(dateText(context.date)) · \(time)")
-                            Text(time)
-                        }
-                        .contentTransition(.numericText())
-                        .animation(spring, value: context.date)
-                    }
-                    .transition(.blurReplace)
-                } else {
-                    // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
-                    Text(clockText(now))
-                        .fixedSize()
-                        .transition(.blurReplace)
-                }
-            }
-            .pill(height: barHeight - 8)
-        }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-        .onTapGesture {
-            if let command = model.config.clicks["clock"] {
-                shell(command)
-            } else {
-                let top = screenFrame.maxY - barHeight
-                CalendarPopover.toggle(anchor: NSRect(x: screenFrame.minX + frame.minX, y: top, width: frame.width, height: barHeight))
-            }
-        }
-    }
-}
-
-/// Artwork and a live equalizer at rest; title, artist and transport controls in the detail. Pulses on track change.
-/// It takes plain state so it can live anywhere, not only in the right island.
-struct NowPlayingPill: View {
+/// Artwork and a live equalizer. A click opens the player.
+struct NowPlayingLabel: View {
     let nowPlaying: NowPlaying
     let artwork: NSImage?
-    let control: (String) -> Void
 
     var body: some View {
-        LivePill(id: "nowPlaying", pulse: nowPlaying.trackID) {
-            HStack(spacing: 6) {
-                Group {
-                    if let artwork {
-                        Image(nsImage: artwork).resizable().aspectRatio(contentMode: .fill)
-                    } else {
-                        Image(systemName: "music.note")
-                    }
-                }
-                .frame(width: 18, height: 18)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-                .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
-                Equalizer(playing: nowPlaying.playing)
-                    .frame(width: 14, height: 14)
-            }
-        } detail: {
-            HStack(spacing: 6) {
-                Marquee(text: nowPlaying.title, font: .system(size: 11, weight: .bold), width: 130)
-                Marquee(text: nowPlaying.artist, font: .system(size: 11, weight: .semibold), width: 90)
-                    .foregroundStyle(Color.barWhite.opacity(0.7))
-                HStack(spacing: 0) {
-                    TransportButton(symbol: "backward.fill") { control("previous track") }
-                    TransportButton(symbol: nowPlaying.playing ? "pause.fill" : "play.fill") { control("playpause") }
-                    TransportButton(symbol: "forward.fill") { control("next track") }
-                }
-            }
+        HStack(spacing: 6) {
+            Artwork(image: artwork, size: 18, radius: 4)
+            Equalizer(playing: nowPlaying.playing)
+                .frame(width: 14, height: 14)
         }
-        .animation(spring, value: nowPlaying)
+        .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
     }
 }
 
-private struct TransportButton: View {
+struct Artwork: View {
+    let image: NSImage?
+    let size: CGFloat
+    let radius: CGFloat
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Image(systemName: "music.note")
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: radius))
+    }
+}
+
+struct TransportButton: View {
     let symbol: String
     let action: () -> Void
     @State private var hovering = false

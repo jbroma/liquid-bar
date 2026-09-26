@@ -4,11 +4,14 @@ import SwiftUI
 /// The one spring every motion in the bar uses.
 let spring = Animation.spring(response: 0.38, dampingFraction: 0.8)
 
-/// The single expanded pill of one bar. Pills report hover and pulses here; `ExpansionInputs` decides the owner,
-/// and one timer re-evaluates it when the answer can next change.
+/// The single open item of one bar. Pills report hover, pulses and their frames here, the dropdown reports the
+/// pointer resting in it; `ExpansionInputs` decides the owner, and one timer re-evaluates it when the answer can
+/// next change.
 @Observable
 final class ExpansionSlot {
     private(set) var owner: String?
+    /// Pill frames in the bar window, top-left origin, so the dropdown can sit under its item.
+    var frames: [String: CGRect] = [:]
     @ObservationIgnored private var inputs = ExpansionInputs<String>()
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private let created = Date()
@@ -24,9 +27,16 @@ final class ExpansionSlot {
         update()
     }
 
+    func hold(_ inside: Bool) {
+        inputs.holding = inside
+        if !inside, let owner { inputs.left = .init(owner, Date()) }
+        update()
+    }
+
     func pulse(_ id: String) {
-        // Sources report their first real state just after launch; that is not news.
-        guard created.timeIntervalSinceNow < -2 else { return }
+        // Sources report their first real state just after launch; that is not news. A change made while the pointer
+        // is on the item, like dragging its volume slider, is not news either.
+        guard created.timeIntervalSinceNow < -2, inputs.inside?.id != id, !(inputs.holding && owner == id) else { return }
         inputs.pulse = .init(id, Date() + ExpansionInputs<String>.pulseLength)
         update()
     }
@@ -44,8 +54,8 @@ final class ExpansionSlot {
     }
 }
 
-/// A pill that expands when it owns its bar's `ExpansionSlot`: on hover, or by itself for a moment when `pulse`
-/// changes. `content` draws the pill for the current state.
+/// An item that opens when it owns its bar's `ExpansionSlot`: on hover, or by itself for a moment when `pulse`
+/// changes. `content` draws the item for the current state.
 struct LivePill<Pulse: Equatable, Content: View>: View {
     let id: String
     var pulse: Pulse
@@ -60,35 +70,22 @@ struct LivePill<Pulse: Equatable, Content: View>: View {
     }
 }
 
-extension LivePill {
-    /// The common shape: `compact` always, `detail` sliding in from its trailing edge.
-    init<Compact: View, Detail: View>(
-        id: String,
-        pulse: Pulse,
-        @ViewBuilder compact: @escaping () -> Compact,
-        @ViewBuilder detail: @escaping () -> Detail
-    ) where Content == CompactDetail<Compact, Detail> {
-        self.init(id: id, pulse: pulse) { CompactDetail(expanded: $0, compact: compact, detail: detail) }
-    }
-}
-
-/// The detail yields when the island has no room for it, so an expanded pill never pushes its island past the
-/// notch or the screen edge.
-struct CompactDetail<Compact: View, Detail: View>: View {
-    let expanded: Bool
-    let compact: () -> Compact
-    let detail: () -> Detail
+/// A glass pill on the right whose menu is the bar's dropdown. It widens a few points while its dropdown is open.
+struct MenuPill<Pulse: Equatable, Label: View>: View {
+    let id: String
+    var pulse: Pulse
+    let height: CGFloat
+    var padding: CGFloat = 10
+    @ViewBuilder var label: () -> Label
+    @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
-        HStack(spacing: 8) {
-            compact().fixedSize()
-            if expanded {
-                ViewThatFits(in: .horizontal) {
-                    detail().fixedSize()
-                    Color.clear.frame(width: 0)
-                }
-                .transition(.blurReplace.combined(with: .scale(0.7, anchor: .leading)))
-            }
+        LivePill(id: id, pulse: pulse) { open in
+            label()
+                .fixedSize()
+                .padding(.horizontal, open ? 3 : 0)
+                .pill(height: height, padding: padding)
         }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { slot.frames[id] = $0 }
     }
 }

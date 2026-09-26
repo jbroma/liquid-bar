@@ -2,61 +2,6 @@ import AppKit
 import LiquidBarCore
 import SwiftUI
 
-/// The glass month calendar below the clock, in its own child panel so the bar window keeps its height.
-@MainActor
-enum CalendarPopover {
-    private static var panel: KeyPanel?
-    private static var monitors: [Any] = []
-
-    static func toggle(anchor: NSRect) {
-        if panel != nil { close() } else { open(anchor: anchor) }
-    }
-
-    private static func open(anchor: NSRect) {
-        let host = NSHostingView(rootView: CalendarView(onClose: close))
-        let size = host.fittingSize
-        guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(anchor) }) else { return }
-        // Right-aligned with the clock, kept on screen.
-        let x = min(max(anchor.maxX - size.width, screen.frame.minX + 8), screen.frame.maxX - size.width - 8)
-        let panel = KeyPanel(contentRect: NSRect(x: x, y: anchor.minY - size.height - 6, width: size.width, height: size.height),
-                             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 3)
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = false
-        panel.appearance = NSAppearance(named: .darkAqua)
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        panel.contentView = host
-        NSApp.windows.first { $0 !== panel && $0.frame.contains(NSPoint(x: anchor.midX, y: anchor.midY)) }?
-            .addChildWindow(panel, ordered: .above)
-        panel.makeKeyAndOrderFront(nil)
-        self.panel = panel
-        // Any click elsewhere closes it; clicks on the clock itself go to its toggle.
-        monitors = [
-            NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { _ in
-                MainActor.assumeIsolated { close() }
-            } as Any,
-            NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
-                if event.window !== panel, !anchor.contains(NSEvent.mouseLocation) { close() }
-                return event
-            } as Any,
-        ]
-    }
-
-    static func close() {
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors = []
-        panel?.parent?.removeChildWindow(panel!)
-        panel?.close()
-        panel = nil
-    }
-}
-
-/// Borderless panels refuse key status by default; the calendar takes it so Esc and arrow keys reach it.
-final class KeyPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-}
-
 struct CalendarView: View {
     let onClose: () -> Void
     @State private var month = Date()

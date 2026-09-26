@@ -26,7 +26,7 @@ struct BarView: View {
     let height: CGFloat
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
-    @State private var slot = ExpansionSlot()
+    let slot: ExpansionSlot
     @State private var menuMode = MenuMode()
 
     var body: some View {
@@ -65,36 +65,20 @@ struct BarView: View {
         }
     }
 
-    /// While a pill is expanded it pulls its inner neighbour into one piece of glass; they split again when it
-    /// collapses.
-    private func fusedIndices(_ widgets: [LiquidBarCore.Widget]) -> Set<Int> {
-        guard let owner = slot.owner,
-              let index = widgets.firstIndex(where: { $0.name == owner })
-        else { return [] }
-        let neighbour = index > 0 ? index - 1 : index + 1
-        return neighbour < widgets.count ? [index, neighbour] : []
-    }
-
     private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?) -> some View {
         let margin = model.config.margin
         return ZStack(alignment: alignment) {
             GlassEffectContainer(spacing: 4) {
-                let shown = widgets.filter(isShown)
-                let fused = fusedIndices(shown)
                 HStack(spacing: 6) {
-                    ForEach(Array(shown.enumerated()), id: \.element) { index, widget in
+                    ForEach(widgets.filter(isShown), id: \.self) { widget in
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, barHeight: height)
-                            .environment(\.fused, fused.contains(index))
-                            // Closing the gap brings the two capsules within the container's blending distance, so the
-                            // glass flows into one shape with a neck and snaps apart again as the gap reopens.
-                            .padding(.trailing, fused.contains(index) && fused.contains(index + 1) ? -6 : 0)
                     }
                 }
-                .animation(spring, value: fused)
+                .animation(spring, value: slot.owner)
                 .animation(spring, value: model.nowPlaying == nil)
             }
         }
-        // Islands get a finite width beside the notch, so an expanded pill's detail yields instead of overflowing.
+        // Islands get a finite width beside the notch.
         .padding(alignment == .leading ? .leading : .trailing, margin)
         .padding(alignment == .leading ? .trailing : .leading, 8)
         .frame(width: width, alignment: alignment)
@@ -113,23 +97,13 @@ extension View {
     }
 }
 
-extension EnvironmentValues {
-    /// Whether this pill is merged into its neighbour's glass right now.
-    @Entry var fused = false
-}
-
-/// The glint along a pill's top edge, fading out toward its middle. Fused pills are one piece of glass, which draws
-/// its own edge, so theirs step aside.
+/// The glint along a pill's top edge, fading out toward its middle.
 struct Specular: View {
-    @Environment(\.fused) private var fused
-
     var body: some View {
         Capsule()
             .strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.5), location: 0), .init(color: .white.opacity(0), location: 0.45),
                                                  .init(color: .white.opacity(0.1), location: 1)], startPoint: .top, endPoint: .bottom),
                           lineWidth: 0.5)
-            .opacity(fused ? 0 : 1)
-            .animation(fused ? nil : .easeOut(duration: 0.25).delay(0.15), value: fused)
             .allowsHitTesting(false)
     }
 }
@@ -183,26 +157,36 @@ struct WidgetView: View {
             .frame(height: pillHeight)
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
-                NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
-                    .pill(height: pillHeight, padding: 4)
-                    .transition(.scale(0.6).combined(with: .opacity))
+                MenuPill(id: widget.name, pulse: nowPlaying.trackID, height: pillHeight, padding: 4) {
+                    NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork)
+                }
+                .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
-            VolumePill(model: model)
-                .pill(height: pillHeight)
-                .onTapGesture { model.click(widget) }
+            MenuPill(id: widget.name, pulse: model.volume, height: pillHeight) {
+                Image(systemName: model.volume.symbol)
+                    .frame(width: 16)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            // Scroll changes the level in steps of 2.
+            .overlay { ScrollCatcher { model.nudgeVolume($0) } }
+            .onTapGesture { model.click(widget) }
         case .wifi:
-            NetworkPill(network: model.network)
-                .pill(height: pillHeight)
-                .onTapGesture { model.click(widget) }
+            MenuPill(id: widget.name, pulse: model.network.kind, height: pillHeight) {
+                Image(systemName: model.network.symbol)
+                    .frame(width: 16)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .onTapGesture { model.click(widget) }
         case .battery:
             if let battery = model.battery {
-                BatteryPill(battery: battery)
-                    .pill(height: pillHeight)
+                MenuPill(id: widget.name, pulse: battery.onAC, height: pillHeight) { BatteryLabel(battery: battery) }
                     .onTapGesture { model.click(widget) }
             }
         case .clock:
-            ClockPill(model: model, screenFrame: screenFrame, barHeight: barHeight)
+            // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
+            MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Text(clockText(model.now)) }
+                .onTapGesture { model.click(widget) }
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }

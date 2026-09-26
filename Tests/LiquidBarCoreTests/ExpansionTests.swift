@@ -23,11 +23,11 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
 
 @Test func leavingLingersThenCollapses() {
     let inputs = Inputs(left: .init("wifi", at(2)))
-    #expect(inputs.owner(now: at(2.5), current: "wifi").id == "wifi")
-    #expect(inputs.owner(now: at(2.5), current: "wifi").recheck == at(2.9))
-    #expect(inputs.owner(now: at(3), current: "wifi").id == nil)
+    #expect(inputs.owner(now: at(2.3), current: "wifi").id == "wifi")
+    #expect(inputs.owner(now: at(2.3), current: "wifi").recheck == at(2.5))
+    #expect(inputs.owner(now: at(2.6), current: "wifi").id == nil)
     // A pill that was never expanded does not linger.
-    #expect(inputs.owner(now: at(2.5), current: nil).id == nil)
+    #expect(inputs.owner(now: at(2.3), current: nil).id == nil)
 }
 
 @Test func reenteringTheExpandedPillSkipsIntent() {
@@ -42,4 +42,15 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     #expect(inputs.owner(now: at(1), current: "battery").recheck == at(2.2))
     #expect(inputs.owner(now: at(2.3), current: "volume").id == "battery")
     #expect(Inputs(pulse: .init("volume", at(2.2))).owner(now: at(2.3), current: "volume").id == nil)
+}
+
+@Test func theOpenDropdownHoldsItsItem() {
+    // The pointer crossed from the pill into its dropdown: the pill's exit and the dropdown's entry arrive in either
+    // order, and neither the linger nor a pulse elsewhere closes it.
+    let crossed = Inputs(left: .init("battery", at(5)), holding: true)
+    #expect(crossed.owner(now: at(9), current: "battery") == ("battery", nil))
+    let pulsed = Inputs(pulse: .init("volume", at(7)), holding: true)
+    #expect(pulsed.owner(now: at(6), current: "battery").id == "battery")
+    // Holding with nothing open opens nothing.
+    #expect(Inputs(holding: true).owner(now: at(6), current: nil).id == nil)
 }
