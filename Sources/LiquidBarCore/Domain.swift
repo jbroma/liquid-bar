@@ -223,6 +223,11 @@ public func longDateText(_ date: Date, timeZone: TimeZone = .current) -> String 
     format(date, "EEEE d MMMM", timeZone)
 }
 
+/// "Saturday 26 September 2026".
+public func fullDateText(_ date: Date, timeZone: TimeZone = .current) -> String {
+    format(date, "EEEE d MMMM y", timeZone)
+}
+
 private func format(_ date: Date, _ pattern: String, _ timeZone: TimeZone) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")

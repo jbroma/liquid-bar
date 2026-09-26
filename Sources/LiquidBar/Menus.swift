@@ -161,14 +161,6 @@ struct BatteryMenu: View {
     }
 }
 
-struct ClockMenu: View {
-    let now: Date
-
-    var body: some View {
-        MenuBody { MenuTitle(title: longDateText(now)) }
-    }
-}
-
 struct NowPlayingMenu: View {
     let nowPlaying: NowPlaying?
     let artwork: NSImage?

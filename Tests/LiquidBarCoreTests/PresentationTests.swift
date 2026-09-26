@@ -60,6 +60,7 @@ import Testing
     #expect(clockText(date, seconds: true, timeZone: utc) == "19:27:05")
     #expect(dateText(date, timeZone: utc) == "Fri 25 Sep")
     #expect(longDateText(date, timeZone: utc) == "Friday 25 September")
+    #expect(fullDateText(date, timeZone: utc) == "Friday 25 September 2026")
     #expect(dateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thu 28 May")
 }
 

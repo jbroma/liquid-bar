@@ -1,30 +1,31 @@
-import AppKit
 import LiquidBarCore
 import SwiftUI
 
-struct CalendarView: View {
-    let onClose: () -> Void
+/// The full date over a month grid with week numbers and today marked. Scroll or the chevrons change the month.
+struct ClockMenu: View {
+    let now: Date
     @State private var month = Date()
-    @State private var appeared = false
     private let calendar = Calendar.autoupdatingCurrent
 
     var body: some View {
         let days = monthGrid(for: month, calendar: calendar)
         let symbols = calendar.veryShortStandaloneWeekdaySymbols
         let weekdays = (0..<7).map { symbols[($0 + calendar.firstWeekday - 1) % 7] }
-        VStack(spacing: 10) {
-            HStack {
+        MenuBody {
+            MenuTitle(title: fullDateText(now))
+            MenuSeparator()
+            MenuRow {
                 Text(month.formatted(.dateTime.month(.wide).year()))
-                    .font(.system(size: 15, weight: .bold))
+                    .fontWeight(.semibold)
                     .contentTransition(.numericText())
                 Spacer()
-                Button { shift(-1) } label: { Image(systemName: "chevron.left") }
-                Button { month = Date() } label: { Circle().frame(width: 6, height: 6) }
-                    .help("Today")
-                Button { shift(1) } label: { Image(systemName: "chevron.right") }
+                HStack(spacing: 2) {
+                    MonthButton(symbol: "chevron.left") { shift(-1) }
+                    MonthButton(symbol: "circle.fill", size: 6) { withAnimation(spring) { month = Date() } }
+                        .help("Today")
+                    MonthButton(symbol: "chevron.right") { shift(1) }
+                }
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 13, weight: .semibold))
             Grid(horizontalSpacing: 2, verticalSpacing: 2) {
                 GridRow {
                     Text("").frame(width: 22)
@@ -32,8 +33,8 @@ struct CalendarView: View {
                         Text(symbol).frame(width: 30)
                     }
                 }
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color.barWhite.opacity(0.5))
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(secondary)
                 ForEach(0..<6, id: \.self) { row in
                     GridRow {
                         Text("\(calendar.component(.weekOfYear, from: days[row * 7]))")
@@ -46,34 +47,42 @@ struct CalendarView: View {
                     }
                 }
             }
+            .font(.system(size: 12, weight: .medium))
+            .monospacedDigit()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
         }
-        .font(.system(size: 12, weight: .semibold))
-        .monospacedDigit()
-        .foregroundStyle(Color.barWhite)
-        .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
         .overlay { ScrollCatcher(step: 30) { shift($0 > 0 ? -1 : 1) } }
-        .scaleEffect(appeared ? 1 : 0.92, anchor: .top)
-        .opacity(appeared ? 1 : 0)
-        .onAppear { withAnimation(spring) { appeared = true } }
-        .onKeyPress(.escape) { onClose(); return .handled }
-        .onKeyPress(.leftArrow) { shift(-1); return .handled }
-        .onKeyPress(.rightArrow) { shift(1); return .handled }
-        .focusable()
-        .focusEffectDisabled()
-        .padding(8)
     }
 
     private func dayCell(_ day: Date) -> some View {
         let today = calendar.isDateInToday(day)
         let inMonth = calendar.isDate(day, equalTo: month, toGranularity: .month)
         return Text("\(calendar.component(.day, from: day))")
-            .frame(width: 30, height: 26)
+            .fontWeight(today ? .bold : .medium)
+            .frame(width: 30, height: 24)
             .foregroundStyle(today ? Color.black : Color.barWhite.opacity(inMonth ? 1 : 0.3))
-            .background { if today { Capsule().fill(Color.barWhite) } }
+            .background { if today { Circle().fill(Color.barWhite).frame(width: 24, height: 24) } }
     }
 
     private func shift(_ months: Int) {
         withAnimation(spring) { month = calendar.date(byAdding: .month, value: months, to: month)! }
+    }
+}
+
+private struct MonthButton: View {
+    let symbol: String
+    var size: CGFloat = 11
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: size, weight: .semibold))
+            .frame(width: 24, height: 22)
+            .background { RoundedRectangle(cornerRadius: 6).fill(.white.opacity(hovering ? 0.12 : 0)) }
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+            .onTapGesture(perform: action)
     }
 }
