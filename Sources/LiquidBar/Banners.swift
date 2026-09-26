@@ -6,13 +6,14 @@ import ApplicationServices
 /// other windows are desktop widgets and stay put. Without Accessibility access it does nothing, and it attaches once
 /// access is granted.
 final class BannerWatcher {
-    let model: BarModel
+    private let onChange: (_ showing: Bool) -> Void
+    private var showing = false
     private var observer: AXObserver?
     private var banners: [AXUIElement] = []
     private static let bundleID = "com.apple.notificationcenterui"
 
-    init(model: BarModel) {
-        self.model = model
+    init(onChange: @escaping (_ showing: Bool) -> Void) {
+        self.onChange = onChange
         attach()
         // Posted system-wide whenever any app's Accessibility access changes.
         DistributedNotificationCenter.default().addObserver(forName: .init("com.apple.accessibility.api"), object: nil, queue: .main) { [weak self] _ in
@@ -71,24 +72,9 @@ final class BannerWatcher {
         AXObserverAddNotification(observer, window, kAXUIElementDestroyedNotification as CFString, Unmanaged.passUnretained(self).toOpaque())
     }
 
-    /// The union of the banner windows' frames, in top-left-origin screen points.
     private func publish() {
-        let frames = banners.compactMap(frame)
-        let union = frames.dropFirst().reduce(frames.first) { $0?.union($1) }
-        if union != model.banner { model.banner = union }
-    }
-
-    private func frame(_ element: AXUIElement) -> CGRect? {
-        var position: CFTypeRef?
-        var size: CFTypeRef?
-        var origin = CGPoint.zero
-        var extent = CGSize.zero
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position) == .success,
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size) == .success,
-              AXValueGetValue(position as! AXValue, .cgPoint, &origin),
-              AXValueGetValue(size as! AXValue, .cgSize, &extent),
-              extent.width > 0, extent.height > 0
-        else { return nil }
-        return CGRect(origin: origin, size: extent)
+        guard banners.isEmpty == showing else { return }
+        showing = !banners.isEmpty
+        onChange(showing)
     }
 }

@@ -49,7 +49,7 @@ Other targets:
 
 The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
 
-- **Accessibility** lets the bar show the front app's menus and step aside for notification banners. Clicking the focused workspace without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Accessibility** lets the bar show the front app's menus and keep notification banners whole. Clicking the focused workspace without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
 - **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 
 The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
@@ -115,7 +115,7 @@ A script object is the SketchyBar-style escape hatch:
 - One pill per bar is expanded at a time. Hovering expands a pill after 90 ms, so sweeping the pointer across the bar does not open every pill. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the pill for 2.2 s. A detail that does not fit beside the notch is left out.
 - The front app's menus: pushing the pointer into the top edge of the screen, or clicking the focused workspace, turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
 - The calendar opens below the clock: a month grid with week numbers and today highlighted. Scroll, the arrow keys, or the chevrons change the month. Esc or a click elsewhere closes it.
-- Notification banners: while one is on screen, the right-hand pills slide up out of its way and come back when it leaves. This needs Accessibility access.
+- Notification banners: macOS draws them below the menu bar's level and, with the menu bar hidden, 16 points from the top of the screen, inside the bar. While one is on screen the bar drops just below it, so the banner shows whole over the black. This needs Accessibility access; without it the bar cuts off the banner's top.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
 Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling and ticking seconds run only while their detail is visible.

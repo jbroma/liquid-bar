@@ -35,10 +35,6 @@ struct BarView: View {
             island(config.left, alignment: .leading, width: leftWidth)
             Spacer(minLength: 0)
             island(config.right, alignment: .trailing, width: rightWidth)
-                // A notification banner slides in right under the right island; step out of its way.
-                .offset(y: yielding ? -height : 0)
-                .opacity(yielding ? 0 : 1)
-                .animation(spring, value: yielding)
         }
         .font(.system(size: 12, weight: .semibold))
         .monospacedDigit()
@@ -59,11 +55,6 @@ struct BarView: View {
                 menuMode.hover(false)
             }
         }
-    }
-
-    private var yielding: Bool {
-        guard let banner = model.banner else { return false }
-        return banner.minX < screenFrame.maxX && banner.maxX > screenFrame.midX
     }
 
     private func isShown(_ widget: LiquidBarCore.Widget) -> Bool {
