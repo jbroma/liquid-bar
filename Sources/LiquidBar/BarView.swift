@@ -25,33 +25,20 @@ struct BarView: View {
     let screenFrame: CGRect
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
-    /// Height of the notch, 0 on a screen without one.
-    let notchHeight: CGFloat
-    /// macOS reveals the auto-hidden native menu bar under us when the pointer touches the top edge, and its status
-    /// items would show through the gaps between pills. The band covers it from then until the pointer leaves.
-    @State private var banded = false
     @State private var slot = ExpansionSlot()
     @State private var menuMode = MenuMode()
-    @State private var retract: Task<Void, Never>?
 
     var body: some View {
         let config = model.config
         let pillHeight = config.height - 6
-        ZStack {
-            NotchBand(
-                extended: banded,
-                notch: leftWidth.flatMap { left in rightWidth.map { left...(screenFrame.width - $0) } },
-                restingHeight: notchHeight
-            )
-            HStack(spacing: 0) {
-                island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
-                Spacer(minLength: 0)
-                island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
-                    // A notification banner slides in right under the right island; step out of its way.
-                    .offset(y: yielding ? -config.height : 0)
-                    .opacity(yielding ? 0 : 1)
-                    .animation(spring, value: yielding)
-            }
+        HStack(spacing: 0) {
+            island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
+            Spacer(minLength: 0)
+            island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
+                // A notification banner slides in right under the right island; step out of its way.
+                .offset(y: yielding ? -config.height : 0)
+                .opacity(yielding ? 0 : 1)
+                .animation(spring, value: yielding)
         }
         .font(.system(size: 13, weight: .semibold))
         .monospacedDigit()
@@ -64,22 +51,11 @@ struct BarView: View {
         .onContinuousHover { phase in
             switch phase {
             case .active(let location):
-                retract?.cancel()
                 menuMode.hover(true)
                 // Pushing into the top edge, where macOS reveals its menu bar, shows the front app's menus.
-                if !banded && location.y <= 3 {
-                    withAnimation(spring) { banded = true }
-                    if let app = model.frontApp { menuMode.show(app) }
-                }
+                if location.y <= 3, let app = model.frontApp { menuMode.show(app) }
             case .ended:
                 menuMode.hover(false)
-                guard banded else { return }
-                // The native bar lingers for a moment after the pointer leaves.
-                retract = Task {
-                    try? await Task.sleep(for: .seconds(0.7))
-                    guard !Task.isCancelled else { return }
-                    withAnimation(spring) { banded = false }
-                }
             }
         }
     }

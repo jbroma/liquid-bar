@@ -39,7 +39,7 @@ Other targets:
 
 	liquid-bar subscribes to AeroSpace itself and retries until AeroSpace is running, so it needs no startup hook.
 
-3. Keep the native menu bar on auto-hide (`defaults write NSGlobalDomain _HIHideMenuBar -bool true`). liquid-bar sits one level above the menu bar. When the pointer touches the top edge, macOS slides its menu bar in underneath, and a black band grows out of the notch to cover it until the pointer leaves.
+3. Keep the native menu bar on auto-hide (`defaults write NSGlobalDomain _HIHideMenuBar -bool true`). liquid-bar sits one level above the menu bar. When the pointer touches the top edge, the left side turns into the front app's menus.
 
 4. Run `make install`.
 
