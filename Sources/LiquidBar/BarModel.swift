@@ -22,6 +22,7 @@ final class BarModel {
     var frontApp: FrontApp?
     /// Other apps' status items, for the tray.
     var menuExtras: [MenuExtra<AXUIElement>] = []
+    let controls = Controls()
 
     func focus(_ workspace: String) {
         haptic()

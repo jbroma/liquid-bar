@@ -3,14 +3,14 @@ import SwiftUI
 
 /// The items that open a dropdown. A workspace's hangs left of the notch, the rest right of it.
 enum Dropdown: Hashable {
-    case nowPlaying, menuExtras, volume, wifi, battery, clock
+    case nowPlaying, menuExtras, volume, wifi, battery, controlCenter, clock
     case workspace(String)
 
     /// The item's id in the `ExpansionSlot`: its widget name, or "workspace:<id>".
     init?(owner: String) {
         if owner.hasPrefix("workspace:") {
             self = .workspace(String(owner.dropFirst("workspace:".count)))
-        } else if let item = [Dropdown.nowPlaying, .menuExtras, .volume, .wifi, .battery, .clock].first(where: { $0.owner == owner }) {
+        } else if let item = [Dropdown.nowPlaying, .menuExtras, .volume, .wifi, .battery, .controlCenter, .clock].first(where: { $0.owner == owner }) {
             self = item
         } else {
             return nil
@@ -30,6 +30,7 @@ enum Dropdown: Hashable {
 
     var width: CGFloat {
         switch self {
+        case .controlCenter: 320
         case .clock: 276
         case .nowPlaying: 280
         case .menuExtras: 240
@@ -111,6 +112,7 @@ struct DropdownView: View {
         case .volume: VolumeMenu(model: model)
         case .wifi: NetworkMenu(network: model.network)
         case .battery: BatteryMenu(battery: model.battery)
+        case .controlCenter: ControlCenterMenu(controls: model.controls)
         case .clock: ClockMenu(now: model.now)
         case .menuExtras: MenuExtrasMenu(model: model)
         case .workspace(let id): WorkspaceMenu(model: model, id: id)

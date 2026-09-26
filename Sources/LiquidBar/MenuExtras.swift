@@ -6,29 +6,6 @@ import LiquidBarCore
 /// Status items in the native menu bar, which the bar covers. Accessibility can still press them, and their menus
 /// and panels open above the bar.
 enum MenuExtras {
-    /// Opens or closes the real Control Center. Its menu extra only toggles, so the current state is read from its
-    /// panel window first.
-    static func setControlCenter(open: Bool, explainAt screenPoint: NSPoint) {
-        guard AXIsProcessTrusted() else {
-            if open { AppMenus.explainAccess("open Control Center", at: screenPoint) }
-            return
-        }
-        guard open != controlCenterIsOpen,
-              let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first,
-              let item = items(pid: app.processIdentifier).first(where: { AppMenus.string($0, "AXIdentifier") == "com.apple.menuextra.controlcenter" })
-        else { return }
-        press(item)
-    }
-
-    /// Control Center's panel is its only tall window; its status items are 30pt strips.
-    private static var controlCenterIsOpen: Bool {
-        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-        return windows.contains { window in
-            window[kCGWindowOwnerName as String] as? String == "Control Center"
-                && ((window[kCGWindowBounds as String] as? [String: Any])?["Height"] as? CGFloat ?? 0) > 100
-        }
-    }
-
     nonisolated static func items(pid: pid_t) -> [AXUIElement] {
         let app = AXUIElementCreateApplication(pid)
         // A busy app would otherwise stall the caller for AX's default 6s.

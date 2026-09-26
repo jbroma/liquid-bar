@@ -42,13 +42,6 @@ struct BarView: View {
         .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
-        .onChange(of: slot.owner) { _, new in
-            // Hovering Control Center opens the real one. Leaving it for its own panel must keep it open, so only
-            // hovering another item closes it; a click anywhere else closes it natively.
-            guard let new else { return }
-            MenuExtras.setControlCenter(open: new == Widget.controlCenter.name,
-                                        explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - height + 2))
-        }
         .frame(maxWidth: .infinity)
         .frame(height: height)
         .contentShape(Rectangle())
@@ -107,11 +100,12 @@ extension View {
 
 /// The glint along a pill's top edge, fading out toward its middle.
 struct Specular: View {
+    static let gradient = LinearGradient(stops: [.init(color: .white.opacity(0.5), location: 0), .init(color: .white.opacity(0), location: 0.45),
+                                                 .init(color: .white.opacity(0.1), location: 1)], startPoint: .top, endPoint: .bottom)
+
     var body: some View {
         Capsule()
-            .strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.5), location: 0), .init(color: .white.opacity(0), location: 0.45),
-                                                 .init(color: .white.opacity(0.1), location: 1)], startPoint: .top, endPoint: .bottom),
-                          lineWidth: 0.5)
+            .strokeBorder(Self.gradient, lineWidth: 0.5)
             .allowsHitTesting(false)
     }
 }
@@ -191,13 +185,8 @@ struct WidgetView: View {
                     .onTapGesture { model.click(widget) }
             }
         case .controlCenter:
-            // The real Control Center is this item's dropdown: owning the slot opens it (see BarView), and a click
-            // opens it too, without closing one that hover already opened.
             MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Image(systemName: "switch.2").frame(width: 16) }
-                .onTapGesture {
-                    haptic()
-                    MenuExtras.setControlCenter(open: true, explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - barHeight + 2))
-                }
+                .onTapGesture { model.click(widget) }
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Text(clockText(model.now)) }

@@ -121,7 +121,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
-    /// A click lands where the real pointer is, so warp there first. "drag x y x2" drags horizontally from x to x2.
+    /// A click lands where the real pointer is, so warp there first. "drag x y x2" drags horizontally from x to x2,
+    /// and "down x y" / "up x y" send half a click, to hold a control pressed.
     /// "tick" advances the clock a minute, "banner on|off" stands in for a notification banner, and
     /// "hover <item> on|off" stands in for the pointer entering or leaving an item.
     func installDebugInput() {
@@ -157,6 +158,8 @@ extension AppDelegate {
                     return
                 }
                 var steps: [(NSEvent.EventType, CGFloat)] = [(.leftMouseDown, local.x), (.leftMouseUp, local.x)]
+                if parts[0] == "down" { steps = [(.leftMouseDown, local.x)] }
+                if parts[0] == "up" { steps = [(.leftMouseUp, local.x)] }
                 if parts[0] == "drag", parts.count == 4, let x2 = Double(parts[3]) {
                     let end: CGFloat = local.x + CGFloat(x2 - x)
                     let drags: [(NSEvent.EventType, CGFloat)] = (1...8).map { (.leftMouseDragged, local.x + (end - local.x) * CGFloat($0) / 8) }
