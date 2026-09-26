@@ -58,7 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func makePanel(for screen: NSScreen) -> NSPanel {
         // On a notched screen the bar is exactly the notch's height, so the notch reads as part of the black bar.
-        let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top : model.config.height
+        // The native menu bar is one point taller than the notch (33 vs 32); cover all of it. On black the extra
+        // point below the notch is invisible.
+        let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top + 1 : model.config.height
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         // Above the auto-hidden native menu bar, which slides in at .mainMenu level on hover.
