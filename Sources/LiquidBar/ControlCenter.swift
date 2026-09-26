@@ -8,10 +8,15 @@ import SwiftUI
 final class Controls {
     private(set) var state = ControlState()
     @ObservationIgnored private var readingBluetooth: Task<Void, Never>?
+    /// What the last toggle set Focus to. Its status item leaves the menu bar about 5s after Focus ends, so for a
+    /// while this wins over it.
+    @ObservationIgnored private var focusSet: (on: Bool, time: Date)?
+    @ObservationIgnored private var togglingFocus = false
 
     func refresh() {
+        let focus = focusSet.flatMap { $0.time.timeIntervalSinceNow > -8 ? $0.on : nil } ?? SystemControlCenter.focusIsOn()
         let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), bluetooth: state.bluetooth,
-                                devices: state.devices, airDrop: AirDrop.mode(), darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
+                                devices: state.devices, focus: focus, airDrop: AirDrop.mode(), darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
         if next != state { state = next }
         // Until it lands, the tile shows what the last read found.
         guard readingBluetooth == nil else { return }
@@ -59,7 +64,16 @@ final class Controls {
             Bluetooth.setOn(!on)
             refresh(after: .seconds(1.5))
         case .focus:
-            break
+            guard let on = state.focus else { return openSettings("com.apple.Focus-Settings.extension") }
+            // A toggle drives Control Center for about 3s; a second click meanwhile would press into the same panel.
+            guard !togglingFocus else { return }
+            togglingFocus = true
+            state.focus = !on
+            Task {
+                if let now = await Task.detached(operation: { SystemControlCenter.toggleFocus() }).value { focusSet = (now, Date()) }
+                togglingFocus = false
+                refresh()
+            }
         }
     }
 

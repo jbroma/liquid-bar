@@ -154,16 +154,83 @@ enum NightShift {
     }
 }
 
-/// The real Control Center's status items, pressed through Accessibility.
+/// The real Control Center, through Accessibility: its status items, and its panel for the one control with no API.
 enum SystemControlCenter {
-    static let controlCenter = "com.apple.menuextra.controlcenter"
+    nonisolated static let controlCenter = "com.apple.menuextra.controlcenter"
     static let screenMirroring = "com.apple.menuextra.screen-mirroring"
+    /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
+    static let focus = "com.apple.menuextra.focusmode"
 
     /// Control Center's status items by identifier, empty without Accessibility access.
     nonisolated static func extras() -> [String: AXUIElement] {
         guard AXIsProcessTrusted(), let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
         else { return [:] }
         return Dictionary(MenuExtras.items(pid: pid).compactMap { item in AppMenus.string(item, "AXIdentifier").map { ($0, item) } }) { first, _ in first }
+    }
+
+    /// Whether a Focus is on, read from its status item. Nil without Accessibility access. The Focus database itself
+    /// needs Full Disk Access, and the DoNotDisturb framework refuses clients without Apple's entitlement.
+    static func focusIsOn() -> Bool? {
+        let items = extras()
+        return items.isEmpty ? nil : items[focus] != nil
+    }
+
+    /// Turns the active Focus off, or Do Not Disturb on, by pressing through Control Center's Focus module; nothing
+    /// else can switch Focus. Control Center opens for a moment. It blocks until Control Center has closed again, and
+    /// returns whether a Focus is on now, or nil when Control Center did not show its Focus module.
+    nonisolated static func toggleFocus() -> Bool? {
+        guard let item = extras()[controlCenter], let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
+        else { return nil }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        close(app, item)
+        // The status item keeps its own idea of whether the panel is open, which drifts when the panel closes by
+        // itself; then the first press only resets it.
+        for _ in 0..<2 where windows(app).isEmpty {
+            AXUIElementPerformAction(item, kAXPressAction as CFString)
+            for _ in 0..<40 where windows(app).isEmpty { usleep(10_000) }
+        }
+        defer { close(app, item) }
+        func isMode(_ element: AXUIElement) -> Bool { AppMenus.string(element, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
+        if let module = waitFor(app, { isMode($0) || AppMenus.string($0, "AXIdentifier") == "controlcenter-focus-modes" }).first, !isMode(module) {
+            AXUIElementPerformAction(module, kAXPressAction as CFString)
+        }
+        let modes = waitFor(app, isMode)
+        let active = modes.first { AppMenus.attribute($0, kAXValueAttribute) as? Int == 1 }
+        let target = active ?? modes.first { AppMenus.string($0, "AXIdentifier")?.hasSuffix(".donotdisturb.mode.default") == true }
+        guard let target else { return nil }
+        AXUIElementPerformAction(target, kAXPressAction as CFString)
+        return active == nil
+    }
+
+    private nonisolated static func windows(_ app: AXUIElement) -> [AXUIElement] {
+        AppMenus.attribute(app, kAXWindowsAttribute) as? [AXUIElement] ?? []
+    }
+
+    /// The panel's controls, which sit in its window's hosting view.
+    private nonisolated static func controls(_ app: AXUIElement) -> [AXUIElement] {
+        windows(app).flatMap { AppMenus.children($0).flatMap(AppMenus.children) }
+    }
+
+    /// The panel's controls matching `match`, once they appear, within 1.5s.
+    private nonisolated static func waitFor(_ app: AXUIElement, _ match: (AXUIElement) -> Bool) -> [AXUIElement] {
+        for _ in 0..<150 {
+            let found = controls(app).filter(match)
+            if !found.isEmpty { return found }
+            usleep(10_000)
+        }
+        return []
+    }
+
+    /// Presses the status item until the panel is gone. From a module's detail view a press goes back to the main
+    /// view, and the panel takes a moment to close, so each press waits for one or the other before the next.
+    private nonisolated static func close(_ app: AXUIElement, _ item: AXUIElement) {
+        func mainView() -> Bool { controls(app).contains { AppMenus.string($0, "AXIdentifier") == "controlcenter-focus-modes" } }
+        for _ in 0..<3 where !windows(app).isEmpty {
+            let fromDetail = !mainView()
+            AXUIElementPerformAction(item, kAXPressAction as CFString)
+            for _ in 0..<100 where !windows(app).isEmpty && !(fromDetail && mainView()) { usleep(10_000) }
+        }
     }
 
     /// Opens the status item's own panel or menu. False when there is no such item or no Accessibility access.
