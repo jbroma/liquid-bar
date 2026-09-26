@@ -79,9 +79,14 @@ static float3 tintAt(float2 p, constant Header &u, constant float4 *beads, const
     return sum / weight;
 }
 
-static float roundRect(float2 p, float2 extent, float r) {
-    float2 q = abs(p) - extent + r;
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+// Where p sits along the nearest bead, -1 at its left end to 1 at its right.
+static float alongBead(float2 p, constant Header &u, constant float4 *beads) {
+    float best = 1e5, along = 0;
+    for (int i = 0; i < u.beads; i++) {
+        float d = capsule(p, beads[i]);
+        if (d < best) { best = d; along = clamp((p.x - beads[i].x) / max(beads[i].z, 1.0), -1.0, 1.0); }
+    }
+    return along;
 }
 
 fragment float4 ferroFragment(VOut in [[stage_in]], constant Header &u [[buffer(0)]], constant float4 *beads [[buffer(1)]],
@@ -101,40 +106,60 @@ fragment float4 ferroFragment(VOut in [[stage_in]], constant Header &u [[buffer(
     float2 g = float2(field(p + float2(h, 0), u, beads, spikes) - field(p - float2(h, 0), u, beads, spikes),
                       field(p + float2(0, h), u, beads, spikes) - field(p - float2(0, h), u, beads, spikes));
     float2 outward = length(g) > 0.0001 ? normalize(g) : float2(0, -1);
-    float radius = 12.5;
+    // The dome is as deep as the fluid is thick here, measured inward and crosswise, so a thin spike, even seen end
+    // on, gets a centre line facing the viewer like a bead does instead of being all mirror rim.
+    float2 across = float2(-outward.y, outward.x);
+    float inward = 25, sideA = 25, sideB = 25;
+    for (int i = 8; i >= 1; i--) {
+        float t = 1.6 * i;
+        if (field(p - outward * t, u, beads, spikes) > 0) inward = t;
+        if (field(p + across * t, u, beads, spikes) > 0) sideA = t;
+        if (field(p - across * t, u, beads, spikes) > 0) sideB = t;
+    }
+    float radius = clamp(0.5 * min(inward, sideA + sideB), 1.5, 12.5);
     float x = clamp(-d / radius, 0.0, 1.0);
     float slope = min((1 - x) / max(sqrt(1 - (1 - x) * (1 - x)), 0.03), 30.0) * 1.3;
     float3 n = normalize(float3(outward * slope, 1));
-    float3 v = float3(0, 0, 1);
-    float3 r = 2 * n.z * n - v;
-
+    // Screen y points down, so a surface facing up has negative n.y.
+    float up = -n.y;
     // Black oil reflects like a dielectric: little facing the viewer, a mirror toward the silhouette.
-    float fresnel = 0.05 + 0.95 * pow(1 - n.z, 2.6);
+    float fresnel = 0.03 + 0.97 * pow(1 - n.z, 3.0);
 
-    // The environment is the wallpaper around and above the bar, bent by the surface and blurred where it is flat.
-    float3 world = u.tint.rgb * 0.4;
+    // Mercury reflects the room, not the point behind it: the rim facing up shows the wallpaper above the bar, the
+    // rim facing down a dim floor, split by a crisp horizon. Sharp at the silhouette, blurred where it faces us.
+    float3 sky = u.tint.rgb * 0.5;
     if (u.hasEnv != 0) {
-        float2 uv = u.envOrigin + p * u.envScale + r.xy * float2(0.14, 0.12);
-        world = env.sample(mirror, uv, level(1.0 + 3.5 * n.z)).rgb;
+        float2 uv = u.envOrigin + (p + n.xy * 40.0) * u.envScale;
+        sky = env.sample(mirror, uv, level(0.8 + 3.5 * n.z)).rgb;
     }
-    // The room is brighter above than below.
-    float up = clamp(0.5 - r.y * 0.5, 0.0, 1.0);
-    world = world * (0.35 + 1.1 * up) + 0.05 * up * up;
+    float horizon = smoothstep(-0.14, 0.0, up);
+    float3 world = mix(sky * 0.14, sky * (0.95 + 0.4 * up), horizon);
+    // The content's colour glints in the floor reflection just under the horizon, never as a fill.
     float3 light = tintAt(p, u, beads, tints);
+    float glint = exp(-pow((up + 0.3) / 0.14, 2.0));
+    world += light * glint * 0.8;
 
-    // A small softbox up and to the left: it lands only on the upper left of the rounded end, as a crisp window.
-    float box = 1 - smoothstep(-0.05, 0.1, roundRect(r.xy - float2(-0.62, -0.52), float2(0.22, 0.1), 0.1));
-    // The vessel's front glass lies over the fluid: a faint sheen across its upper half and a bright hairline where
-    // the glass wall curves away at the top, both over the black only.
+    // One softbox up and to the left: a soft window across the upper left of each bead, as a light of finite size
+    // lands on a capsule seen from nearby.
+    float along = alongBead(p, u, beads);
+    float box = smoothstep(0.4, 0.5, up) * (1 - smoothstep(0.68, 0.78, up))
+              * smoothstep(-1.0, -0.7, along) * (1 - smoothstep(-0.25, 0.35, along));
+    // Thin crisp arcs where the surface curves fastest: a ring just inside the silhouette of the rounded ends, lit on
+    // the upper left and, fainter, the lower right, like the rim of Liquid Glass.
+    float ring = exp(-pow((n.z - 0.35) / 0.1, 2.0));
+    float spec = ring * (smoothstep(0.85, 0.98, dot(outward, float2(-0.8, -0.6)))
+                         + 0.4 * smoothstep(0.85, 0.98, dot(outward, float2(0.8, 0.6))));
+
+    // The vessel's front glass lies over the fluid: its bright hairline where the wall curves away at the top shows
+    // over the black.
     float fromTop = (p.y - u.inset) / (u.size.y - 2 * u.inset);
-    float sheen = 0.05 * (1 - smoothstep(0.0, 0.55, fromTop));
-    float hairline = 0.22 * exp(-abs(wall(p, u) + 0.8) * 2.2) * (1 - smoothstep(0.2, 0.5, fromTop));
+    float hairline = 0.16 * exp(-abs(wall(p, u) + 0.8) * 2.4) * (1 - smoothstep(0.15, 0.4, fromTop));
 
-    float3 color = float3(0.004, 0.004, 0.006) * (1 - fresnel)
+    float3 color = float3(0.003, 0.003, 0.004) * (1 - fresnel)
                  + world * fresnel
-                 + light * fresnel * 0.22
-                 + float3(box * 0.32)
-                 + float3(sheen + hairline);
+                 + float3(box * 0.16)
+                 + float3(spec * 0.7)
+                 + float3(hairline);
     // Ordered dither keeps the dark gradients from banding.
     uint2 pix = uint2(in.position.xy) % 4;
     const float bayer[16] = {0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5};
