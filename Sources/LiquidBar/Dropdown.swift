@@ -1,27 +1,53 @@
 import LiquidBarCore
 import SwiftUI
 
-/// The items that open a dropdown, keyed by their widget name.
-enum Dropdown: String {
+/// The items that open a dropdown. A workspace's hangs left of the notch, the rest right of it.
+enum Dropdown: Hashable {
     case nowPlaying, menuExtras, volume, wifi, battery, clock
+    case workspace(String)
+
+    /// The item's id in the `ExpansionSlot`: its widget name, or "workspace:<id>".
+    init?(owner: String) {
+        if owner.hasPrefix("workspace:") {
+            self = .workspace(String(owner.dropFirst("workspace:".count)))
+        } else if let item = [Dropdown.nowPlaying, .menuExtras, .volume, .wifi, .battery, .clock].first(where: { $0.owner == owner }) {
+            self = item
+        } else {
+            return nil
+        }
+    }
+
+    var owner: String {
+        switch self {
+        case .workspace(let id): "workspace:\(id)"
+        default: "\(self)"
+        }
+    }
+
+    var isLeft: Bool {
+        if case .workspace = self { true } else { false }
+    }
 
     var width: CGFloat {
         switch self {
         case .clock: 276
         case .nowPlaying: 280
         case .menuExtras: 240
+        case .workspace: 220
         default: 264
         }
     }
 }
 
 /// The black menu that flows down out of the bar under the open item: one shape with the bar, joined by concave
-/// fillets. It lives in its own transparent window below the bar, whose clear pixels pass the pointer through.
-/// Moving to another item morphs it there; its content cross-fades.
+/// fillets. Each side of the notch has its own transparent window below the bar, whose clear pixels pass the pointer
+/// through, and shows only its side's dropdowns. Moving to another item morphs it there; its content cross-fades.
 struct DropdownView: View {
     let model: BarModel
     /// This window's left edge in the bar window's coordinates.
     let originX: CGFloat
+    /// This window is left of the notch, with the screen edge on its left.
+    let left: Bool
     @Environment(ExpansionSlot.self) private var slot
     @State private var heights: [Dropdown: CGFloat] = [:]
     /// The pill the dropdown last hung from, where it shrinks back into while closing.
@@ -37,8 +63,8 @@ struct DropdownView: View {
     }
 
     var body: some View {
-        let open = slot.owner.flatMap(Dropdown.init(rawValue:))
-        let pill = open.flatMap { slot.frames[$0.rawValue] } ?? anchor
+        let open = slot.owner.flatMap(Dropdown.init(owner:)).flatMap { $0.isLeft == left && hasContent($0) ? $0 : nil }
+        let pill = open.flatMap { slot.frames[$0.owner] } ?? anchor
         GeometryReader { proxy in
             let geometry = geometry(open, pill: pill, panelWidth: proxy.size.width)
             let shape = DropdownShape(fillet: Self.fillet, corner: Self.corner)
@@ -68,10 +94,15 @@ struct DropdownView: View {
         .onChange(of: pill) { if open != nil { anchor = pill } }
     }
 
+    /// A workspace with one app or none has nothing to list.
+    private func hasContent(_ dropdown: Dropdown) -> Bool {
+        if case .workspace(let id) = dropdown { model.workspaces.apps(on: id).count > 1 } else { true }
+    }
+
     private func geometry(_ open: Dropdown?, pill: CGRect, panelWidth: CGFloat) -> Geometry {
         guard let open, let height = heights[open] else { return Geometry(x: pill.minX - originX, width: pill.width, height: 0) }
-        // Clear of the notch on the left, and a few points in from the screen edge on the right.
-        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: Self.fillet, upper: panelWidth - Self.fillet - 4)
+        // Clear of the notch, and a few points in from the screen edge.
+        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: Self.fillet + (left ? 4 : 0), upper: panelWidth - Self.fillet - (left ? 0 : 4))
         return Geometry(x: x, width: open.width, height: height)
     }
 
@@ -82,6 +113,7 @@ struct DropdownView: View {
         case .battery: BatteryMenu(battery: model.battery)
         case .clock: ClockMenu(now: model.now)
         case .menuExtras: MenuExtrasMenu(model: model)
+        case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
         }
     }
@@ -213,5 +245,32 @@ struct SettingsButton: View {
 
     var body: some View {
         MenuButton { shell("open 'x-apple.systempreferences:\(pane)'") } content: { Text(title) }
+    }
+}
+
+/// A workspace's apps, the most recent first and the one holding the focused window marked. A click focuses that
+/// app's window there and closes the menu, before the rows reorder under the pointer.
+struct WorkspaceMenu: View {
+    let model: BarModel
+    let id: String
+    @Environment(ExpansionSlot.self) private var slot
+
+    var body: some View {
+        MenuBody {
+            MenuTitle(title: "Workspace \(id)")
+            ForEach(model.workspaces.apps(on: id), id: \.bundleID) { app in
+                MenuButton {
+                    slot.dismiss()
+                    model.focus(window: app.windowID, on: id)
+                } content: {
+                    Image(nsImage: AppIcons.icon(app.bundleID))
+                        .resizable()
+                        .frame(width: 18, height: 18)
+                    Text(AppIcons.name(app.bundleID)).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if app.focused { Circle().fill(Color.barWhite).frame(width: 6, height: 6) }
+                }
+            }
+        }
     }
 }

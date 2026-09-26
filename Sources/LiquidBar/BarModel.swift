@@ -29,6 +29,13 @@ final class BarModel {
         Task { _ = await run(["aerospace", "workspace", workspace]) }
     }
 
+    /// `aerospace focus` switches to the window's workspace by itself.
+    func focus(window: Int, on workspace: String) {
+        haptic()
+        workspaces.focused = workspace
+        Task { _ = await run(["aerospace", "focus", "--window-id", String(window)]) }
+    }
+
     func scrollWorkspaces(_ steps: Int) {
         if let target = workspaces.neighbor(steps, in: config.workspaces.map(\.id)), target != workspaces.focused {
             focus(target)

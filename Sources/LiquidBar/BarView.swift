@@ -330,7 +330,7 @@ struct WorkspaceStrip: View {
         .onChange(of: focusedFrame) { old, new in
             guard let new else { return }
             guard let old, abs(old.midX - new.midX) > 1 else {
-                // Same workspace growing or shrinking (its icons fanned out): both edges together.
+                // Same workspace growing or shrinking (its first window arrived or its last left): both edges together.
                 return withAnimation(old == nil ? nil : spring) { (lead, trail) = (new.minX, new.maxX) }
             }
             // A droplet: the edge in the direction of travel leaves first, the other follows 80ms later.
@@ -345,23 +345,23 @@ struct WorkspaceStrip: View {
     }
 }
 
-/// A workspace shows the icon of its most recently used app, or its number when it has no windows. Hover fans out
-/// the icons of all its apps; a window arriving or leaving fans them out for a moment.
+/// A workspace shows the icon of its most recently used app, or its number when it has no windows. It never changes
+/// width on hover, so the strip never shifts under the pointer; its apps show in a dropdown instead.
 struct WorkspaceButton: View {
     let id: String
-    let apps: [String]
+    let apps: [WorkspaceApp]
     let focused: Bool
     let height: CGFloat
     let action: () -> Void
 
     var body: some View {
-        LivePill(id: "workspace:\(id)", pulse: Set(apps), gap: 0) { expanded in
+        LivePill(id: "workspace:\(id)", pulse: 0, gap: 0) { _ in
             HStack(spacing: 4) {
                 Text(id)
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : apps.isEmpty ? 0.35 : 0.6))
-                ForEach(apps.prefix(expanded ? 8 : 1), id: \.self) { app in
-                    Image(nsImage: AppIcons.icon(app))
+                if let app = apps.first {
+                    Image(nsImage: AppIcons.icon(app.bundleID))
                         .resizable()
                         .frame(width: 16, height: 16)
                         .transition(.scale(0.5).combined(with: .opacity))
@@ -403,5 +403,10 @@ enum AppIcons {
             .map { NSWorkspace.shared.icon(forFile: $0.path) } ?? NSWorkspace.shared.icon(for: .application)
         cache[bundleID] = icon
         return icon
+    }
+
+    /// The running app's name, like "WezTerm".
+    static func name(_ bundleID: String) -> String {
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName ?? bundleID
     }
 }

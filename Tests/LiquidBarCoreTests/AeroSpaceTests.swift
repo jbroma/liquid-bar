@@ -35,21 +35,40 @@ private let listing = """
     var state = WorkspaceState()
     state.setWindows(windows)
     #expect(state.occupied == ["1", "2", "4", "6", "8"])
-    #expect(state.apps(on: "4") == ["com.apple.MobileSMS", "com.example.editor"])
-    #expect(state.apps(on: "3") == [])
+    #expect(state.apps(on: "4").map(\.bundleID) == ["com.apple.MobileSMS", "com.example.editor"])
+    #expect(state.apps(on: "3").map(\.bundleID) == [])
 }
 
 @Test func mostRecentlyFocusedAppComesFirst() {
     var state = WorkspaceState()
     state.setWindows(parseWindows(listing))
     #expect(state.apply(.focusChanged(workspace: "4", windowID: 121)) == true)
-    #expect(state.apps(on: "4") == ["com.example.editor", "com.apple.MobileSMS"])
+    #expect(state.apps(on: "4").map(\.bundleID) == ["com.example.editor", "com.apple.MobileSMS"])
     _ = state.apply(.focusChanged(workspace: "4", windowID: 122))
-    #expect(state.apps(on: "4") == ["com.apple.MobileSMS", "com.example.editor"])
+    #expect(state.apps(on: "4").map(\.bundleID) == ["com.apple.MobileSMS", "com.example.editor"])
     #expect(state.recency == [122, 121])
     state.setWindows(parseWindows("4|121|com.example.editor\n"))
     #expect(state.recency == [121])
     #expect(state.focused == "4")
+}
+
+@Test func workspaceRowsCarryTheWindowToFocusAndMarkTheFocusedApp() {
+    var state = WorkspaceState()
+    state.setWindows(parseWindows(listing))
+    #expect(state.apps(on: "4") == [
+        WorkspaceApp(bundleID: "com.apple.MobileSMS", windowID: 120, focused: false),
+        WorkspaceApp(bundleID: "com.example.editor", windowID: 121, focused: false),
+    ])
+    _ = state.apply(.focusChanged(workspace: "4", windowID: 121))
+    _ = state.apply(.focusChanged(workspace: "4", windowID: 122))
+    #expect(state.apps(on: "4") == [
+        WorkspaceApp(bundleID: "com.apple.MobileSMS", windowID: 122, focused: true),
+        WorkspaceApp(bundleID: "com.example.editor", windowID: 121, focused: false),
+    ])
+    // On another, empty workspace the last focused window keeps its rank but is no longer the focused one.
+    _ = state.apply(.workspaceChanged("3"))
+    #expect(state.apps(on: "4").map(\.focused) == [false, false])
+    #expect(state.apps(on: "4").map(\.windowID) == [122, 121])
 }
 
 @Test func eventsUpdateFocusAndMode() {

@@ -46,6 +46,21 @@ public func parseWindows(_ output: String) -> [Window] {
     }
 }
 
+/// One app on a workspace, as its dropdown lists it.
+public struct WorkspaceApp: Equatable, Sendable {
+    public var bundleID: String
+    /// The app's most recently focused window on the workspace, which a click focuses.
+    public var windowID: Int
+    /// It holds the focused window.
+    public var focused: Bool
+
+    public init(bundleID: String, windowID: Int, focused: Bool) {
+        self.bundleID = bundleID
+        self.windowID = windowID
+        self.focused = focused
+    }
+}
+
 extension WorkspaceState {
     /// Applies an event and returns whether the window list must be re-read.
     public mutating func apply(_ event: AeroEvent) -> Bool {
@@ -74,15 +89,16 @@ extension WorkspaceState {
 
     public var occupied: Set<String> { Set(windows.map(\.workspace)) }
 
-    /// Bundle IDs of the apps on `workspace`, the app of its most recently focused window first.
-    public func apps(on workspace: String) -> [String] {
+    /// The apps on `workspace`, the app of its most recently focused window first, each with that window.
+    public func apps(on workspace: String) -> [WorkspaceApp] {
         let rank = Dictionary(uniqueKeysWithValues: recency.enumerated().map { ($1, $0) })
         var seen = Set<String>()
         return windows.enumerated()
             .filter { $0.element.workspace == workspace }
             .sorted { (rank[$0.element.id] ?? Int.max, $0.offset) < (rank[$1.element.id] ?? Int.max, $1.offset) }
-            .map(\.element.bundleID)
-            .filter { seen.insert($0).inserted }
+            .map(\.element)
+            .filter { seen.insert($0.bundleID).inserted }
+            .map { WorkspaceApp(bundleID: $0.bundleID, windowID: $0.id, focused: workspace == focused && $0.id == recency.first) }
     }
 
     /// The workspace `steps` away from the focused one, among those with windows plus the focused one, in

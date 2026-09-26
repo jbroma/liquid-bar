@@ -81,18 +81,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             rightWidth: screen.auxiliaryTopRightArea?.width,
             slot: slot
         ).environment(slot))
-        // The dropdown's window spans the right of the notch below the bar, tall enough for the tallest menu. Its clear
+        // One dropdown window on each side of the notch below the bar, tall enough for the tallest menu. Their clear
         // pixels let the pointer through, as long as `ignoresMouseEvents` is never set.
-        let originX = screen.auxiliaryTopRightArea.map { screen.frame.width - $0.width } ?? screen.frame.width / 2
-        let dropdownHeight: CGFloat = 520
-        let dropdown = panel(
-            NSRect(x: screen.frame.minX + originX, y: frame.minY - dropdownHeight, width: screen.frame.width - originX, height: dropdownHeight),
-            background: .clear,
-            root: DropdownView(model: model, originX: originX).environment(slot)
-        )
-        dropdown.becomesKeyOnlyIfNeeded = true
-        bar.addChildWindow(dropdown, ordered: .above)
-        return [bar, dropdown]
+        let rightX = screen.auxiliaryTopRightArea.map { screen.frame.width - $0.width } ?? screen.frame.width / 2
+        let leftWidth = screen.auxiliaryTopLeftArea?.width ?? screen.frame.width / 2
+        let dropdowns = [(0, leftWidth, true), (rightX, screen.frame.width - rightX, false)].map { originX, width, left in
+            let height: CGFloat = 520
+            let dropdown = panel(
+                NSRect(x: screen.frame.minX + originX, y: frame.minY - height, width: width, height: height),
+                background: .clear,
+                root: DropdownView(model: model, originX: originX, left: left).environment(slot)
+            )
+            dropdown.becomesKeyOnlyIfNeeded = true
+            bar.addChildWindow(dropdown, ordered: .above)
+            return dropdown
+        }
+        return [bar] + dropdowns
     }
 
     private func panel(_ frame: NSRect, background: NSColor, root: some View) -> NSPanel {
