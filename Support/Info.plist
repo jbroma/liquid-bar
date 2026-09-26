@@ -18,6 +18,8 @@
 	<string>26.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>LiquidBar lists your Bluetooth devices in its Control Center, connects and disconnects them, and switches Bluetooth on and off.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>LiquidBar asks Spotify and Music what is playing and sends them play, pause and skip, and asks loginwindow to show the Restart, Shut Down and Log Out dialogs.</string>
 </dict>

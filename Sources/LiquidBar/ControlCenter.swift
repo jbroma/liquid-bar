@@ -7,11 +7,19 @@ import SwiftUI
 @Observable
 final class Controls {
     private(set) var state = ControlState()
+    @ObservationIgnored private var readingBluetooth: Task<Void, Never>?
 
     func refresh() {
-        let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), airDrop: AirDrop.mode(),
-                                darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
+        let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), bluetooth: state.bluetooth,
+                                devices: state.devices, airDrop: AirDrop.mode(), darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
         if next != state { state = next }
+        // Until it lands, the tile shows what the last read found.
+        guard readingBluetooth == nil else { return }
+        readingBluetooth = Task {
+            let (on, devices) = await Bluetooth.read()
+            if on != state.bluetooth || devices != state.devices { (state.bluetooth, state.devices) = (on, devices) }
+            readingBluetooth = nil
+        }
     }
 
     func setBrightness(_ level: Int) {
@@ -45,8 +53,29 @@ final class Controls {
             guard let on = state.nightShift else { return openSettings("com.apple.Displays-Settings.extension") }
             state.nightShift = !on
             NightShift.setOn(!on)
-        case .bluetooth, .focus:
+        case .bluetooth:
+            guard let on = state.bluetooth, Bluetooth.canSwitch else { return openSettings("com.apple.BluetoothSettings") }
+            state.bluetooth = !on
+            Bluetooth.setOn(!on)
+            refresh(after: .seconds(1.5))
+        case .focus:
             break
+        }
+    }
+
+    func toggle(_ device: BluetoothDevice) {
+        haptic()
+        Task {
+            await Bluetooth.toggle(device.id)
+            refresh()
+        }
+    }
+
+    /// Reads again once a change the system makes in the background has landed.
+    private func refresh(after delay: Duration) {
+        Task {
+            try? await Task.sleep(for: delay)
+            refresh()
         }
     }
 
@@ -63,7 +92,7 @@ func openSettings(_ pane: String) {
 }
 
 /// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: wide tiles with a status
-/// line, round tiles, the brightness sliders, and a way into the real one.
+/// line, round tiles, the brightness sliders, the paired Bluetooth devices, and a way into the real one.
 struct ControlCenterMenu: View {
     let controls: Controls
     @Environment(ExpansionSlot.self) private var slot
@@ -98,6 +127,18 @@ struct ControlCenterMenu: View {
             if let keyboard = state.keyboard {
                 MenuSection(title: "Keyboard Brightness")
                 MenuRow { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", set: controls.setKeyboard) }
+            }
+            if !state.devices.isEmpty {
+                MenuSeparator()
+                MenuSection(title: "Bluetooth Devices")
+                ForEach(state.devices) { device in
+                    MenuButton { controls.toggle(device) } content: {
+                        DeviceIcon(symbol: device.symbol, selected: device.connected)
+                        Text(device.name).lineLimit(1)
+                        Spacer(minLength: 8)
+                        if let battery = device.battery { Text("\(battery)%").foregroundStyle(secondary).monospacedDigit() }
+                    }
+                }
             }
             MenuSeparator()
             MenuButton {

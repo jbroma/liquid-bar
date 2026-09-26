@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import IOBluetooth
 import LiquidBarCore
 
 // One boundary per subsystem behind the Control Center dropdown. Each reads nil and does nothing when this macOS
@@ -66,6 +67,53 @@ enum KeyboardBrightness {
     static func write(_ value: Double) {
         guard let client, let set, let keyboard else { return }
         _ = set(client, NSSelectorFromString("setBrightness:forKeyboard:"), Float(value), keyboard)
+    }
+}
+
+/// Bluetooth power and paired devices through IOBluetooth.
+enum Bluetooth {
+    /// No public API switches the controller; this is what System Settings calls.
+    private static let setPower = systemFunction("/System/Library/Frameworks/IOBluetooth.framework/IOBluetooth", "IOBluetoothPreferenceSetControllerPowerState",
+                                                 as: (@convention(c) (Int32) -> Void).self)
+
+    static var canSwitch: Bool { setPower != nil }
+
+    static func setOn(_ on: Bool) {
+        setPower?(on ? 1 : 0)
+    }
+
+    /// Whether the controller is on, and the paired devices while it is. The first read asks for Bluetooth access and
+    /// waits for the answer, so reads run off the main thread.
+    static func read() async -> (on: Bool?, devices: [BluetoothDevice]) {
+        await Task.detached {
+            let on = IOBluetoothHostController.default().map { $0.powerState == kBluetoothHCIPowerStateON }
+            return (on, on == true ? devices() : [])
+        }.value
+    }
+
+    private nonisolated static func devices() -> [BluetoothDevice] {
+        ((IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []).map { device in
+            let name = device.name ?? device.addressString ?? "Device"
+            return BluetoothDevice(id: device.addressString ?? name, name: name, connected: device.isConnected(), battery: battery(device),
+                                   symbol: bluetoothSymbol(name: name, major: device.deviceClassMajor, minor: device.deviceClassMinor))
+        }
+    }
+
+    /// The battery fields are private, so each is read only where the device has it.
+    private nonisolated static func battery(_ device: IOBluetoothDevice) -> Int? {
+        func field(_ key: String) -> Int {
+            device.responds(to: NSSelectorFromString(key)) ? (device.value(forKey: key) as? Int) ?? 0 : 0
+        }
+        return bluetoothBattery(single: field("batteryPercentSingle"), left: field("batteryPercentLeft"), right: field("batteryPercentRight"),
+                                combined: field("batteryPercentCombined"))
+    }
+
+    /// Connects or disconnects the device. Both wait for the device to answer, so they run off the main thread.
+    static func toggle(_ address: String) async {
+        await Task.detached {
+            guard let device = IOBluetoothDevice(addressString: address) else { return }
+            if device.isConnected() { device.closeConnection() } else { device.openConnection() }
+        }.value
     }
 }
 
