@@ -82,7 +82,7 @@ A widget is one of these names, or a script object:
 | `volume` | Speaker symbol. | A slider that sets the level on click or drag, Mute, the output devices with the current one filled in (click one to switch), and Sound Settings…. Scroll over the pill to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or the signal when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Level meter, power source with the adapter's wattage, time left or to full, condition, maximum capacity and cycle count, and Battery Settings…. |
-| `controlCenter` | Control Center symbol. Click opens the real Control Center, with AirPlay, Bluetooth, Focus, and the rest; a second click closes it. Needs Accessibility. | |
+| `controlCenter` | Control Center symbol. Needs Accessibility. | Opens the real Control Center, with AirPlay, Bluetooth, Focus, and the rest. Hovering another item closes it, and so does a click anywhere else. |
 | `clock` | Time. | The full date over a month grid with week numbers and today marked. Scroll or the chevrons change the month. |
 
 A script object is the SketchyBar-style escape hatch:

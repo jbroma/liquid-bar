@@ -42,6 +42,13 @@ struct BarView: View {
         .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
+        .onChange(of: slot.owner) { _, new in
+            // Hovering Control Center opens the real one. Leaving it for its own panel must keep it open, so only
+            // hovering another item closes it; a click anywhere else closes it natively.
+            guard let new else { return }
+            MenuExtras.setControlCenter(open: new == Widget.controlCenter.name,
+                                        explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - height + 2))
+        }
         .frame(maxWidth: .infinity)
         .frame(height: height)
         .contentShape(Rectangle())
@@ -184,15 +191,12 @@ struct WidgetView: View {
                     .onTapGesture { model.click(widget) }
             }
         case .controlCenter:
-            // The real Control Center is this item's dropdown, so it never claims the bar's own.
-            Image(systemName: "switch.2")
-                .frame(width: 16)
-                .fixedSize()
-                .pill(height: pillHeight)
-                .barHitArea()
+            // The real Control Center is this item's dropdown: owning the slot opens it (see BarView), and a click
+            // opens it too, without closing one that hover already opened.
+            MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Image(systemName: "switch.2").frame(width: 16) }
                 .onTapGesture {
                     haptic()
-                    MenuExtras.toggleControlCenter(explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - barHeight + 2))
+                    MenuExtras.setControlCenter(open: true, explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - barHeight + 2))
                 }
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
