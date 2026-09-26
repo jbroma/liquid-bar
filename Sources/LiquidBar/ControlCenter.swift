@@ -9,8 +9,18 @@ final class Controls {
     private(set) var state = ControlState()
 
     func refresh() {
-        let next = ControlState(airDrop: AirDrop.mode())
+        let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), airDrop: AirDrop.mode())
         if next != state { state = next }
+    }
+
+    func setBrightness(_ level: Int) {
+        state.brightness = Double(level) / 100
+        DisplayBrightness.write(Double(level) / 100)
+    }
+
+    func setKeyboard(_ level: Int) {
+        state.keyboard = Double(level) / 100
+        KeyboardBrightness.write(Double(level) / 100)
     }
 
     /// A tile's click. `dismiss` closes the dropdown first when the tile hands over to another window.
@@ -44,7 +54,7 @@ func openSettings(_ pane: String) {
 }
 
 /// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: wide tiles with a status
-/// line, round tiles, and a way into the real one.
+/// line, round tiles, the brightness sliders, and a way into the real one.
 struct ControlCenterMenu: View {
     let controls: Controls
     @Environment(ExpansionSlot.self) private var slot
@@ -72,6 +82,14 @@ struct ControlCenterMenu: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
+            if let brightness = state.brightness {
+                MenuSection(title: "Display")
+                MenuRow { LevelSlider(level: percent(brightness), muted: false, symbol: "sun.max.fill", set: controls.setBrightness) }
+            }
+            if let keyboard = state.keyboard {
+                MenuSection(title: "Keyboard Brightness")
+                MenuRow { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", set: controls.setKeyboard) }
+            }
             MenuSeparator()
             MenuButton {
                 slot.dismiss()
@@ -82,6 +100,10 @@ struct ControlCenterMenu: View {
         }
         .task { controls.refresh() }
     }
+}
+
+private func percent(_ fraction: Double) -> Int {
+    Int((fraction * 100).rounded())
 }
 
 /// A tile's symbol in a circle, filled white while the control is on, like the output devices in the Sound menu.
