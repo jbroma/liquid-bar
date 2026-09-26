@@ -36,12 +36,20 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     #expect(inputs.owner(now: at(3.9), current: "clock").recheck == nil)
 }
 
-@Test func pulseWinsThenHoverReturns() {
-    let inputs = Inputs(inside: .init("battery", t0), pulse: .init("volume", at(2.2)))
-    #expect(inputs.owner(now: at(1), current: "battery").id == "volume")
-    #expect(inputs.owner(now: at(1), current: "battery").recheck == at(2.2))
-    #expect(inputs.owner(now: at(2.3), current: "volume").id == "battery")
-    #expect(Inputs(pulse: .init("volume", at(2.2))).owner(now: at(2.3), current: "volume").id == nil)
+@Test func hoverWinsOverPulse() {
+    // The volume changes while the pointer rests on battery: battery stays open.
+    let resting = Inputs(inside: .init("battery", t0), pulse: .init("volume", at(2.2)))
+    #expect(resting.owner(now: at(1), current: "battery").id == "battery")
+    // The pointer arrives on battery during volume's pulse: volume until intent passes, then battery.
+    let arriving = Inputs(inside: .init("battery", at(1)), pulse: .init("volume", at(2.2)))
+    #expect(arriving.owner(now: at(1.05), current: "volume").id == "volume")
+    #expect(arriving.owner(now: at(1.1), current: "volume").id == "battery")
+}
+
+@Test func pulseOpensWhileNothingIsHovered() {
+    let inputs = Inputs(pulse: .init("volume", at(2.2)))
+    #expect(inputs.owner(now: at(1), current: nil) == ("volume", at(2.2)))
+    #expect(inputs.owner(now: at(2.3), current: "volume").id == nil)
 }
 
 @Test func theOpenDropdownHoldsItsItem() {

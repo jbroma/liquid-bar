@@ -17,6 +17,7 @@ final class ExpansionSlot {
     @ObservationIgnored private let created = Date()
 
     func hover(_ id: String, _ inside: Bool) {
+        trace("hover \(id) \(inside ? "in" : "out")")
         let now = Date()
         if inside {
             inputs.inside = .init(id, now)
@@ -28,12 +29,14 @@ final class ExpansionSlot {
     }
 
     func hold(_ inside: Bool) {
+        trace("hold \(inside)")
         inputs.holding = inside
         if !inside, let owner { inputs.left = .init(owner, Date()) }
         update()
     }
 
-    func pulse(_ id: String) {
+    func pulse(_ id: String, _ value: String = "") {
+        trace("pulse \(id) \(value)")
         // Sources report their first real state just after launch; that is not news. A change made while the pointer
         // is on the item, like dragging its volume slider, is not news either.
         guard created.timeIntervalSinceNow < -2, inputs.inside?.id != id, !(inputs.holding && owner == id) else { return }
@@ -43,7 +46,10 @@ final class ExpansionSlot {
 
     private func update() {
         let (next, recheck) = inputs.owner(now: Date(), current: owner)
-        if next != owner { withAnimation(spring) { owner = next } }
+        if next != owner {
+            trace("owner \(owner ?? "-") -> \(next ?? "-")")
+            withAnimation(spring) { owner = next }
+        }
         timer?.cancel()
         guard let recheck else { return }
         timer = Task {
@@ -66,7 +72,8 @@ struct LivePill<Pulse: Equatable, Content: View>: View {
         content(slot.owner == id)
             .contentShape(Rectangle())
             .onHover { slot.hover(id, $0) }
-            .onChange(of: pulse) { slot.pulse(id) }
+            .onChange(of: pulse) { slot.pulse(id, "\(pulse)") }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { trace("frame \(id) \(Int($0.minX))...\(Int($0.maxX))") }
     }
 }
 

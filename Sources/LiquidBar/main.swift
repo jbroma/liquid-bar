@@ -62,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Notification Center draws banners at level 21, below the native menu bar's 24, and without a visible menu bar
     /// it places them 16pt from the top, inside the bar. While one shows, the bars drop below it so it is not cut.
     func setBanner(_ showing: Bool) {
+        trace("banner \(showing)")
         panels.forEach { $0.level = showing ? belowBanners : barLevel }
     }
 
