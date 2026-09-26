@@ -28,12 +28,11 @@ struct BarView: View {
     /// Height of the notch, 0 on a screen without one.
     let notchHeight: CGFloat
     /// macOS reveals the auto-hidden native menu bar under us when the pointer touches the top edge, and its status
-    /// items would show through around the vessels. The band covers it from then until the pointer leaves.
+    /// items would show through the gaps between pills. The band covers it from then until the pointer leaves.
     @State private var banded = false
     @State private var slot = ExpansionSlot()
     @State private var menuMode = MenuMode()
     @State private var retract: Task<Void, Never>?
-    @State private var kick: FluidKick?
 
     var body: some View {
         let config = model.config
@@ -45,9 +44,9 @@ struct BarView: View {
                 restingHeight: notchHeight
             )
             HStack(spacing: 0) {
-                vessel(config.left, source: .trailing, width: sideWidth(leftWidth), pillHeight: pillHeight)
+                island(config.left, alignment: .leading, width: leftWidth.map { $0 - ears }, pillHeight: pillHeight)
                 Spacer(minLength: 0)
-                vessel(config.right, source: .leading, width: sideWidth(rightWidth), pillHeight: pillHeight)
+                island(config.right, alignment: .trailing, width: rightWidth.map { $0 - ears }, pillHeight: pillHeight)
                     // A notification banner slides in right under the right island; step out of its way.
                     .offset(y: yielding ? -config.height : 0)
                     .opacity(yielding ? 0 : 1)
@@ -61,12 +60,6 @@ struct BarView: View {
         .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
-        .onChange(of: model.nowPlaying?.trackID) { old, new in
-            if old != nil, new != nil { kick = FluidKick(item: "nowPlaying", kind: .ripple) }
-        }
-        .onChange(of: model.battery?.onAC) { old, new in
-            if old == false, new == true { kick = FluidKick(item: "battery", kind: .burst) }
-        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
@@ -110,68 +103,76 @@ struct BarView: View {
         }
     }
 
-    /// The width of one side's vessel: from the screen edge to just short of the notch, less the agent island's
-    /// ears. Without a notch each side takes half the screen.
-    private func sideWidth(_ area: CGFloat?) -> CGFloat {
-        (area ?? screenFrame.width / 2) - ears - model.config.margin - notchGap
+    /// While a pill is expanded it pulls its inner neighbour into one piece of glass; they split again when it
+    /// collapses.
+    private func fusedIndices(_ widgets: [LiquidBarCore.Widget]) -> Set<Int> {
+        guard let owner = slot.owner,
+              let index = widgets.firstIndex(where: { $0.name == owner || ($0 == .workspaces && owner.hasPrefix("workspace:")) })
+        else { return [] }
+        let neighbour = index > 0 ? index - 1 : index + 1
+        return neighbour < widgets.count ? [index, neighbour] : []
     }
 
-    private let notchGap: CGFloat = 8
-
-    /// Where the fluid gathers: under the focused workspace as a droplet, and under the expanded item with spikes.
-    private func places(_ frames: [String: CGRect]) -> [Gather] {
-        var places: [Gather] = []
-        let focus = model.workspaces.focused.map { "workspace:\($0)" }
-        if let focus, !menuMode.active, let frame = frames[focus] {
-            let tint = model.workspaces.focused.flatMap { model.workspaces.apps(on: $0).first }.flatMap(AppIcons.tint)
-            places.append(Gather(id: "droplet", minX: frame.minX, maxX: frame.maxX,
-                                 spikes: slot.owner == focus ? 0.5 : 0, tint: tint?.fluidTint() ?? .zero, flows: true))
-        }
-        // Items report their content's frame; the bead leaves it room at the rounded ends. Workspace buttons pad
-        // themselves. Every item is listed so a bead shrinking away keeps hugging its item as it collapses.
-        for (id, frame) in frames.sorted(by: { $0.key < $1.key }) where id != focus {
-            let pad: CGFloat = id.hasPrefix("workspace:") ? 0 : 7
-            places.append(Gather(id: id, minX: frame.minX - pad, maxX: frame.maxX + pad, spikes: spikes(id),
-                                 tint: tint(id)?.fluidTint() ?? .zero, present: id == slot.owner))
-        }
-        return places
-    }
-
-    /// Volume spikes stand as tall as the level; everything else reaches for the pointer at half strength.
-    private func spikes(_ id: String) -> Double {
-        guard id == "volume" else { return 0.5 }
-        return model.volume.muted ? 0.05 : max(0.08, Double(model.volume.level) / 100)
-    }
-
-    private func tint(_ id: String) -> Color? {
-        switch id {
-        case "battery": model.battery?.levelTint.color
-        case "nowPlaying": model.artworkColors.first?.glassTint.color
-        default: id.hasPrefix("workspace:") ? model.workspaces.apps(on: String(id.dropFirst(10))).first.flatMap(AppIcons.tint) : nil
-        }
-    }
-
-    private func vessel(_ widgets: [LiquidBarCore.Widget], source: FluidSim.End, width: CGFloat, pillHeight: CGFloat) -> some View {
-        Vessel(source: source, height: pillHeight, kick: kick, places: places) {
-            HStack(spacing: 0) {
-                ForEach(widgets.filter(isShown), id: \.self) { widget in
-                    WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
+    private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?, pillHeight: CGFloat) -> some View {
+        let margin = model.config.margin
+        return ZStack(alignment: alignment) {
+            GlassEffectContainer(spacing: 4) {
+                let shown = widgets.filter(isShown)
+                let fused = fusedIndices(shown)
+                HStack(spacing: 6) {
+                    ForEach(Array(shown.enumerated()), id: \.element) { index, widget in
+                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
+                            .environment(\.fused, fused.contains(index))
+                            // Closing the gap brings the two capsules within the container's blending distance, so the
+                            // glass flows into one shape with a neck and snaps apart again as the gap reopens.
+                            .padding(.trailing, fused.contains(index) && fused.contains(index + 1) ? -6 : 0)
+                    }
                 }
+                .animation(spring, value: fused)
+                .animation(spring, value: model.nowPlaying == nil)
             }
-            .padding(.horizontal, 6)
-            .animation(spring, value: model.nowPlaying == nil)
         }
-        .frame(width: max(0, width))
-        .padding(source == .trailing ? .leading : .trailing, model.config.margin)
+        // Islands get a finite width beside the notch, so an expanded pill's detail yields instead of overflowing.
+        .padding(alignment == .leading ? .leading : .trailing, margin)
+        .padding(alignment == .leading ? .trailing : .leading, 8)
+        .frame(width: width, alignment: alignment)
+        .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
     }
 }
 
 extension View {
-    /// An item's slot in its vessel: its content centred at the bar's item height, clickable edge to edge.
-    func pill(height: CGFloat, padding: CGFloat = 10) -> some View {
+    /// A glass capsule. A tint colours the glass and spills a soft glow of itself onto the wallpaper around it.
+    func pill(height: CGFloat, padding: CGFloat = 12, tint: Color? = nil) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
-            .contentShape(Rectangle())
+            .contentShape(Capsule())
+            .glassEffect(tint.map { .regular.tint($0.opacity(0.5)).interactive() } ?? .regular.interactive(), in: .capsule)
+            .overlay { Specular() }
+            .background {
+                Capsule().fill(tint ?? .clear).blur(radius: 9).opacity(0.55).padding(.horizontal, 4)
+            }
+            .animation(spring, value: tint)
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether this pill is merged into its neighbour's glass right now.
+    @Entry var fused = false
+}
+
+/// The glint along a pill's top edge, fading out toward its middle. Fused pills are one piece of glass, which draws
+/// its own edge, so theirs step aside.
+struct Specular: View {
+    @Environment(\.fused) private var fused
+
+    var body: some View {
+        Capsule()
+            .strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.5), location: 0), .init(color: .white.opacity(0), location: 0.45),
+                                                 .init(color: .white.opacity(0.1), location: 1)], startPoint: .top, endPoint: .bottom),
+                          lineWidth: 0.5)
+            .opacity(fused ? 0 : 1)
+            .animation(fused ? nil : .easeOut(duration: 0.25).delay(0.15), value: fused)
+            .allowsHitTesting(false)
     }
 }
 
@@ -205,6 +206,7 @@ struct WidgetView: View {
                 .fixedSize()
                 .pill(height: pillHeight, padding: 11)
         case .workspaces:
+            // One glass pill for both, so swapping workspaces for menus morphs the capsule instead of replacing it.
             Group {
                 if let titles = menuMode.titles {
                     MenuStrip(titles: titles) { menuMode.open($0, at: belowBar($1)) }
@@ -222,7 +224,7 @@ struct WidgetView: View {
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
-                    .pill(height: pillHeight, padding: 6)
+                    .pill(height: pillHeight, padding: 6, tint: model.artworkColors.first?.glassTint.color)
                     .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
@@ -236,7 +238,7 @@ struct WidgetView: View {
         case .battery:
             if let battery = model.battery {
                 BatteryPill(battery: battery)
-                    .pill(height: pillHeight)
+                    .pill(height: pillHeight, tint: battery.levelTint.color)
                     .onTapGesture { model.click(widget) }
             }
         case .clock:
@@ -314,17 +316,21 @@ struct AppleButton: View {
     }
 }
 
-/// Scrolling over the strip steps through the workspaces that have windows. The vessel's fluid wraps the focused one.
+/// Scrolling over the strip steps through the workspaces that have windows. The focused workspace sits under a
+/// droplet lens tinted by the icon of its front app.
 struct WorkspaceStrip: View {
     let model: BarModel
     let itemHeight: CGFloat
     /// A click on the already focused workspace, with its global frame.
     let focusedTap: (CGRect) -> Void
     @State private var frames: [String: CGRect] = [:]
+    @State private var lead: CGFloat = 0
+    @State private var trail: CGFloat = 0
     @State private var stripOrigin = CGPoint.zero
 
     var body: some View {
         let focused = model.workspaces.focused
+        let focusedFrame = focused.flatMap { frames[$0] }
         HStack(spacing: 2) {
             ForEach(model.config.workspaces) { workspace in
                 WorkspaceButton(
@@ -352,8 +358,26 @@ struct WorkspaceStrip: View {
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
+        .background(alignment: .leading) {
+            if let focusedFrame {
+                DropletLens(lead: lead, trail: trail, rest: focusedFrame.width,
+                            tint: focused.flatMap { model.workspaces.apps(on: $0).first }.flatMap(AppIcons.tint))
+                    .frame(height: itemHeight)
+            }
+        }
         .coordinateSpace(.named("strip"))
         .onGeometryChange(for: CGPoint.self) { $0.frame(in: .global).origin } action: { stripOrigin = $0 }
+        .onChange(of: focusedFrame) { old, new in
+            guard let new else { return }
+            guard let old, abs(old.midX - new.midX) > 1 else {
+                // Same workspace growing or shrinking (its icons fanned out): both edges together.
+                return withAnimation(old == nil ? nil : spring) { (lead, trail) = (new.minX, new.maxX) }
+            }
+            // A droplet: the edge in the direction of travel leaves first, the other follows 80ms later.
+            let right = new.midX > old.midX
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { if right { trail = new.maxX } else { lead = new.minX } }
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.8).delay(0.08)) { if right { lead = new.minX } else { trail = new.maxX } }
+        }
         .animation(spring, value: model.workspaces.mode)
         .animation(spring, value: model.workspaces.windows)
         // Wheel away or fingers up goes to the previous workspace, like scrolling up a list.
@@ -381,11 +405,52 @@ struct WorkspaceButton: View {
                 }
             }
             .padding(.leading, apps.isEmpty ? 8 : 7)
-            .padding(.trailing, apps.isEmpty ? 8 : 7)
+            .padding(.trailing, apps.isEmpty ? 8 : 5)
             .frame(height: height)
         }
         .contentShape(Capsule())
         .onTapGesture(perform: action)
+    }
+}
+
+/// The focus lens between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet, and it
+/// takes the colour of the focused workspace's front app.
+struct DropletLens: View {
+    let lead: CGFloat
+    let trail: CGFloat
+    let rest: CGFloat
+    let tint: Color?
+
+    var body: some View {
+        let shape = DropletShape(lead: lead, trail: trail, rest: rest)
+        let color = tint ?? .white
+        ZStack {
+            shape.fill(color.opacity(tint == nil ? 0.1 : 0.3)).blur(radius: 6)
+            shape.fill(LinearGradient(colors: [color.opacity(tint == nil ? 0.24 : 0.85), color.opacity(tint == nil ? 0.14 : 0.62)],
+                                      startPoint: .top, endPoint: .bottom))
+            shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.6), location: 0), .init(color: .white.opacity(0.08), location: 0.5),
+                                                .init(color: .white.opacity(0.18), location: 1)], startPoint: .top, endPoint: .bottom), lineWidth: 0.5)
+        }
+        .animation(spring, value: tint)
+        .allowsHitTesting(false)
+    }
+}
+
+struct DropletShape: Shape {
+    var lead: CGFloat
+    var trail: CGFloat
+    let rest: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lead, trail) }
+        set { (lead, trail) = (newValue.first, newValue.second) }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let width = max(trail - lead, 1)
+        // Volume is kept roughly constant: twice as long, about 70% as tall, never thinner than 72%.
+        let height = rect.height * min(1, max(0.72, (rest / width).squareRoot()))
+        return Path(roundedRect: CGRect(x: lead, y: rect.midY - height / 2, width: width, height: height), cornerRadius: height / 2)
     }
 }
 

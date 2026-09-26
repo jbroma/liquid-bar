@@ -24,7 +24,7 @@ extension RGB {
 extension AppIcons {
     private static var tints: [String: Color?] = [:]
 
-    /// The tint an app's icon lends the fluid, computed once per app; nil for a greyscale icon.
+    /// The glass tint an app's icon suggests, computed once per app; nil for a greyscale icon.
     static func tint(_ bundleID: String) -> Color? {
         if let tint = tints[bundleID] { return tint }
         let tint = icon(bundleID).palette(count: 1).first?.glassTint.color

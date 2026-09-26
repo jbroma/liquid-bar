@@ -101,8 +101,7 @@ extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
     /// A click lands where the real pointer is, so warp there first. "tick" advances the clock a minute, and
-    /// "banner on|off" stands in for a notification banner, "slow <factor>" slows the fluid down for frame-by-frame captures, and "focus <workspace>" moves the bar's focus alone, and "backdrop <png|off>" puts a picture behind the bar and in its
-    /// reflections. "scene running|needsInput|done|error|nowPlaying|clear" shows fake
+    /// "banner on|off" stands in for a notification banner. "scene running|needsInput|done|error|nowPlaying|clear" shows fake
     /// agents or music in the island.
     func installDebugInput() {
         // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
@@ -118,10 +117,6 @@ extension AppDelegate {
             MainActor.assumeIsolated {
                 guard let self, let parts = command?.split(separator: " ") else { return }
                 if parts == ["tick"] { return self.model.now += 60 }
-                // Moves the bar's focus without switching AeroSpace, so captures never take the user's workspace away.
-                if parts.count == 2, parts[0] == "focus" { return self.model.workspaces.focused = String(parts[1]) }
-                if parts.count == 2, parts[0] == "backdrop" { return self.showBackdrop(parts[1] == "off" ? nil : String(parts[1])) }
-                if parts.count == 2, parts[0] == "slow", let factor = Double(parts[1]) { return FluidController.slowdown = max(1, factor) }
                 if parts.count == 2, parts[0] == "scene" { return self.fakes?.show(String(parts[1])) ?? () }
                 if parts == ["banner", "on"] || parts == ["banner", "off"] {
                     // Stands in for a banner when this process has no Accessibility access to see real ones.
@@ -152,38 +147,6 @@ extension AppDelegate {
                 }
             }
         }
-    }
-}
-#endif
-
-#if DEBUG
-extension AppDelegate {
-    private static var backdrop: NSWindow?
-
-    /// A picture behind the bar, as if it were the wallpaper, to judge the fluid on light and dark backdrops.
-    func showBackdrop(_ path: String?) {
-        Self.backdrop?.close()
-        Self.backdrop = nil
-        Wallpaper.override = path.map(URL.init(fileURLWithPath:))
-        defer { NotificationCenter.default.post(name: Wallpaper.changed, object: nil) }
-        guard let path, let full = NSImage(contentsOfFile: path)?.cgImage(forProposedRect: nil, context: nil, hints: nil),
-              let screen = NSScreen.screens.first
-        else { return }
-        // Only the strip behind the bar, stretched from the picture's top like a wallpaper filling the screen.
-        let strip = NSRect(x: screen.frame.minX, y: screen.frame.maxY - 60, width: screen.frame.width, height: 60)
-        let rows = Int(Double(full.height) * 60 / screen.frame.height)
-        guard let top = full.cropping(to: CGRect(x: 0, y: 0, width: full.width, height: rows)) else { return }
-        let image = NSImage(cgImage: top, size: strip.size)
-        let window = NSWindow(contentRect: strip, styleMask: .borderless, backing: .buffered, defer: false)
-        window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 1)
-        window.isReleasedWhenClosed = false
-        window.ignoresMouseEvents = true
-        let view = NSImageView(image: image)
-        view.imageScaling = .scaleAxesIndependently
-        window.contentView = view
-        window.setFrame(strip, display: true)
-        window.orderFrontRegardless()
-        Self.backdrop = window
     }
 }
 #endif

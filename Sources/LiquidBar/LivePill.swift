@@ -55,7 +55,6 @@ struct LivePill<Pulse: Equatable, Content: View>: View {
     var body: some View {
         content(slot.owner == id)
             .contentShape(Rectangle())
-            .fluidItem(id)
             .onHover { slot.hover(id, $0) }
             .onChange(of: pulse) { slot.pulse(id) }
     }
