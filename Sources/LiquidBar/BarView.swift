@@ -28,7 +28,7 @@ struct BarView: View {
     /// Height of the notch, 0 on a screen without one.
     let notchHeight: CGFloat
     /// macOS reveals the auto-hidden native menu bar under us when the pointer touches the top edge, and its status
-    /// items would show through the gaps between pills. The band covers it from then until the pointer leaves.
+    /// items would show through around the vessels. The band covers it from then until the pointer leaves.
     @State private var banded = false
     @State private var slot = ExpansionSlot()
     @State private var menuMode = MenuMode()
@@ -205,7 +205,6 @@ struct WidgetView: View {
                 .fixedSize()
                 .pill(height: pillHeight, padding: 11)
         case .workspaces:
-            // One glass pill for both, so swapping workspaces for menus morphs the capsule instead of replacing it.
             Group {
                 if let titles = menuMode.titles {
                     MenuStrip(titles: titles) { menuMode.open($0, at: belowBar($1)) }
@@ -315,8 +314,7 @@ struct AppleButton: View {
     }
 }
 
-/// Scrolling over the strip steps through the workspaces that have windows. The focused workspace sits under a
-/// droplet lens tinted by the icon of its front app.
+/// Scrolling over the strip steps through the workspaces that have windows. The vessel's fluid wraps the focused one.
 struct WorkspaceStrip: View {
     let model: BarModel
     let itemHeight: CGFloat

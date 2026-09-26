@@ -28,7 +28,7 @@ public struct RGB: Equatable, Sendable {
         (r, g, b) = [(v, t, p), (q, v, p), (p, v, t), (p, q, v), (t, p, v), (v, p, q)][i]
     }
 
-    /// The colour as a glass tint under white text: saturated enough to read as colour, never brighter than 72%.
+    /// The colour as a tint for the fluid's rim: saturated enough to read as colour, never brighter than 72%.
     /// Darkened yellow turns olive, so yellows move to amber first.
     public var glassTint: RGB {
         var (h, s, v) = hsv

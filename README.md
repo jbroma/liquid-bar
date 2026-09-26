@@ -1,8 +1,12 @@
 # liquid-bar
 
-A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
+A macOS 26 menu bar replacement: black ferrofluid sealed in Liquid Glass. It covers the native menu bar completely. Each side of the notch is one clear glass vessel holding its items, and inside each vessel a bead of glossy black fluid wraps whatever has your attention. At launch the fluid flows out of the notch into the vessels.
 
-Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens tinted with its front app's icon colour. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
+Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. A bead wraps the focused workspace; switching workspaces makes it flow to the new one, stretching, necking and snapping back into shape. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock. Hovering an item, or a change like the volume keys, grows a bead around it that carries the item's detail. The pointer pulls spikes out of the bead's nearer end; a pulse spikes it all round. The fluid reflects your desktop picture at its edges and picks up colour from the content: the front app's icon, the album art, the battery level.
+
+Nothing moves at rest. A Metal shader draws the fluid only while something moves, so a still bar costs no CPU.
+
+Version 4 replaces the tinted glass pills of v3 with the ferrofluid, and drops the drifting now playing gradient and the charging shimmer. The T3 Code agent island stays in the code but is off unless the config sets `"agents": true`.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -58,8 +62,8 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `height` | number, 24 to 80 | `40` | Bar height in points. Pills are 6 points shorter. |
-| `margin` | number | `10` | Space between the screen edge and the outer pills. |
+| `height` | number, 24 to 80 | `40` | Bar height in points. The vessels are 6 points shorter. |
+| `margin` | number | `10` | Space between the screen edge and the vessels. |
 | `agents` | boolean | `false` | Turns on the experimental agent island (see below). |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
@@ -75,11 +79,11 @@ A widget is one of these names, or a script object:
 | Name | At rest | On hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
-| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a lens tinted with the colour of its front app's icon. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
-| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The glass takes the artwork's colour. | Title, artist, and previous, play or pause, and next buttons. |
+| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. A bead of fluid wraps the focused workspace, lit with the colour of its front app's icon. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
+| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The bead around it takes the artwork's colour. | Title, artist, and previous, play or pause, and next buttons. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |
-| `battery` | Level symbol and percentage. The glass is green, yellow at 40% or less, and red at 20% or less. | Time left, or time to full while charging, and a level bar. |
+| `battery` | Level symbol and percentage. Its bead is lit green, yellow at 40% or less, and red at 20% or less. | Time left, or time to full while charging, and a level bar. |
 | `clock` | Time. | Date and time with seconds, like "Friday 25 September · 19:58:12". Click opens the calendar. |
 
 A script object is the SketchyBar-style escape hatch:
@@ -131,15 +135,16 @@ It prints one thread per line: ID, project, title, provider, status, the state o
 
 ## Behavior
 
-- One pill per bar is expanded at a time. Hovering expands a pill after 90 ms, so sweeping the pointer across the bar does not open every pill. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the pill for 2.2 s. A detail that does not fit beside the notch is left out.
+- One item per bar is expanded at a time. Hovering expands an item after 90 ms, so sweeping the pointer across the bar does not open every item. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the item for 2.2 s. A detail that does not fit beside the notch is left out.
+- The fluid: a bead wraps the focused workspace and the expanded item. Beads closer than a few points flow into one. Volume spikes stand as tall as the level, plugging in the charger bursts the battery's spikes, and a new track jiggles the now playing bead.
 - The front app's menus: pushing the pointer into the top edge of the screen, or clicking the focused workspace, turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
-- The calendar opens below the clock: a month grid with week numbers and today highlighted. Scroll, the arrow keys, or the chevrons change the month. Esc or a click elsewhere closes it.
-- Notification banners: while one is on screen, the right-hand pills slide up out of its way and come back when it leaves. This needs Accessibility access.
+- The calendar opens below the clock in a frosted glass panel: a month grid with week numbers, and today in its own small glass vessel with a bead of ferrofluid. Scroll, the arrow keys, or the chevrons change the month. Esc or a click elsewhere closes it.
+- Notification banners: while one is on screen, the right-hand vessel slides up out of its way and comes back when it leaves. This needs Accessibility access.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
 Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling and ticking seconds run only while their detail is visible.
 
 ## Layout
 
-- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the T3 Code reader and status rollup, the island's presentation rules, colour extraction, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
-- `Sources/LiquidBar` is the app: panels, SwiftUI views, the notch island, the data sources, the calendar, and the Apple and app menus.
+- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the T3 Code reader and status rollup, the island's presentation rules, colour extraction, the expansion rules, the fluid simulation (`Fluid.swift`), and display formatting. `Tests/LiquidBarCoreTests` covers it.
+- `Sources/LiquidBar` is the app: panels, SwiftUI views, the glass vessels and their display-link driver (`Vessel.swift`), the ferrofluid shader (`Ferro.swift`, compiled from source at launch, so building needs no Metal toolchain), the notch island, the data sources, the calendar, and the Apple and app menus.

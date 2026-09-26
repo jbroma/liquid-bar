@@ -2,7 +2,8 @@ import AppKit
 import LiquidBarCore
 import SwiftUI
 
-/// The glass month calendar below the clock, in its own child panel so the bar window keeps its height.
+/// The glass month calendar below the clock, in its own child panel so the bar window keeps its height. It floats over
+/// windows, so it takes frosted glass rather than the vessels' clear glass; today is a small vessel of ferrofluid.
 @MainActor
 enum CalendarPopover {
     private static var panel: KeyPanel?
@@ -119,13 +120,18 @@ struct CalendarView: View {
         .padding(8)
     }
 
+    @ViewBuilder
     private func dayCell(_ day: Date) -> some View {
-        let today = calendar.isDateInToday(day)
-        let inMonth = calendar.isDate(day, equalTo: month, toGranularity: .month)
-        return Text("\(calendar.component(.day, from: day))")
-            .frame(width: 30, height: 26)
-            .foregroundStyle(today ? Color.black : Color.barWhite.opacity(inMonth ? 1 : 0.3))
-            .background { if today { Capsule().fill(Color.barWhite) } }
+        let label = Text("\(calendar.component(.day, from: day))")
+        if calendar.isDateInToday(day) {
+            // Today is a small ampoule of its own, with ferrofluid poured in like the bar's.
+            Vessel(source: .leading, height: 26, kick: nil, places: { _ in [Gather(id: "today", minX: 3, maxX: 27)] }) { label.frame(width: 30) }
+                .frame(width: 30, height: 26)
+        } else {
+            label
+                .frame(width: 30, height: 26)
+                .foregroundStyle(Color.barWhite.opacity(calendar.isDate(day, equalTo: month, toGranularity: .month) ? 1 : 0.3))
+        }
     }
 
     private func shift(_ months: Int) {
