@@ -1,6 +1,6 @@
 # liquid-bar
 
-A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item right of the notch is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
+A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item right of the notch is a small glass pill. Hovering one opens a black menu that flows down out of the bar under it, like the native menu extras, and the same menu opens by itself for a moment when something changes, like the volume keys or plugging in the charger.
 
 The pills sit on an opaque pure black bar that runs the full width of the screen. On a notched screen the bar is exactly as tall as the notch, so the notch disappears into it.
 
@@ -67,21 +67,21 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "clock"]` | Widgets right of the notch. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
-The default clicks open the Sound, Network, and Battery settings panes. The `apple` widget opens the Apple menu and `clock` opens the calendar, unless `clicks` sets a command for them.
+The default clicks open the Sound, Network, and Battery settings panes. The `apple` widget opens the Apple menu unless `clicks` sets a command for it. `clock` runs a command only if `clicks` sets one.
 
 ### Widgets
 
 A widget is one of these names, or a script object:
 
-| Name | At rest | On hover |
+| Name | At rest | Dropdown on hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
 | `workspaces` | Each workspace shows its number and the icon of its most recently used app; empty workspaces show a dim number only. A soft fill marks the focused workspace. | The icons of all its apps fan out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
-| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Title, artist, and previous, play or pause, and next buttons, on one line. |
-| `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
-| `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |
-| `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Time left, or time to full while charging, and a level bar. |
-| `clock` | Time. | Date and time with seconds, like "Friday 25 September · 19:58:12". Click opens the calendar. |
+| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Artwork, title, artist, previous, play or pause, and next, and a row that opens the player. |
+| `volume` | Speaker symbol. | A slider that sets the level on click or drag, Mute, the output devices with the current one filled in (click one to switch), and Sound Settings…. Scroll over the pill to change the volume in steps of 2. |
+| `wifi` | Network symbol. | Network name (or the signal when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
+| `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Level meter, power source with the adapter's wattage, time left or to full, condition, maximum capacity and cycle count, and Battery Settings…. |
+| `clock` | Time. | The full date over a month grid with week numbers and today marked. Scroll or the chevrons change the month. |
 
 A script object is the SketchyBar-style escape hatch:
 
@@ -112,15 +112,14 @@ A script object is the SketchyBar-style escape hatch:
 
 ## Behavior
 
-- One pill per bar is expanded at a time. Hovering expands a pill after 90 ms, so sweeping the pointer across the bar does not open every pill. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the pill for 2.2 s. A detail that does not fit beside the notch is left out.
+- One dropdown per bar is open at a time. Hovering a pill opens its dropdown after 90 ms, so sweeping the pointer across the bar does not open every one, and the pill widens by a few points. The dropdown stays open while the pointer is on the pill or in the dropdown and closes 0.5 s after it leaves both. Moving to another pill morphs the dropdown over to it. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, opens the dropdown for 2.2 s. The dropdown never reaches left of the notch and stays on screen.
 - The front app's menus: pushing the pointer into the top edge of the screen, or clicking the focused workspace, turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
-- The calendar opens below the clock: a month grid with week numbers and today highlighted. Scroll, the arrow keys, or the chevrons change the month. Esc or a click elsewhere closes it.
 - Notification banners: macOS draws them below the menu bar's level and, with the menu bar hidden, 16 points from the top of the screen, inside the bar. While one is on screen the bar drops just below it, so the banner shows whole over the black. This needs Accessibility access; without it the bar cuts off the banner's top.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
-Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling and ticking seconds run only while their detail is visible.
+Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling runs only while the Wi-Fi dropdown is open.
 
 ## Layout
 
 - `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, colour extraction, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
-- `Sources/LiquidBar` is the app: panels, SwiftUI views, the data sources, the calendar, and the Apple and app menus.
+- `Sources/LiquidBar` is the app: panels, SwiftUI views, the dropdown and its menus, the data sources, and the Apple and app menus.
