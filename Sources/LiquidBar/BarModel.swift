@@ -26,31 +26,6 @@ final class BarModel {
     /// Where notification banners are on screen (top-left origin), nil when none is showing.
     var banner: CGRect?
     var frontApp: FrontApp?
-    /// T3 Code threads, most recently updated first.
-    var agents: [AgentThread] = []
-    /// The latest thread worth a moment of the island's attention.
-    var pulse: Pulse?
-    /// While the debug hook shows fake agents, they replace the real sources' data.
-    var faking = false
-    @ObservationIgnored private let launched = Date()
-
-    struct Pulse: Equatable {
-        let id = UUID()
-        let thread: AgentThread
-    }
-
-    func receive(_ threads: [AgentThread], faking: Bool = false) {
-        guard faking == self.faking, threads != agents else { return }
-        let events = agentEvents(before: agents, after: threads)
-        agents = threads
-        events.last.map(announce)
-    }
-
-    func announce(_ thread: AgentThread) {
-        // Sources report their first real state just after launch; that is not news.
-        guard faking || Date().timeIntervalSince(launched) > 2 else { return }
-        pulse = Pulse(thread: thread)
-    }
 
     func focus(_ workspace: String) {
         haptic()

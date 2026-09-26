@@ -9,7 +9,6 @@ private func decode(_ json: String) throws -> Config {
 @Test func emptyConfigReproducesTodaysBar() throws {
     let config = try decode("{}")
     #expect(config.height == 40)
-    #expect(config.agents == false)
     #expect(config.left == [.apple, .workspaces])
     #expect(throws: (any Error).self) { try decode(#"{"left": ["frontApp"]}"#) }
     #expect(config.right == [.nowPlaying, .volume, .wifi, .battery, .clock])
@@ -23,8 +22,8 @@ private func decode(_ json: String) throws -> Config {
         """)
     #expect(config.height == 36)
     #expect(config.margin == 10)
-    #expect(config.agents == false)
-    #expect(try decode(#"{"agents": true}"#).agents == true)
+    // Unknown keys, such as the old "agents", are ignored.
+    #expect(try decode(#"{"agents": true}"#) == Config())
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")

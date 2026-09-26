@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Opaque black band that grows out of the notch to the full bar width, so the notch looks like it spread across
-/// the strip. At rest it is exactly the notch (hidden behind the hardware); on a screen without a notch it grows
-/// from a zero-width point at the center.
+/// the strip. It grows from the notch's shape, or from a zero-width point at the center on a screen without one, and
+/// is transparent at rest so nothing draws over the notch.
 struct NotchBand: View {
     let extended: Bool
     /// The notch's horizontal extent in bar coordinates.
@@ -19,6 +19,7 @@ struct NotchBand: View {
                 .fill(.black)
                 .frame(width: width, height: height)
                 .position(x: extended ? full.width / 2 : center, y: height / 2)
+                .opacity(extended ? 1 : 0)
         }
         .allowsHitTesting(false)
     }

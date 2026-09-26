@@ -44,9 +44,9 @@ struct BarView: View {
                 restingHeight: notchHeight
             )
             HStack(spacing: 0) {
-                island(config.left, alignment: .leading, width: leftWidth.map { $0 - ears }, pillHeight: pillHeight)
+                island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
                 Spacer(minLength: 0)
-                island(config.right, alignment: .trailing, width: rightWidth.map { $0 - ears }, pillHeight: pillHeight)
+                island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
                     // A notification banner slides in right under the right island; step out of its way.
                     .offset(y: yielding ? -config.height : 0)
                     .opacity(yielding ? 0 : 1)
@@ -56,7 +56,6 @@ struct BarView: View {
         .font(.system(size: 13, weight: .semibold))
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
-        .animation(spring, value: ears)
         .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
@@ -83,11 +82,6 @@ struct BarView: View {
                 }
             }
         }
-    }
-
-    /// Room the notch island's ears take beside the notch.
-    private var ears: CGFloat {
-        model.config.agents ? IslandGeometry(notch: .zero).earWidth(model.islandContent) : 0
     }
 
     private var yielding: Bool {

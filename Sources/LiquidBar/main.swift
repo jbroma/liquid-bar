@@ -5,25 +5,17 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BarModel()
     var panels: [NSPanel] = []
-    var islands: [IslandPanel] = []
     var aerospace: AeroSpaceSource?
     var sources: [AnyObject] = []
-    var agentSource: AgentSource?
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
-    #if DEBUG
-    var fakes: FakeAgents?
-    #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher(model: model), FrontAppSource(model: model)]
-        #if DEBUG
-        fakes = FakeAgents(model: model) { [weak self] in self?.agentSource?.reload() }
-        #endif
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
@@ -53,20 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func apply(_ config: Config) {
-        let rebuild = config.height != model.config.height || config.agents != model.config.agents
+        let rebuild = config.height != model.config.height
         model.config = config
         scripts?.load(config.left + config.right)
-        if config.agents != (agentSource != nil) {
-            agentSource = config.agents ? AgentSource(model: model) : nil
-            if !config.agents { model.receive([]) }
-        }
         if rebuild && !panels.isEmpty { rebuildPanels() }
     }
 
     func rebuildPanels() {
-        (panels + islands).forEach { $0.close() }
+        panels.forEach { $0.close() }
         panels = NSScreen.screens.map(makePanel)
-        islands = model.config.agents ? NSScreen.screens.map { IslandPanel(screen: $0, model: model, barHeight: model.config.height) } : []
     }
 
     func makePanel(for screen: NSScreen) -> NSPanel {
@@ -101,8 +88,7 @@ extension AppDelegate {
     /// Test hook: macOS refuses synthetic CGEvents from unprivileged tools, so verification scripts
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
     /// A click lands where the real pointer is, so warp there first. "tick" advances the clock a minute, and
-    /// "banner on|off" stands in for a notification banner. "scene running|needsInput|done|error|nowPlaying|clear" shows fake
-    /// agents or music in the island.
+    /// "banner on|off" stands in for a notification banner.
     func installDebugInput() {
         // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
         // so debug builds close them after 4s by themselves.
@@ -117,7 +103,6 @@ extension AppDelegate {
             MainActor.assumeIsolated {
                 guard let self, let parts = command?.split(separator: " ") else { return }
                 if parts == ["tick"] { return self.model.now += 60 }
-                if parts.count == 2, parts[0] == "scene" { return self.fakes?.show(String(parts[1])) ?? () }
                 if parts == ["banner", "on"] || parts == ["banner", "off"] {
                     // Stands in for a banner when this process has no Accessibility access to see real ones.
                     let screen = NSScreen.screens[0].frame
@@ -128,7 +113,7 @@ extension AppDelegate {
                       let x = Double(parts[1]), let y = Double(parts[2]) else { return }
                 let top = NSScreen.screens[0].frame.maxY
                 let point = NSPoint(x: x, y: top - y)
-                guard let panel = (self.islands + self.panels).first(where: { $0.frame.contains(point) }) else { return }
+                guard let panel = self.panels.first(where: { $0.frame.contains(point) }) else { return }
                 let local = panel.convertPoint(fromScreen: point)
                 if parts[0] == "scroll", parts.count == 4, let lines = Int32(parts[3]) {
                     // Synthetic scroll NSEvents carry no window, so AppKit drops them; hand it to the view under the point.
@@ -160,10 +145,8 @@ case (nil, _):
 case ("trigger", 2):
     DistributedNotificationCenter.default().postNotificationName(triggerNotification, object: arguments.last, userInfo: nil, deliverImmediately: true)
     exit(0)
-case ("agents", 1...2):
-    exit(printAgents(arguments.dropFirst().first))
 default:
-    FileHandle.standardError.write(Data("usage: liquid-bar [trigger <event> | agents [database]]\n".utf8))
+    FileHandle.standardError.write(Data("usage: liquid-bar [trigger <event>]\n".utf8))
     exit(2)
 }
 

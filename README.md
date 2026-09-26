@@ -47,7 +47,7 @@ Other targets:
 
 The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
 
-- **Accessibility** lets the bar show the front app's menus, select a thread in T3 Code, and step aside for notification banners. Clicking the focused workspace without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Accessibility** lets the bar show the front app's menus and step aside for notification banners. Clicking the focused workspace without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
 - **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 
 The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
@@ -60,7 +60,6 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | --- | --- | --- | --- |
 | `height` | number, 24 to 80 | `40` | Bar height in points. Pills are 6 points shorter. |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
-| `agents` | boolean | `false` | Turns on the experimental agent island (see below). |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "clock"]` | Widgets right of the notch. |
@@ -109,26 +108,6 @@ A script object is the SketchyBar-style escape hatch:
 }
 ```
 
-## The agent island (experimental, off)
-
-The notch can show your [T3 Code](https://github.com/pingdotgg/t3code) agents. The island is experimental and off by default. With it off, the bar shows no island, watches nothing, and never opens T3 Code's database. Set `"agents": true` in the config to turn it on.
-
-- With no agent working, waiting, or failing, the notch is bare.
-- While a thread runs, waits on you, or has failed, black ears grow out of the notch. The left ear shows the thread's project, with its initial on a chip in the provider's colour (coral for Claude, white for Codex). The right ear shows the status and, with more than one active thread, their count. Dots orbit while an agent works, an amber dot breathes while it waits for an approval or an answer, and a red mark shows a failure. The most urgent thread leads: waiting, then failed, then working.
-- When a turn finishes or a thread starts waiting on you, the island grows for 3 seconds with the thread's title and what happened. A finished turn gets a green check that draws itself.
-- Hovering the island, or the bare notch, drops it into a panel listing the active threads and the threads updated in the last 12 hours, at most six. Each row shows the status, title, project, provider, and how long the agent has been working or since the thread last changed.
-- Clicking a row, the ears, or the grown island opens that thread: the bar focuses T3 Code's window through AeroSpace and selects the thread in T3's sidebar through Accessibility. T3 Code has no link that opens a thread, so without Accessibility access, or for a thread the sidebar has collapsed, the bar only brings T3 Code to the front.
-
-The bar reads T3 Code's own database, `~/.t3/userdata/state.sqlite`, and only reads it. It re-reads 250 ms after T3 Code writes to the database's write-ahead log, so nothing runs while T3 Code is idle or not installed. If a T3 Code update changes the tables the bar reads, the bar logs one line to stderr and the island stays bare.
-
-To see exactly what the bar reads, run:
-
-```sh
-/Applications/LiquidBar.app/Contents/MacOS/liquid-bar agents
-```
-
-It prints one thread per line: ID, project, title, provider, status, the state of the latest turn, and the last update. Pass a path to read another copy of the database.
-
 ## Behavior
 
 - One pill per bar is expanded at a time. Hovering expands a pill after 90 ms, so sweeping the pointer across the bar does not open every pill. It collapses 0.9 s after the pointer leaves. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, expands the pill for 2.2 s. A detail that does not fit beside the notch is left out.
@@ -141,5 +120,5 @@ Everything updates from system events: `aerospace subscribe`, IOKit power notifi
 
 ## Layout
 
-- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the T3 Code reader and status rollup, the island's presentation rules, colour extraction, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
-- `Sources/LiquidBar` is the app: panels, SwiftUI views, the notch island, the data sources, the calendar, and the Apple and app menus.
+- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, colour extraction, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
+- `Sources/LiquidBar` is the app: panels, SwiftUI views, the data sources, the calendar, and the Apple and app menus.

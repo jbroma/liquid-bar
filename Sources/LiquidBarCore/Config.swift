@@ -26,7 +26,6 @@ extension Config {
         struct Raw: Decodable {
             var height: Double?
             var margin: Double?
-            var agents: Bool?
             var workspaces: [Workspace]?
             var left: [Widget]?
             var right: [Widget]?
@@ -42,7 +41,6 @@ extension Config {
             guard margin >= 0 else { throw ConfigError(description: "margin must be >= 0, got \(margin)") }
             config.margin = margin
         }
-        if let agents = raw.agents { config.agents = agents }
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left }
         if let right = raw.right { config.right = right }
