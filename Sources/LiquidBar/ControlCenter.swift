@@ -9,7 +9,8 @@ final class Controls {
     private(set) var state = ControlState()
 
     func refresh() {
-        let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), airDrop: AirDrop.mode())
+        let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), airDrop: AirDrop.mode(),
+                                darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
         if next != state { state = next }
     }
 
@@ -36,7 +37,15 @@ final class Controls {
         case .screenshot:
             dismiss()
             shell("open -b com.apple.screenshot.launcher")
-        case .bluetooth, .focus, .darkMode, .nightShift:
+        case .darkMode:
+            guard let dark = state.darkMode else { return openSettings("com.apple.Appearance-Settings.extension") }
+            state.darkMode = !dark
+            Appearance.setDark(!dark)
+        case .nightShift:
+            guard let on = state.nightShift else { return openSettings("com.apple.Displays-Settings.extension") }
+            state.nightShift = !on
+            NightShift.setOn(!on)
+        case .bluetooth, .focus:
             break
         }
     }
@@ -98,7 +107,12 @@ struct ControlCenterMenu: View {
                 Text("Control Center…").foregroundStyle(secondary)
             }
         }
-        .task { controls.refresh() }
+        .task {
+            controls.refresh()
+            for await _ in DistributedNotificationCenter.default().notifications(named: .init("AppleInterfaceThemeChangedNotification")) {
+                controls.refresh()
+            }
+        }
     }
 }
 

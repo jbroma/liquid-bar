@@ -69,6 +69,43 @@ enum KeyboardBrightness {
     }
 }
 
+/// Dark Mode, through SkyLight, where System Settings switches it. Unlike System Events, it needs no Automation grant.
+enum Appearance {
+    private static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+    private static let get = systemFunction(framework, "SLSGetAppearanceThemeLegacy", as: (@convention(c) () -> Bool).self)
+    /// The second argument posts the change to running apps.
+    private static let set = systemFunction(framework, "SLSSetAppearanceThemeNotifying", as: (@convention(c) (Bool, Bool) -> Void).self)
+
+    static func isDark() -> Bool? {
+        get?()
+    }
+
+    static func setDark(_ dark: Bool) {
+        set?(dark, true)
+    }
+}
+
+/// Night Shift, through CoreBrightness's CBBlueLightClient, which Control Center uses.
+enum NightShift {
+    private static let client = privateObject("CoreBrightness", "CBBlueLightClient")
+    private static let status = method(client, "getBlueLightStatus:", as: (@convention(c) (NSObject, Selector, UnsafeMutableRawPointer) -> Bool).self)
+    private static let enable = method(client, "setEnabled:", as: (@convention(c) (NSObject, Selector, Bool) -> Bool).self)
+
+    static func isOn() -> Bool? {
+        guard let client, let status else { return nil }
+        // The status struct is about 40 bytes: BOOL active, BOOL enabled, BOOL sunSchedulePermitted, int mode, the
+        // schedule, flags. Enabled is what Control Center's toggle shows.
+        var buffer = [UInt8](repeating: 0, count: 128)
+        guard status(client, NSSelectorFromString("getBlueLightStatus:"), &buffer) else { return nil }
+        return buffer[1] != 0
+    }
+
+    static func setOn(_ on: Bool) {
+        guard let client, let enable else { return }
+        _ = enable(client, NSSelectorFromString("setEnabled:"), on)
+    }
+}
+
 /// The real Control Center's status items, pressed through Accessibility.
 enum SystemControlCenter {
     static let controlCenter = "com.apple.menuextra.controlcenter"
