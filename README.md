@@ -1,10 +1,10 @@
 # liquid-bar
 
-A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
+A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item right of the notch is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
 
 The pills sit on an opaque pure black bar that runs the full width of the screen. On a notched screen the bar is exactly as tall as the notch, so the notch disappears into it.
 
-Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
+Left of the notch, drawn straight on the black: the Apple logo and the AeroSpace workspaces, each showing the icon of its most recently used app. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, and the clock.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -76,7 +76,7 @@ A widget is one of these names, or a script object:
 | Name | At rest | On hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
-| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a droplet-shaped lens. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
+| `workspaces` | Each workspace shows the icon of its most recently used app, or a dim number when it has no windows. A soft fill marks the focused workspace. | The icons of all its apps fan out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
 | `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Title, artist, and previous, play or pause, and next buttons, on one line. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |

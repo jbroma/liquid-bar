@@ -78,7 +78,7 @@ struct BarView: View {
     /// collapses.
     private func fusedIndices(_ widgets: [LiquidBarCore.Widget]) -> Set<Int> {
         guard let owner = slot.owner,
-              let index = widgets.firstIndex(where: { $0.name == owner || ($0 == .workspaces && owner.hasPrefix("workspace:")) })
+              let index = widgets.firstIndex(where: { $0.name == owner })
         else { return [] }
         let neighbour = index > 0 ? index - 1 : index + 1
         return neighbour < widgets.count ? [index, neighbour] : []
@@ -173,15 +173,15 @@ struct WidgetView: View {
         case .apple:
             AppleButton(model: model, screenFrame: screenFrame, barHeight: barHeight)
                 .fixedSize()
-                .pill(height: pillHeight, padding: 9)
+                .padding(.horizontal, 3)
+                .frame(height: pillHeight)
         case .workspaces:
-            // One glass pill for both, so swapping workspaces for menus morphs the capsule instead of replacing it.
             Group {
                 if let titles = menuMode.titles {
                     MenuStrip(titles: titles) { menuMode.open($0, at: belowBar($1)) }
                         .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
                 } else {
-                    WorkspaceStrip(model: model, itemHeight: pillHeight - 6) { frame in
+                    WorkspaceStrip(model: model, itemHeight: pillHeight - 3) { frame in
                         // Clicking the focused workspace, whose front app is in front, shows that app's menus.
                         if let app = model.frontApp { menuMode.toggle(app, at: belowBar(frame)) }
                     }
@@ -189,7 +189,7 @@ struct WidgetView: View {
                 }
             }
             .fixedSize()
-            .pill(height: pillHeight, padding: 3)
+            .frame(height: pillHeight)
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
@@ -286,8 +286,8 @@ struct AppleButton: View {
     }
 }
 
-/// Scrolling over the strip steps through the workspaces that have windows. The focused workspace sits under a
-/// droplet lens tinted by the icon of its front app.
+/// Scrolling over the strip steps through the workspaces that have windows. A soft fill marks the focused
+/// workspace and flows between workspaces like a droplet.
 struct WorkspaceStrip: View {
     let model: BarModel
     let itemHeight: CGFloat
@@ -301,7 +301,7 @@ struct WorkspaceStrip: View {
     var body: some View {
         let focused = model.workspaces.focused
         let focusedFrame = focused.flatMap { frames[$0] }
-        HStack(spacing: 2) {
+        HStack(spacing: 0) {
             ForEach(model.config.workspaces) { workspace in
                 WorkspaceButton(
                     id: workspace.id,
@@ -325,12 +325,14 @@ struct WorkspaceStrip: View {
                     .padding(.horizontal, 7)
                     .frame(height: itemHeight - 4)
                     .background(Capsule().fill(Color.barYellow.opacity(0.18)))
+                    .padding(.leading, 4)
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
         .background(alignment: .leading) {
             if let focusedFrame {
-                DropletLens(lead: lead, trail: trail, rest: focusedFrame.width)
+                DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
+                    .fill(.white.opacity(0.14))
                     .frame(height: itemHeight)
             }
         }
@@ -354,8 +356,8 @@ struct WorkspaceStrip: View {
     }
 }
 
-/// The workspace number beside a stack of its apps' icons, the most recently used on top. Hover fans the stack
-/// into a row; a window arriving or leaving fans it out for a moment.
+/// A workspace shows the icon of its most recently used app, or its number when it has no windows. Hover fans out
+/// the icons of all its apps; a window arriving or leaving fans them out for a moment.
 struct WorkspaceButton: View {
     let id: String
     let apps: [String]
@@ -365,40 +367,28 @@ struct WorkspaceButton: View {
 
     var body: some View {
         LivePill(id: "workspace:\(id)", pulse: Set(apps)) { expanded in
-            HStack(spacing: 4) {
-                Text(id)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.barWhite.opacity(focused ? 1 : apps.isEmpty ? 0.38 : 0.7))
-                if !apps.isEmpty {
-                    IconStack(apps: apps, fanned: expanded)
+            HStack(spacing: 3) {
+                if apps.isEmpty {
+                    Text(id)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.barWhite.opacity(focused ? 0.85 : 0.35))
+                }
+                ForEach(apps.prefix(expanded ? 8 : 1), id: \.self) { app in
+                    Image(nsImage: AppIcons.icon(app))
+                        .resizable()
+                        .frame(width: 16, height: 16)
+                        .transition(.scale(0.5).combined(with: .opacity))
                 }
             }
-            .padding(.leading, apps.isEmpty ? 7 : 6)
-            .padding(.trailing, apps.isEmpty ? 7 : 3)
-            .frame(height: height)
+            .padding(.horizontal, apps.isEmpty ? 7 : 5)
+            .frame(minWidth: height, minHeight: height)
         }
         .contentShape(Capsule())
         .onTapGesture(perform: action)
     }
 }
 
-/// The focus lens between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet.
-struct DropletLens: View {
-    let lead: CGFloat
-    let trail: CGFloat
-    let rest: CGFloat
-
-    var body: some View {
-        let shape = DropletShape(lead: lead, trail: trail, rest: rest)
-        ZStack {
-            shape.fill(LinearGradient(colors: [.white.opacity(0.24), .white.opacity(0.14)], startPoint: .top, endPoint: .bottom))
-            shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.6), location: 0), .init(color: .white.opacity(0.08), location: 0.5),
-                                                .init(color: .white.opacity(0.18), location: 1)], startPoint: .top, endPoint: .bottom), lineWidth: 0.5)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
+/// The focus fill between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet.
 struct DropletShape: Shape {
     var lead: CGFloat
     var trail: CGFloat
@@ -414,43 +404,6 @@ struct DropletShape: Shape {
         // Volume is kept roughly constant: twice as long, about 70% as tall, never thinner than 72%.
         let height = rect.height * min(1, max(0.72, (rest / width).squareRoot()))
         return Path(roundedRect: CGRect(x: lead, y: rect.midY - height / 2, width: width, height: height), cornerRadius: height / 2)
-    }
-}
-
-/// App icons as a small card stack (three visible, then "+N"), or fanned out into a row.
-struct IconStack: View {
-    let apps: [String]
-    let fanned: Bool
-    private let size: CGFloat = 16
-    private let peek: CGFloat = 5
-
-    var body: some View {
-        let shown = Array(apps.prefix(fanned ? 8 : 3))
-        let extra = apps.count - shown.count
-        let step = fanned ? size + 2 : peek
-        HStack(spacing: 2) {
-            ZStack(alignment: .leading) {
-                ForEach(Array(shown.enumerated()), id: \.element) { index, app in
-                    let depth = fanned ? 0 : CGFloat(index)
-                    Image(nsImage: AppIcons.icon(app))
-                        .resizable()
-                        .frame(width: size, height: size)
-                        .shadow(color: .black.opacity(0.35), radius: 1, y: 0.5)
-                        .scaleEffect(1 - 0.14 * depth)
-                        .opacity(1 - 0.28 * depth)
-                        .offset(x: CGFloat(index) * step)
-                        .zIndex(-Double(index))
-                        .transition(.scale(0.5).combined(with: .opacity))
-                }
-            }
-            .frame(width: size + CGFloat(shown.count - 1) * step, alignment: .leading)
-            if extra > 0 {
-                Text("+\(extra)")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color.barWhite.opacity(0.7))
-                    .contentTransition(.numericText())
-            }
-        }
     }
 }
 
