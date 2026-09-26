@@ -4,7 +4,7 @@ A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu
 
 The pills sit on an opaque pure black bar that runs the full width of the screen. On a notched screen the bar is exactly as tall as the notch, so the notch disappears into it.
 
-Left of the notch, drawn straight on the black: the Apple logo and the AeroSpace workspaces, each showing the icon of its most recently used app. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, Control Center, and the clock.
+Left of the notch, drawn straight on the black: the Apple logo and the AeroSpace workspaces, each showing the icon of its most recently used app. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, the other apps' menu bar items, volume, Wi-Fi, battery, Control Center, and the clock.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -49,7 +49,7 @@ Other targets:
 
 The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
 
-- **Accessibility** lets the bar show the front app's menus, open Control Center, and keep notification banners whole. Clicking the focused workspace or Control Center without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
+- **Accessibility** lets the bar show the front app's menus, open Control Center and other apps' menu bar items, and keep notification banners whole. Clicking the focused workspace or Control Center without it explains what is missing and offers to open the Privacy pane. Banners are detected as soon as access is granted, with no restart.
 - **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 
 The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
@@ -64,7 +64,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
-| `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
+| `right` | array of widgets | `["nowPlaying", "menuExtras", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
 The default clicks open the Sound, Network, and Battery settings panes. The `apple` widget opens the Apple menu unless `clicks` sets a command for it. `clock` runs a command only if `clicks` sets one.
@@ -78,6 +78,7 @@ A widget is one of these names, or a script object:
 | `apple` | Apple logo. Click opens the Apple menu. | |
 | `workspaces` | Each workspace shows its number and the icon of its most recently used app; empty workspaces show a dim number only. A soft fill marks the focused workspace. | The icons of all its apps fan out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
 | `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Artwork, title, artist, previous, play or pause, and next, and a row that opens the player. |
+| `menuExtras` | Ellipsis, only while other apps have items in the covered menu bar. Needs Accessibility. | Those items (Containers, Vault, Launcher, and so on) in the native left-to-right order, each with its app's icon and name. Clicking one closes the dropdown and opens that app's own menu. Apple's items and AeroSpace's are left out, since the bar shows them. The list refreshes when an app launches or quits and each time the dropdown opens. |
 | `volume` | Speaker symbol. | A slider that sets the level on click or drag, Mute, the output devices with the current one filled in (click one to switch), and Sound Settings…. Scroll over the pill to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or the signal when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Level meter, power source with the adapter's wattage, time left or to full, condition, maximum capacity and cycle count, and Battery Settings…. |

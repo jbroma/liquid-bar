@@ -20,6 +20,8 @@ final class BarModel {
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
     var frontApp: FrontApp?
+    /// Other apps' status items, for the tray.
+    var menuExtras: [MenuExtra<AXUIElement>] = []
 
     func focus(_ workspace: String) {
         haptic()

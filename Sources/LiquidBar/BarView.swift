@@ -61,6 +61,7 @@ struct BarView: View {
         switch widget {
         case .nowPlaying: model.nowPlaying != nil
         case .battery: model.battery != nil
+        case .menuExtras: !model.menuExtras.isEmpty
         default: true
         }
     }
@@ -162,6 +163,8 @@ struct WidgetView: View {
                 }
                 .transition(.scale(0.6).combined(with: .opacity))
             }
+        case .menuExtras:
+            MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Image(systemName: "ellipsis").frame(width: 16) }
         case .volume:
             MenuPill(id: widget.name, pulse: model.volume, height: pillHeight) {
                 Image(systemName: model.volume.symbol)

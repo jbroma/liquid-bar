@@ -3,12 +3,13 @@ import SwiftUI
 
 /// The items that open a dropdown, keyed by their widget name.
 enum Dropdown: String {
-    case nowPlaying, volume, wifi, battery, clock
+    case nowPlaying, menuExtras, volume, wifi, battery, clock
 
     var width: CGFloat {
         switch self {
         case .clock: 276
         case .nowPlaying: 280
+        case .menuExtras: 240
         default: 264
         }
     }
@@ -80,6 +81,7 @@ struct DropdownView: View {
         case .wifi: NetworkMenu(network: model.network)
         case .battery: BatteryMenu(battery: model.battery)
         case .clock: ClockMenu(now: model.now)
+        case .menuExtras: MenuExtrasMenu(model: model)
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
         }
     }

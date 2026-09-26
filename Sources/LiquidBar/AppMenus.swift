@@ -54,16 +54,16 @@ enum AppMenus {
         return menu
     }
 
-    static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+    nonisolated static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
     }
 
-    static func string(_ element: AXUIElement, _ name: String) -> String? {
+    nonisolated static func string(_ element: AXUIElement, _ name: String) -> String? {
         attribute(element, name) as? String
     }
 
-    static func children(_ element: AXUIElement?) -> [AXUIElement] {
+    nonisolated static func children(_ element: AXUIElement?) -> [AXUIElement] {
         element.flatMap { attribute($0, kAXChildrenAttribute) as? [AXUIElement] } ?? []
     }
 }

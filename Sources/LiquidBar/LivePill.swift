@@ -35,6 +35,13 @@ final class ExpansionSlot {
         update()
     }
 
+    /// Closes the open item now, when one of its rows hands over to a native menu.
+    func dismiss() {
+        trace("dismiss")
+        inputs = ExpansionInputs()
+        update()
+    }
+
     func pulse(_ id: String, _ value: String) {
         trace("pulse \(id) \(value)")
         // Sources report their first real state just after launch; that is not news. A change made while the pointer
