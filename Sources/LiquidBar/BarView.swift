@@ -46,7 +46,8 @@ struct BarView: View {
         .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
+        .frame(height: config.height)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
@@ -58,6 +59,16 @@ struct BarView: View {
                 menuMode.hover(false)
             }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(alignment: .top) {
+            let band = Band(width: screenFrame.width, depth: config.height, notch: notch)
+            band.fill(band.shade)
+        }
+    }
+
+    private var notch: ClosedRange<CGFloat>? {
+        guard let leftWidth, let rightWidth else { return nil }
+        return leftWidth...(screenFrame.width - rightWidth)
     }
 
     private var yielding: Bool {
@@ -107,6 +118,50 @@ struct BarView: View {
         .padding(alignment == .leading ? .trailing : .leading, 8)
         .frame(width: width, alignment: alignment)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
+    }
+}
+
+/// The dark band behind the bar, flush with the screen top and straight into both screen edges. Under the notch it
+/// hangs `chin` deeper and turns pure black, so the band and the hardware notch read as one object. The steps into the
+/// chin follow smootherstep, whose slope and curvature are zero at both ends, so the edge bends without a kink.
+struct Band: Shape {
+    static let chin: CGFloat = 6
+    let width: CGFloat
+    let depth: CGFloat
+    let notch: ClosedRange<CGFloat>?
+
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: .zero)
+            path.addLine(to: CGPoint(x: 0, y: depth))
+            if let notch {
+                let run: CGFloat = 18
+                step(&path, from: CGPoint(x: notch.lowerBound - run, y: depth), to: CGPoint(x: notch.lowerBound, y: depth + Self.chin))
+                step(&path, from: CGPoint(x: notch.upperBound, y: depth + Self.chin), to: CGPoint(x: notch.upperBound + run, y: depth))
+            }
+            path.addLine(to: CGPoint(x: width, y: depth))
+            path.addLine(to: CGPoint(x: width, y: 0))
+            path.closeSubpath()
+        }
+    }
+
+    private func step(_ path: inout Path, from a: CGPoint, to b: CGPoint) {
+        path.addLine(to: a)
+        for i in 1...24 {
+            let t = CGFloat(i) / 24
+            let s = t * t * t * (t * (t * 6 - 15) + 10)
+            path.addLine(to: CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * s))
+        }
+    }
+
+    /// Dark and faintly translucent, deepening to pure black over the last 140 points before the notch.
+    var shade: LinearGradient {
+        let dark = Color.black.opacity(0.85)
+        guard let notch else { return LinearGradient(colors: [dark], startPoint: .leading, endPoint: .trailing) }
+        let at = { (x: CGFloat) in max(0, min(1, x / width)) }
+        return LinearGradient(stops: [.init(color: dark, location: at(notch.lowerBound - 140)), .init(color: .black, location: at(notch.lowerBound)),
+                                      .init(color: .black, location: at(notch.upperBound)), .init(color: dark, location: at(notch.upperBound + 140))],
+                              startPoint: .leading, endPoint: .trailing)
     }
 }
 

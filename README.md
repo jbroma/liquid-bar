@@ -2,6 +2,8 @@
 
 A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
 
+The pills sit on one dark band that runs the full width of the screen. Under the notch it turns pure black and hangs a little lower, with softly curved steps, so the band and the notch read as one shape. Screens without a notch get the plain band.
+
 Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.

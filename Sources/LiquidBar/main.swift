@@ -57,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func makePanel(for screen: NSScreen) -> NSPanel {
-        let height = model.config.height
+        let height = model.config.height + (screen.auxiliaryTopLeftArea == nil ? 0 : Band.chin)
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         // Above the auto-hidden native menu bar, which slides in at .mainMenu level on hover.
