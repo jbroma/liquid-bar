@@ -35,7 +35,7 @@ final class ExpansionSlot {
         update()
     }
 
-    func pulse(_ id: String, _ value: String = "") {
+    func pulse(_ id: String, _ value: String) {
         trace("pulse \(id) \(value)")
         // Sources report their first real state just after launch; that is not news. A change made while the pointer
         // is on the item, like dragging its volume slider, is not news either.

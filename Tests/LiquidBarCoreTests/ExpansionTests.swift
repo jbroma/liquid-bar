@@ -37,12 +37,16 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
 }
 
 @Test func hoverWinsOverPulse() {
-    // The volume changes while the pointer rests on battery: battery stays open.
+    // The volume changes while the pointer rests on battery: battery stays open, and after the pointer leaves it
+    // lingers and closes without volume opening.
     let resting = Inputs(inside: .init("battery", t0), pulse: .init("volume", at(2.2)))
     #expect(resting.owner(now: at(1), current: "battery").id == "battery")
-    // The pointer arrives on battery during volume's pulse: volume until intent passes, then battery.
+    let leaving = Inputs(pulse: .init("volume", at(2.2)), left: .init("battery", at(1.5)))
+    #expect(leaving.owner(now: at(1.6), current: "battery") == ("battery", at(2)))
+    #expect(leaving.owner(now: at(2.1), current: "battery").id == nil)
+    // The pointer arrives on battery during volume's pulse: volume closes, battery opens once intent passes.
     let arriving = Inputs(inside: .init("battery", at(1)), pulse: .init("volume", at(2.2)))
-    #expect(arriving.owner(now: at(1.05), current: "volume").id == "volume")
+    #expect(arriving.owner(now: at(1.05), current: "volume") == (nil, at(1.09)))
     #expect(arriving.owner(now: at(1.1), current: "volume").id == "battery")
 }
 
