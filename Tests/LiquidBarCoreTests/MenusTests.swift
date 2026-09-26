@@ -14,7 +14,7 @@ import Testing
 }
 
 @Test func batteryPowerSourceText() {
-    #expect(BatteryState(percent: 80, power: .pluggedIn).powerSource(watts: 100) == "Power Adapter (100 W)")
+    #expect(BatteryState(percent: 80, power: .pluggedIn).powerSource(watts: 100) == "100 W Adapter")
     #expect(BatteryState(percent: 40, power: .charging(minutesToFull: 30)).powerSource(watts: nil) == "Power Adapter")
     #expect(BatteryState(percent: 40, power: .battery(minutesLeft: 30)).powerSource(watts: 100) == "Battery")
 }

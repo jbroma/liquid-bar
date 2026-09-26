@@ -136,6 +136,23 @@ nonisolated func readBattery() -> BatteryState? {
     return nil
 }
 
+/// Cycle count and wear from the `AppleSmartBattery` registry entry, readable without privileges.
+nonisolated func readBatteryHealth() -> BatteryHealth? {
+    let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSmartBattery"))
+    guard service != 0 else { return nil }
+    defer { IOObjectRelease(service) }
+    var properties: Unmanaged<CFMutableDictionary>?
+    guard IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS,
+          let registry = properties?.takeRetainedValue() as? [String: Any]
+    else { return nil }
+    return BatteryHealth(registry: registry)
+}
+
+/// The connected power adapter's rating, like 100.
+nonisolated func adapterWatts() -> Int? {
+    (IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any])?[kIOPSPowerAdapterWattsKey] as? Int
+}
+
 private nonisolated func address(_ selector: AudioObjectPropertySelector, _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal) -> AudioObjectPropertyAddress {
     AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
 }

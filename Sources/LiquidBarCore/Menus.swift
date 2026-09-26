@@ -29,10 +29,10 @@ public struct BatteryHealth: Equatable, Sendable {
 }
 
 extension BatteryState {
-    /// "Power Adapter (100 W)", "Power Adapter", "Battery".
+    /// "100 W Adapter", "Power Adapter", "Battery".
     public func powerSource(watts: Int?) -> String {
         guard onAC else { return "Battery" }
-        return watts.map { "Power Adapter (\($0) W)" } ?? "Power Adapter"
+        return watts.map { "\($0) W Adapter" } ?? "Power Adapter"
     }
 }
 

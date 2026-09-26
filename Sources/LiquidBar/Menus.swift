@@ -130,11 +130,34 @@ struct NetworkMenu: View {
     }
 }
 
+/// Like the Battery menu extra, with the health figures from System Settings.
 struct BatteryMenu: View {
     let battery: BatteryState?
+    @State private var health: BatteryHealth?
+    @State private var watts: Int?
 
     var body: some View {
-        MenuBody { MenuTitle(title: "Battery", accessory: battery.map { "\($0.percent)%" }) }
+        MenuBody {
+            if let battery {
+                MenuTitle(title: "Battery", accessory: "\(battery.percent)%")
+                MenuRow { Meter(value: Double(battery.percent) / 100, tint: battery.tint.color, width: 236, height: 6) }
+                MenuValue(title: "Power Source", value: battery.powerSource(watts: watts))
+                MenuValue(title: "Status", value: battery.detail)
+                if let health {
+                    MenuSeparator()
+                    MenuSection(title: "Health")
+                    MenuValue(title: "Condition", value: health.condition)
+                    if let capacity = health.maxCapacity { MenuValue(title: "Maximum Capacity", value: "\(capacity)%") }
+                    if let cycles = health.cycleCount { MenuValue(title: "Cycle Count", value: "\(cycles)") }
+                }
+                MenuSeparator()
+            }
+            SettingsButton(title: "Battery Settings…", pane: "com.apple.Battery-Settings.extension")
+        }
+        .task(id: battery) {
+            health = readBatteryHealth()
+            watts = battery?.onAC == true ? adapterWatts() : nil
+        }
     }
 }
 
