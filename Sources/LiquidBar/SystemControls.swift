@@ -92,11 +92,11 @@ enum Bluetooth {
     }
 
     private nonisolated static func devices() -> [BluetoothDevice] {
-        ((IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []).map { device in
+        uniqueDevices(((IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []).map { device in
             let name = device.name ?? device.addressString ?? "Device"
             return BluetoothDevice(id: device.addressString ?? name, name: name, connected: device.isConnected(), battery: battery(device),
                                    symbol: bluetoothSymbol(name: name, major: device.deviceClassMajor, minor: device.deviceClassMinor))
-        }
+        })
     }
 
     /// The battery fields are private, so each is read only where the device has it.

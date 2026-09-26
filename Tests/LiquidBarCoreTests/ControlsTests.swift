@@ -30,6 +30,7 @@ import Testing
     #expect(bluetoothSymbol(name: "Living Room Soundbar", major: 4, minor: 5) == "hifispeaker")
     #expect(bluetoothSymbol(name: "WH-1000XM5", major: 4, minor: 6) == "headphones")
     #expect(bluetoothSymbol(name: "Test iPhone", major: 2, minor: 3) == "iphone")
+    #expect(bluetoothSymbol(name: "Test iPhone", major: 0, minor: 0) == "iphone")
     #expect(bluetoothSymbol(name: "Magic Keyboard", major: 5, minor: 0x10) == "keyboard")
     #expect(bluetoothSymbol(name: "Magic Mouse", major: 5, minor: 0x20) == "computermouse")
     #expect(bluetoothSymbol(name: "Tag", major: 7, minor: 0) == "dot.radiowaves.left.and.right")
@@ -41,4 +42,14 @@ import Testing
     #expect(bluetoothBattery(single: 0, left: 0, right: 70, combined: 0) == 70)
     #expect(bluetoothBattery(single: 0, left: 0, right: 0, combined: 60) == 60)
     #expect(bluetoothBattery(single: 0, left: 0, right: 0, combined: 0) == nil)
+}
+
+@Test func duplicatePairingRecordsShowOnce() {
+    func device(_ id: String, _ name: String, connected: Bool = false) -> BluetoothDevice {
+        BluetoothDevice(id: id, name: name, connected: connected, battery: nil, symbol: "hifispeaker")
+    }
+    // What IOBluetooth lists on this Mac: the soundbar twice.
+    let paired = [device("02-00-00-00-00-01", "Living Room Soundbar"), device("02-00-00-00-00-03", "Sam’s AirPods Pro"),
+                  device("02-00-00-00-00-02", "Living Room Soundbar", connected: true), device("02-00-00-00-00-04", "Test iPhone")]
+    #expect(uniqueDevices(paired).map(\.id) == ["02-00-00-00-00-02", "02-00-00-00-00-03", "02-00-00-00-00-04"])
 }

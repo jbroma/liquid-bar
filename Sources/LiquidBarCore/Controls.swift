@@ -108,6 +108,9 @@ public func bluetoothSymbol(name: String, major: UInt32, minor: UInt32) -> Strin
     if name.localizedCaseInsensitiveContains("AirPods Max") { return "airpodsmax" }
     if name.localizedCaseInsensitiveContains("AirPods Pro") { return "airpodspro" }
     if name.localizedCaseInsensitiveContains("AirPods") { return "airpods" }
+    // Apple's phones and tablets often report no device class.
+    if name.localizedCaseInsensitiveContains("iPhone") { return "iphone" }
+    if name.localizedCaseInsensitiveContains("iPad") { return "ipad" }
     switch major {
     case 1: return "laptopcomputer"
     case 2: return "iphone"
@@ -125,4 +128,18 @@ public func bluetoothBattery(single: Int, left: Int, right: Int, combined: Int) 
     if single > 0 { return single }
     if let bud = [left, right].filter({ $0 > 0 }).min() { return bud }
     return combined > 0 ? combined : nil
+}
+
+/// One row per device name, in the original order. macOS can keep a second pairing record for the same device, as
+/// IOBluetooth lists it; the connected record wins.
+public func uniqueDevices(_ devices: [BluetoothDevice]) -> [BluetoothDevice] {
+    var rows: [BluetoothDevice] = []
+    for device in devices {
+        if let index = rows.firstIndex(where: { $0.name == device.name }) {
+            if device.connected && !rows[index].connected { rows[index] = device }
+        } else {
+            rows.append(device)
+        }
+    }
+    return rows
 }
