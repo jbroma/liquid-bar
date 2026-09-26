@@ -8,7 +8,7 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func emptyConfigReproducesTodaysBar() throws {
     let config = try decode("{}")
-    #expect(config.height == 40)
+    #expect(config.height == 32)
     #expect(config.left == [.apple, .workspaces])
     #expect(throws: (any Error).self) { try decode(#"{"left": ["frontApp"]}"#) }
     #expect(config.right == [.nowPlaying, .volume, .wifi, .battery, .clock])

@@ -23,6 +23,7 @@ extension Color {
 struct BarView: View {
     let model: BarModel
     let screenFrame: CGRect
+    let height: CGFloat
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
     @State private var slot = ExpansionSlot()
@@ -30,24 +31,23 @@ struct BarView: View {
 
     var body: some View {
         let config = model.config
-        let pillHeight = config.height - 6
         HStack(spacing: 0) {
-            island(config.left, alignment: .leading, width: leftWidth, pillHeight: pillHeight)
+            island(config.left, alignment: .leading, width: leftWidth)
             Spacer(minLength: 0)
-            island(config.right, alignment: .trailing, width: rightWidth, pillHeight: pillHeight)
+            island(config.right, alignment: .trailing, width: rightWidth)
                 // A notification banner slides in right under the right island; step out of its way.
-                .offset(y: yielding ? -config.height : 0)
+                .offset(y: yielding ? -height : 0)
                 .opacity(yielding ? 0 : 1)
                 .animation(spring, value: yielding)
         }
-        .font(.system(size: 13, weight: .semibold))
+        .font(.system(size: 12, weight: .semibold))
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
         .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
-        .frame(height: config.height)
+        .frame(height: height)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
@@ -59,16 +59,6 @@ struct BarView: View {
                 menuMode.hover(false)
             }
         }
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(alignment: .top) {
-            let band = Band(width: screenFrame.width, depth: config.height, notch: notch)
-            band.fill(band.shade)
-        }
-    }
-
-    private var notch: ClosedRange<CGFloat>? {
-        guard let leftWidth, let rightWidth else { return nil }
-        return leftWidth...(screenFrame.width - rightWidth)
     }
 
     private var yielding: Bool {
@@ -94,7 +84,7 @@ struct BarView: View {
         return neighbour < widgets.count ? [index, neighbour] : []
     }
 
-    private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?, pillHeight: CGFloat) -> some View {
+    private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?) -> some View {
         let margin = model.config.margin
         return ZStack(alignment: alignment) {
             GlassEffectContainer(spacing: 4) {
@@ -102,7 +92,7 @@ struct BarView: View {
                 let fused = fusedIndices(shown)
                 HStack(spacing: 6) {
                     ForEach(Array(shown.enumerated()), id: \.element) { index, widget in
-                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, pillHeight: pillHeight)
+                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, barHeight: height)
                             .environment(\.fused, fused.contains(index))
                             // Closing the gap brings the two capsules within the container's blending distance, so the
                             // glass flows into one shape with a neck and snaps apart again as the gap reopens.
@@ -121,53 +111,9 @@ struct BarView: View {
     }
 }
 
-/// The dark band behind the bar, flush with the screen top and straight into both screen edges. Under the notch it
-/// hangs `chin` deeper and turns pure black, so the band and the hardware notch read as one object. The steps into the
-/// chin follow smootherstep, whose slope and curvature are zero at both ends, so the edge bends without a kink.
-struct Band: Shape {
-    static let chin: CGFloat = 6
-    let width: CGFloat
-    let depth: CGFloat
-    let notch: ClosedRange<CGFloat>?
-
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: .zero)
-            path.addLine(to: CGPoint(x: 0, y: depth))
-            if let notch {
-                let run: CGFloat = 18
-                step(&path, from: CGPoint(x: notch.lowerBound - run, y: depth), to: CGPoint(x: notch.lowerBound, y: depth + Self.chin))
-                step(&path, from: CGPoint(x: notch.upperBound, y: depth + Self.chin), to: CGPoint(x: notch.upperBound + run, y: depth))
-            }
-            path.addLine(to: CGPoint(x: width, y: depth))
-            path.addLine(to: CGPoint(x: width, y: 0))
-            path.closeSubpath()
-        }
-    }
-
-    private func step(_ path: inout Path, from a: CGPoint, to b: CGPoint) {
-        path.addLine(to: a)
-        for i in 1...24 {
-            let t = CGFloat(i) / 24
-            let s = t * t * t * (t * (t * 6 - 15) + 10)
-            path.addLine(to: CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * s))
-        }
-    }
-
-    /// Dark and faintly translucent, deepening to pure black over the last 140 points before the notch.
-    var shade: LinearGradient {
-        let dark = Color.black.opacity(0.85)
-        guard let notch else { return LinearGradient(colors: [dark], startPoint: .leading, endPoint: .trailing) }
-        let at = { (x: CGFloat) in max(0, min(1, x / width)) }
-        return LinearGradient(stops: [.init(color: dark, location: at(notch.lowerBound - 140)), .init(color: .black, location: at(notch.lowerBound)),
-                                      .init(color: .black, location: at(notch.upperBound)), .init(color: dark, location: at(notch.upperBound + 140))],
-                              startPoint: .leading, endPoint: .trailing)
-    }
-}
-
 extension View {
     /// A glass capsule.
-    func pill(height: CGFloat, padding: CGFloat = 12) -> some View {
+    func pill(height: CGFloat, padding: CGFloat = 10) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
@@ -212,20 +158,22 @@ struct WidgetView: View {
     let model: BarModel
     let widget: LiquidBarCore.Widget
     let screenFrame: CGRect
-    let pillHeight: CGFloat
+    let barHeight: CGFloat
     @Environment(MenuMode.self) private var menuMode
+
+    private var pillHeight: CGFloat { barHeight - 8 }
 
     /// The screen point just below the bar at the left edge of `rect`, a global frame in this bar.
     private func belowBar(_ rect: CGRect) -> NSPoint {
-        NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - model.config.height + 2)
+        NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - barHeight + 2)
     }
 
     var body: some View {
         switch widget {
         case .apple:
-            AppleButton(model: model, screenFrame: screenFrame)
+            AppleButton(model: model, screenFrame: screenFrame, barHeight: barHeight)
                 .fixedSize()
-                .pill(height: pillHeight, padding: 11)
+                .pill(height: pillHeight, padding: 9)
         case .workspaces:
             // One glass pill for both, so swapping workspaces for menus morphs the capsule instead of replacing it.
             Group {
@@ -245,7 +193,7 @@ struct WidgetView: View {
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
-                    .pill(height: pillHeight, padding: 6)
+                    .pill(height: pillHeight, padding: 4)
                     .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
@@ -263,7 +211,7 @@ struct WidgetView: View {
                     .onTapGesture { model.click(widget) }
             }
         case .clock:
-            ClockPill(model: model, screenFrame: screenFrame, pillHeight: pillHeight)
+            ClockPill(model: model, screenFrame: screenFrame, barHeight: barHeight)
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }
@@ -321,17 +269,18 @@ struct ScrollCatcher: NSViewRepresentable {
 struct AppleButton: View {
     let model: BarModel
     let screenFrame: CGRect
+    let barHeight: CGFloat
     @State private var frame = CGRect.zero
 
     var body: some View {
         Image(systemName: "apple.logo")
-            .font(.system(size: 16, weight: .semibold))
+            .font(.system(size: 14, weight: .semibold))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
             .onTapGesture {
                 if let command = model.config.clicks["apple"] {
                     shell(command)
                 } else {
-                    AppleMenu.popUp(at: NSPoint(x: screenFrame.minX + frame.minX, y: screenFrame.maxY - model.config.height + 2))
+                    AppleMenu.popUp(at: NSPoint(x: screenFrame.minX + frame.minX, y: screenFrame.maxY - barHeight + 2))
                 }
             }
     }
@@ -370,10 +319,10 @@ struct WorkspaceStrip: View {
             }
             if model.workspaces.mode != "main" {
                 Text(model.workspaces.mode)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .textCase(.uppercase)
                     .foregroundStyle(Color.barYellow)
-                    .padding(.horizontal, 9)
+                    .padding(.horizontal, 7)
                     .frame(height: itemHeight - 4)
                     .background(Capsule().fill(Color.barYellow.opacity(0.18)))
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -416,16 +365,16 @@ struct WorkspaceButton: View {
 
     var body: some View {
         LivePill(id: "workspace:\(id)", pulse: Set(apps)) { expanded in
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Text(id)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color.barWhite.opacity(focused ? 1 : apps.isEmpty ? 0.38 : 0.7))
                 if !apps.isEmpty {
                     IconStack(apps: apps, fanned: expanded)
                 }
             }
-            .padding(.leading, apps.isEmpty ? 8 : 7)
-            .padding(.trailing, apps.isEmpty ? 8 : 5)
+            .padding(.leading, apps.isEmpty ? 7 : 6)
+            .padding(.trailing, apps.isEmpty ? 7 : 3)
             .frame(height: height)
         }
         .contentShape(Capsule())
@@ -472,14 +421,14 @@ struct DropletShape: Shape {
 struct IconStack: View {
     let apps: [String]
     let fanned: Bool
-    private let size: CGFloat = 20
-    private let peek: CGFloat = 6
+    private let size: CGFloat = 16
+    private let peek: CGFloat = 5
 
     var body: some View {
         let shown = Array(apps.prefix(fanned ? 8 : 3))
         let extra = apps.count - shown.count
-        let step = fanned ? size + 3 : peek
-        HStack(spacing: 3) {
+        let step = fanned ? size + 2 : peek
+        HStack(spacing: 2) {
             ZStack(alignment: .leading) {
                 ForEach(Array(shown.enumerated()), id: \.element) { index, app in
                     let depth = fanned ? 0 : CGFloat(index)
@@ -497,7 +446,7 @@ struct IconStack: View {
             .frame(width: size + CGFloat(shown.count - 1) * step, alignment: .leading)
             if extra > 0 {
                 Text("+\(extra)")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(Color.barWhite.opacity(0.7))
                     .contentTransition(.numericText())
             }

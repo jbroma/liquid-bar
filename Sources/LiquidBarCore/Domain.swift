@@ -106,7 +106,7 @@ public enum Widget: Equatable, Hashable, Sendable {
 }
 
 public struct Config: Equatable, Sendable {
-    public var height: Double = 40
+    public var height: Double = 32
     public var margin: Double = 10
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]

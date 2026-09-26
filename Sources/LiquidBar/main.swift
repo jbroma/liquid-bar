@@ -57,13 +57,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func makePanel(for screen: NSScreen) -> NSPanel {
-        let height = model.config.height + (screen.auxiliaryTopLeftArea == nil ? 0 : Band.chin)
+        // On a notched screen the bar is exactly the notch's height, so the notch reads as part of the black bar.
+        let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top : model.config.height
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         // Above the auto-hidden native menu bar, which slides in at .mainMenu level on hover.
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
+        // Pure black, like the bezel and the notch on a mini-LED panel.
+        panel.backgroundColor = .black
+        panel.isOpaque = true
         panel.hasShadow = false
         panel.isReleasedWhenClosed = false
         panel.appearance = NSAppearance(named: .darkAqua)
@@ -71,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let host = NSHostingView(rootView: BarView(
             model: model,
             screenFrame: screen.frame,
+            height: height,
             leftWidth: screen.auxiliaryTopLeftArea?.width,
             rightWidth: screen.auxiliaryTopRightArea?.width
         ))

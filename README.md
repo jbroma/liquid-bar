@@ -2,7 +2,7 @@
 
 A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
 
-The pills sit on one dark band that runs the full width of the screen. Under the notch it turns pure black and hangs a little lower, with softly curved steps, so the band and the notch read as one shape. Screens without a notch get the plain band.
+The pills sit on an opaque pure black bar that runs the full width of the screen. On a notched screen the bar is exactly as tall as the notch, so the notch disappears into it.
 
 Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
 
@@ -60,7 +60,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `height` | number, 24 to 80 | `40` | Bar height in points. Pills are 6 points shorter. |
+| `height` | number, 24 to 80 | `32` | Bar height in points on screens without a notch. On a notched screen the bar always matches the notch height. Pills are 8 points shorter. |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
@@ -77,10 +77,10 @@ A widget is one of these names, or a script object:
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
 | `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a droplet-shaped lens. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
-| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The glass takes the artwork's colour. | Title, artist, and previous, play or pause, and next buttons. |
+| `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Title, artist, and previous, play or pause, and next buttons, on one line. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |
-| `battery` | Level symbol and percentage. The glass is green, yellow at 40% or less, and red at 20% or less. | Time left, or time to full while charging, and a level bar. |
+| `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Time left, or time to full while charging, and a level bar. |
 | `clock` | Time. | Date and time with seconds, like "Friday 25 September · 19:58:12". Click opens the calendar. |
 
 A script object is the SketchyBar-style escape hatch:

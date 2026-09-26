@@ -2,13 +2,13 @@ import CoreWLAN
 import LiquidBarCore
 import SwiftUI
 
-/// The small grey first line of a two-line detail.
+/// The dimmed label that leads a detail.
 struct Caption: View {
     let text: String
 
     var body: some View {
         Text(text)
-            .font(.system(size: 10, weight: .semibold))
+            .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(Color.barWhite.opacity(0.7))
             .lineLimit(1)
     }
@@ -18,7 +18,7 @@ struct Caption: View {
 struct Meter: View {
     let value: Double
     var tint = Color.barWhite
-    var width: CGFloat = 72
+    var width: CGFloat = 48
 
     var body: some View {
         Capsule()
@@ -39,18 +39,15 @@ struct VolumePill: View {
         let level = volume.muted ? 0 : volume.level
         LivePill(id: "volume", pulse: volume) {
             Image(systemName: volume.symbol)
-                .frame(width: 18)
+                .frame(width: 16)
                 .contentTransition(.symbolEffect(.replace))
         } detail: {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Caption(text: volume.device)
-                    Meter(value: Double(level) / 100)
-                }
-                .frame(minWidth: 72, alignment: .leading)
+            HStack(spacing: 6) {
+                Caption(text: volume.device)
+                Meter(value: Double(level) / 100)
                 Text("\(level)%")
-                    .font(.system(size: 12, weight: .bold))
-                    .frame(width: 34, alignment: .trailing)
+                    .font(.system(size: 11, weight: .bold))
+                    .frame(width: 30, alignment: .trailing)
                     .contentTransition(.numericText(value: Double(level)))
             }
         }
@@ -67,18 +64,18 @@ struct BatteryPill: View {
 
     var body: some View {
         LivePill(id: "battery", pulse: battery.onAC) {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Image(systemName: battery.symbol)
-                    .font(.system(size: 15, weight: .regular))
+                    .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: battery.onAC)
                 // Changes every few minutes at rest, so it swaps without a transition, like the clock.
                 Text("\(battery.percent)%")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
             }
         } detail: {
-            VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
                 Caption(text: battery.detail)
                 Meter(value: Double(battery.percent) / 100, tint: battery.tint.color)
             }
@@ -95,7 +92,7 @@ struct NetworkPill: View {
     var body: some View {
         LivePill(id: "wifi", pulse: network.kind) {
             Image(systemName: network.symbol)
-                .frame(width: 18)
+                .frame(width: 16)
                 .contentTransition(.symbolEffect(.replace))
         } detail: {
             NetworkDetail(network: network)
@@ -110,18 +107,17 @@ private struct NetworkDetail: View {
     @State private var rates: (down: Double, up: Double)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 4) {
-                Caption(text: name ?? fallbackName)
-                if name == nil, let bars {
-                    Image(systemName: "wifi", variableValue: Double(bars) / 3)
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Color.barWhite.opacity(0.7))
-                }
+        HStack(spacing: 4) {
+            Caption(text: name ?? fallbackName)
+            if name == nil, let bars {
+                Image(systemName: "wifi", variableValue: Double(bars) / 3)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.barWhite.opacity(0.7))
             }
             if network.kind != .offline {
-                Text("↓ \(throughputText(rates?.down ?? 0))   ↑ \(throughputText(rates?.up ?? 0))")
+                Text("↓ \(throughputText(rates?.down ?? 0))  ↑ \(throughputText(rates?.up ?? 0))")
                     .font(.system(size: 11, weight: .semibold))
+                    .padding(.leading, 2)
                     .contentTransition(.numericText())
             }
         }
@@ -166,7 +162,7 @@ private struct NetworkDetail: View {
 struct ClockPill: View {
     let model: BarModel
     let screenFrame: CGRect
-    let pillHeight: CGFloat
+    let barHeight: CGFloat
     @State private var frame = CGRect.zero
 
     var body: some View {
@@ -193,15 +189,15 @@ struct ClockPill: View {
                         .transition(.blurReplace)
                 }
             }
-            .pill(height: pillHeight)
+            .pill(height: barHeight - 8)
         }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
         .onTapGesture {
             if let command = model.config.clicks["clock"] {
                 shell(command)
             } else {
-                let top = screenFrame.maxY - model.config.height
-                CalendarPopover.toggle(anchor: NSRect(x: screenFrame.minX + frame.minX, y: top, width: frame.width, height: model.config.height))
+                let top = screenFrame.maxY - barHeight
+                CalendarPopover.toggle(anchor: NSRect(x: screenFrame.minX + frame.minX, y: top, width: frame.width, height: barHeight))
             }
         }
     }
@@ -216,7 +212,7 @@ struct NowPlayingPill: View {
 
     var body: some View {
         LivePill(id: "nowPlaying", pulse: nowPlaying.trackID) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 Group {
                     if let artwork {
                         Image(nsImage: artwork).resizable().aspectRatio(contentMode: .fill)
@@ -224,20 +220,18 @@ struct NowPlayingPill: View {
                         Image(systemName: "music.note")
                     }
                 }
-                .frame(width: 22, height: 22)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
+                .frame(width: 18, height: 18)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
                 .onTapGesture { shell("open -b \(nowPlaying.player.rawValue)") }
                 Equalizer(playing: nowPlaying.playing)
                     .frame(width: 14, height: 14)
             }
         } detail: {
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Marquee(text: nowPlaying.title, font: .system(size: 11, weight: .bold), width: 150)
-                    Marquee(text: nowPlaying.artist, font: .system(size: 10, weight: .semibold), width: 150)
-                        .foregroundStyle(Color.barWhite.opacity(0.7))
-                }
-                HStack(spacing: 2) {
+            HStack(spacing: 6) {
+                Marquee(text: nowPlaying.title, font: .system(size: 11, weight: .bold), width: 130)
+                Marquee(text: nowPlaying.artist, font: .system(size: 11, weight: .semibold), width: 90)
+                    .foregroundStyle(Color.barWhite.opacity(0.7))
+                HStack(spacing: 0) {
                     TransportButton(symbol: "backward.fill") { control("previous track") }
                     TransportButton(symbol: nowPlaying.playing ? "pause.fill" : "play.fill") { control("playpause") }
                     TransportButton(symbol: "forward.fill") { control("next track") }
@@ -255,9 +249,9 @@ private struct TransportButton: View {
 
     var body: some View {
         Image(systemName: symbol)
-            .font(.system(size: 12, weight: .bold))
+            .font(.system(size: 11, weight: .bold))
             .contentTransition(.symbolEffect(.replace))
-            .frame(width: 26, height: 24)
+            .frame(width: 22, height: 20)
             .background { if hovering { Capsule().fill(.white.opacity(0.14)) } }
             .contentShape(Capsule())
             .onHover { hovering = $0 }
@@ -357,10 +351,10 @@ private struct MenuTitleButton: View {
 
     var body: some View {
         Text(title.title)
-            .font(.system(size: 13, weight: bold ? .bold : .medium))
+            .font(.system(size: 12, weight: bold ? .bold : .medium))
             .fixedSize()
-            .padding(.horizontal, 8)
-            .frame(height: 24)
+            .padding(.horizontal, 7)
+            .frame(height: 18)
             .background { if hovering { Capsule().fill(.white.opacity(0.14)) } }
             .contentShape(Capsule())
             .onHover { hovering = $0 }
