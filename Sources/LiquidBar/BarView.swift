@@ -183,6 +183,16 @@ struct WidgetView: View {
                 MenuPill(id: widget.name, pulse: battery.onAC, height: pillHeight) { BatteryLabel(battery: battery) }
                     .onTapGesture { model.click(widget) }
             }
+        case .controlCenter:
+            // The real Control Center is this item's dropdown, so it never claims the bar's own.
+            Image(systemName: "switch.2")
+                .frame(width: 16)
+                .fixedSize()
+                .pill(height: pillHeight)
+                .onTapGesture {
+                    haptic()
+                    MenuExtras.toggleControlCenter(explainAt: NSPoint(x: NSEvent.mouseLocation.x, y: screenFrame.maxY - barHeight + 2))
+                }
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Text(clockText(model.now)) }

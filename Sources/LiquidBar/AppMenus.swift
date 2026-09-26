@@ -29,10 +29,10 @@ enum AppMenus {
         mirror(menu, title: title.title).popUp(positioning: nil, at: screenPoint, in: nil)
     }
 
-    /// Explains the missing permission instead of the menus, and offers the Privacy pane.
-    static func explainAccess(appName: String, at screenPoint: NSPoint) {
+    /// Explains the missing permission instead of doing `purpose`, and offers the Privacy pane.
+    static func explainAccess(_ purpose: String, at screenPoint: NSPoint) {
         let menu = NSMenu()
-        let explanation = NSMenuItem(title: "LiquidBar needs Accessibility access to show \(appName)'s menus.", action: nil, keyEquivalent: "")
+        let explanation = NSMenuItem(title: "LiquidBar needs Accessibility access to \(purpose).", action: nil, keyEquivalent: "")
         explanation.isEnabled = false
         menu.addItem(explanation)
         menu.addItem(actionItem("Open Accessibility Settings…") {
@@ -54,16 +54,16 @@ enum AppMenus {
         return menu
     }
 
-    fileprivate static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+    static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
     }
 
-    fileprivate static func string(_ element: AXUIElement, _ name: String) -> String? {
+    static func string(_ element: AXUIElement, _ name: String) -> String? {
         attribute(element, name) as? String
     }
 
-    fileprivate static func children(_ element: AXUIElement?) -> [AXUIElement] {
+    static func children(_ element: AXUIElement?) -> [AXUIElement] {
         element.flatMap { attribute($0, kAXChildrenAttribute) as? [AXUIElement] } ?? []
     }
 }
@@ -122,7 +122,7 @@ final class MenuMode {
     /// Clicking the focused workspace: menus on, or off again. Without Accessibility access it explains why not.
     func toggle(_ app: FrontApp, at screenPoint: NSPoint) {
         if active { return end() }
-        if !show(app), !AXIsProcessTrusted() { AppMenus.explainAccess(appName: app.name, at: screenPoint) }
+        if !show(app), !AXIsProcessTrusted() { AppMenus.explainAccess("show \(app.name)'s menus", at: screenPoint) }
     }
 
     /// Shows the app's menus; false without Accessibility access or when the app has none.
