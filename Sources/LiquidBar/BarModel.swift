@@ -18,11 +18,7 @@ final class BarModel {
     var now = Date()
     var scriptLabels: [String: String] = [:]
     var nowPlaying: NowPlaying?
-    var artwork: NSImage? {
-        didSet { artworkColors = artwork?.palette() ?? [] }
-    }
-    /// The artwork's two dominant colours, for the now playing pill's tint.
-    private(set) var artworkColors: [RGB] = []
+    var artwork: NSImage?
     /// Where notification banners are on screen (top-left origin), nil when none is showing.
     var banner: CGRect?
     var frontApp: FrontApp?

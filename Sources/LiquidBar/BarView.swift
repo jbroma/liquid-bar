@@ -111,17 +111,13 @@ struct BarView: View {
 }
 
 extension View {
-    /// A glass capsule. A tint colours the glass and spills a soft glow of itself onto the wallpaper around it.
-    func pill(height: CGFloat, padding: CGFloat = 12, tint: Color? = nil) -> some View {
+    /// A glass capsule.
+    func pill(height: CGFloat, padding: CGFloat = 12) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
-            .glassEffect(tint.map { .regular.tint($0.opacity(0.5)).interactive() } ?? .regular.interactive(), in: .capsule)
+            .glassEffect(.regular.interactive(), in: .capsule)
             .overlay { Specular() }
-            .background {
-                Capsule().fill(tint ?? .clear).blur(radius: 9).opacity(0.55).padding(.horizontal, 4)
-            }
-            .animation(spring, value: tint)
     }
 }
 
@@ -194,7 +190,7 @@ struct WidgetView: View {
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 NowPlayingPill(nowPlaying: nowPlaying, artwork: model.artwork, control: model.control)
-                    .pill(height: pillHeight, padding: 6, tint: model.artworkColors.first?.glassTint.color)
+                    .pill(height: pillHeight, padding: 6)
                     .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
@@ -208,7 +204,7 @@ struct WidgetView: View {
         case .battery:
             if let battery = model.battery {
                 BatteryPill(battery: battery)
-                    .pill(height: pillHeight, tint: battery.levelTint.color)
+                    .pill(height: pillHeight)
                     .onTapGesture { model.click(widget) }
             }
         case .clock:
@@ -330,8 +326,7 @@ struct WorkspaceStrip: View {
         }
         .background(alignment: .leading) {
             if let focusedFrame {
-                DropletLens(lead: lead, trail: trail, rest: focusedFrame.width,
-                            tint: focused.flatMap { model.workspaces.apps(on: $0).first }.flatMap(AppIcons.tint))
+                DropletLens(lead: lead, trail: trail, rest: focusedFrame.width)
                     .frame(height: itemHeight)
             }
         }
@@ -383,25 +378,19 @@ struct WorkspaceButton: View {
     }
 }
 
-/// The focus lens between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet, and it
-/// takes the colour of the focused workspace's front app.
+/// The focus lens between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet.
 struct DropletLens: View {
     let lead: CGFloat
     let trail: CGFloat
     let rest: CGFloat
-    let tint: Color?
 
     var body: some View {
         let shape = DropletShape(lead: lead, trail: trail, rest: rest)
-        let color = tint ?? .white
         ZStack {
-            shape.fill(color.opacity(tint == nil ? 0.1 : 0.3)).blur(radius: 6)
-            shape.fill(LinearGradient(colors: [color.opacity(tint == nil ? 0.24 : 0.85), color.opacity(tint == nil ? 0.14 : 0.62)],
-                                      startPoint: .top, endPoint: .bottom))
+            shape.fill(LinearGradient(colors: [.white.opacity(0.24), .white.opacity(0.14)], startPoint: .top, endPoint: .bottom))
             shape.stroke(LinearGradient(stops: [.init(color: .white.opacity(0.6), location: 0), .init(color: .white.opacity(0.08), location: 0.5),
                                                 .init(color: .white.opacity(0.18), location: 1)], startPoint: .top, endPoint: .bottom), lineWidth: 0.5)
         }
-        .animation(spring, value: tint)
         .allowsHitTesting(false)
     }
 }

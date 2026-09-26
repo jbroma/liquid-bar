@@ -2,7 +2,7 @@
 
 A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu bar completely. Every item is a small glass pill that stays calm at rest, expands on hover, and expands by itself for a moment when something changes, like the volume keys or plugging in the charger. An expanding pill flows into its neighbour and splits off again when it collapses.
 
-Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens tinted with its front app's icon colour. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
+Left of the notch: the Apple menu and AeroSpace workspaces with the icons of their apps. The focused workspace sits under a droplet-shaped lens. Right of the notch: now playing, volume, Wi-Fi, battery, and the clock.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -74,7 +74,7 @@ A widget is one of these names, or a script object:
 | Name | At rest | On hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
-| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a lens tinted with the colour of its front app's icon. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
+| `workspaces` | Each workspace's number and a stack of its apps' icons, the most recently used on top. The focused workspace sits under a droplet-shaped lens. Empty workspaces show a dim number. | The stack fans out into a row. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
 | `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. The glass takes the artwork's colour. | Title, artist, and previous, play or pause, and next buttons. |
 | `volume` | Speaker symbol. | Output device, level bar, and percentage. Scroll to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or signal bars when macOS withholds the name) and live download and upload speed. |

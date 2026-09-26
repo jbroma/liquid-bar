@@ -137,13 +137,6 @@ extension BatteryState {
         }
     }
 
-    /// The colour of the battery pill's glass: the charge level at a glance.
-    public var levelTint: Tint {
-        if percent <= 20 { return .red }
-        if percent <= 40 { return .yellow }
-        return .green
-    }
-
     public var tint: Tint {
         if onAC { return .green }
         if percent <= 20 { return .red }
