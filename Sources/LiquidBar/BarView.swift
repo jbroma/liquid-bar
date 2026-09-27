@@ -80,7 +80,6 @@ struct BarView: View {
                             .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
                     }
                 }
-                .animation(spring, value: slot.owner)
                 .animation(spring, value: model.nowPlaying == nil)
             }
         }
@@ -159,13 +158,13 @@ struct WidgetView: View {
             .barHitArea()
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
-                MenuPill(id: widget.name, pulse: nowPlaying.trackID, height: pillHeight, padding: 4) {
+                MenuPill(id: .nowPlaying, pulse: nowPlaying.trackID, height: pillHeight, padding: 4) {
                     NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork)
                 }
                 .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
-            MenuPill(id: widget.name, pulse: model.volume, height: pillHeight) {
+            MenuPill(id: .volume, pulse: model.volume, height: pillHeight) {
                 Image(systemName: model.volume.symbol)
                     .frame(width: 16)
                     .contentTransition(.symbolEffect(.replace))
@@ -174,7 +173,7 @@ struct WidgetView: View {
             .overlay { ScrollCatcher { model.nudgeVolume($0) } }
             .onTapGesture { model.click(widget) }
         case .wifi:
-            MenuPill(id: widget.name, pulse: model.network.kind, height: pillHeight) {
+            MenuPill(id: .wifi, pulse: model.network.kind, height: pillHeight) {
                 Image(systemName: model.network.symbol)
                     .frame(width: 16)
                     .contentTransition(.symbolEffect(.replace))
@@ -182,15 +181,15 @@ struct WidgetView: View {
             .onTapGesture { model.click(widget) }
         case .battery:
             if let battery = model.battery {
-                MenuPill(id: widget.name, pulse: battery.onAC, height: pillHeight) { BatteryLabel(battery: battery) }
+                MenuPill(id: .battery, pulse: battery.onAC, height: pillHeight) { BatteryLabel(battery: battery) }
                     .onTapGesture { model.click(widget) }
             }
         case .controlCenter:
-            MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Image(systemName: "switch.2").frame(width: 16) }
+            MenuPill(id: .controlCenter, pulse: 0, height: pillHeight) { Image(systemName: "switch.2").frame(width: 16) }
                 .onTapGesture { model.click(widget) }
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
-            MenuPill(id: widget.name, pulse: 0, height: pillHeight) { Text(clockText(model.now)) }
+            MenuPill(id: .clock, pulse: 0, height: pillHeight) { Text(clockText(model.now)) }
                 .onTapGesture { model.click(widget) }
         case .script(let script):
             HStack(spacing: 5) {
@@ -355,7 +354,7 @@ struct WorkspaceButton: View {
     let action: () -> Void
 
     var body: some View {
-        LivePill(id: "workspace:\(id)", pulse: 0, gap: 0) { _ in
+        LivePill(id: .workspace(id), pulse: 0, gap: 0) { _ in
             HStack(spacing: 4) {
                 Text(id)
                     .font(.system(size: 10, weight: .semibold))

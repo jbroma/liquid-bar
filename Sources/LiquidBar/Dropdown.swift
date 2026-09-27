@@ -1,28 +1,11 @@
 import LiquidBarCore
 import SwiftUI
 
-/// The items that open a dropdown. A workspace's hangs left of the notch, the rest right of it.
-enum Dropdown: Hashable {
+/// The items that open a dropdown, and the ids of the `ExpansionSlot`. A workspace's hangs left of the notch, the rest
+/// right of it.
+nonisolated enum Dropdown: Hashable, Sendable {
     case nowPlaying, volume, wifi, battery, controlCenter, clock
     case workspace(String)
-
-    /// The item's id in the `ExpansionSlot`: its widget name, or "workspace:<id>".
-    init?(owner: String) {
-        if owner.hasPrefix("workspace:") {
-            self = .workspace(String(owner.dropFirst("workspace:".count)))
-        } else if let item = [Dropdown.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock].first(where: { $0.owner == owner }) {
-            self = item
-        } else {
-            return nil
-        }
-    }
-
-    var owner: String {
-        switch self {
-        case .workspace(let id): "workspace:\(id)"
-        default: "\(self)"
-        }
-    }
 
     var isLeft: Bool {
         if case .workspace = self { true } else { false }
@@ -63,8 +46,8 @@ struct DropdownView: View {
     }
 
     var body: some View {
-        let open = slot.owner.flatMap(Dropdown.init(owner:)).flatMap { $0.isLeft == left && hasContent($0) ? $0 : nil }
-        let pill = open.flatMap { slot.frames[$0.owner] } ?? anchor
+        let open = slot.owner.flatMap { $0.isLeft == left && hasContent($0) ? $0 : nil }
+        let pill = open.flatMap { slot.frames[$0] } ?? anchor
         GeometryReader { proxy in
             let geometry = geometry(open, pill: pill, panel: proxy.size)
             let shape = DropdownShape(fillet: Self.fillet, corner: Self.corner)

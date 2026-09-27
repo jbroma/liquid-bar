@@ -9,14 +9,14 @@ let spring = Animation.spring(response: 0.38, dampingFraction: 0.8)
 /// next change.
 @Observable
 final class ExpansionSlot {
-    private(set) var owner: String?
+    private(set) var owner: Dropdown?
     /// Pill frames in the bar window, top-left origin, so the dropdown can sit under its item.
-    var frames: [String: CGRect] = [:]
-    @ObservationIgnored private var inputs = ExpansionInputs<String>()
+    var frames: [Dropdown: CGRect] = [:]
+    @ObservationIgnored private var inputs = ExpansionInputs<Dropdown>()
     @ObservationIgnored private var timer: Task<Void, Never>?
     @ObservationIgnored private let created = Date()
 
-    func hover(_ id: String, _ inside: Bool) {
+    func hover(_ id: Dropdown, _ inside: Bool) {
         trace("hover \(id) \(inside ? "in" : "out")")
         let now = Date()
         if inside {
@@ -44,19 +44,19 @@ final class ExpansionSlot {
         update()
     }
 
-    func pulse(_ id: String, _ value: String) {
+    func pulse(_ id: Dropdown, _ value: String) {
         trace("pulse \(id) \(value)")
         // Sources report their first real state just after launch; that is not news. A change made while the pointer
         // is on the item, like dragging its volume slider, is not news either.
         guard created.timeIntervalSinceNow < -2, inputs.inside?.id != id, !(inputs.holding && owner == id) else { return }
-        inputs.pulse = .init(id, Date() + ExpansionInputs<String>.pulseLength)
+        inputs.pulse = .init(id, Date() + ExpansionInputs<Dropdown>.pulseLength)
         update()
     }
 
     private func update() {
         let (next, recheck) = inputs.owner(now: Date(), current: owner)
         if next != owner {
-            trace("owner \(owner ?? "-") -> \(next ?? "-")")
+            trace("owner \(owner.map { "\($0)" } ?? "-") -> \(next.map { "\($0)" } ?? "-")")
             withAnimation(spring) { owner = next }
         }
         timer?.cancel()
@@ -72,7 +72,7 @@ final class ExpansionSlot {
 /// An item that opens when it owns its bar's `ExpansionSlot`: on hover, or by itself for a moment when `pulse`
 /// changes. `content` draws the item for the current state.
 struct LivePill<Pulse: Equatable, Content: View>: View {
-    let id: String
+    let id: Dropdown
     var pulse: Pulse
     var gap = itemGap
     @ViewBuilder var content: (_ expanded: Bool) -> Content
@@ -124,7 +124,7 @@ private struct BarHitArea: ViewModifier {
 
 /// A glass pill on the right whose menu is the bar's dropdown. It widens a few points while its dropdown is open.
 struct MenuPill<Pulse: Equatable, Label: View>: View {
-    let id: String
+    let id: Dropdown
     var pulse: Pulse
     let height: CGFloat
     var padding: CGFloat = 10
