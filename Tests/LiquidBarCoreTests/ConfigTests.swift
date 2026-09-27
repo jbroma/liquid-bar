@@ -11,8 +11,9 @@ private func decode(_ json: String) throws -> Config {
     #expect(config.height == 32)
     #expect(config.left == [.apple, .workspaces])
     #expect(throws: (any Error).self) { try decode(#"{"left": ["frontApp"]}"#) }
-    #expect(config.right == [.nowPlaying, .menuExtras, .volume, .wifi, .battery, .controlCenter, .clock])
-    #expect(try decode(#"{"right": ["controlCenter", "menuExtras"]}"#).right == [.controlCenter, .menuExtras])
+    #expect(config.right == [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock])
+    // "menuExtras" moved into Control Center; an old config that lists it still loads.
+    #expect(try decode(#"{"right": ["menuExtras", "controlCenter", "clock"]}"#).right == [.controlCenter, .clock])
     #expect(config.workspaces.map(\.id) == ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
     #expect(config.clicks["clock"] == nil)
 }

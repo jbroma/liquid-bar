@@ -55,15 +55,17 @@ final class MenuExtrasSource {
     }
 }
 
-/// The status items the bar covers. A click presses one, so its own menu opens.
-struct MenuExtrasMenu: View {
-    let model: BarModel
+/// The status items the bar covers, as a section of Control Center's dropdown. A click presses one, so its own menu
+/// opens.
+struct MenuExtrasSection: View {
+    let extras: [MenuExtra<AXUIElement>]
     @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
-        MenuBody {
-            MenuTitle(title: "Menu Bar Items")
-            ForEach(Array(model.menuExtras.enumerated()), id: \.offset) { _, extra in
+        if !extras.isEmpty {
+            MenuSeparator()
+            MenuSection(title: "Menu Bar Items")
+            ForEach(Array(extras.enumerated()), id: \.offset) { _, extra in
                 MenuButton {
                     slot.dismiss()
                     MenuExtras.press(extra.handle)
@@ -77,6 +79,5 @@ struct MenuExtrasMenu: View {
                 }
             }
         }
-        .task { MenuExtras.refresh(model) }
     }
 }

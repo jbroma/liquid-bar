@@ -4,18 +4,25 @@ public struct ConfigError: Error, CustomStringConvertible {
     public let description: String
 }
 
-extension Widget: Decodable {
-    static let named: [Widget] = [.apple, .workspaces, .nowPlaying, .menuExtras, .volume, .wifi, .battery, .controlCenter, .clock]
+/// One entry of `left` or `right`: a widget, or nil for a name the bar no longer has.
+private struct WidgetEntry: Decodable {
+    static let named: [Widget] = [.apple, .workspaces, .nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
 
-    public init(from decoder: Decoder) throws {
+    let widget: Widget?
+
+    init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        if let name = try? container.decode(String.self) {
-            guard let widget = Self.named.first(where: { $0.name == name }) else {
-                throw ConfigError(description: "unknown widget \"\(name)\"")
-            }
-            self = widget
+        guard let name = try? container.decode(String.self) else {
+            widget = .script(try container.decode(ScriptWidget.self))
+            return
+        }
+        // Other apps' status items, which now sit in Control Center's dropdown.
+        if name == "menuExtras" {
+            widget = nil
+        } else if let named = Self.named.first(where: { $0.name == name }) {
+            widget = named
         } else {
-            self = .script(try container.decode(ScriptWidget.self))
+            throw ConfigError(description: "unknown widget \"\(name)\"")
         }
     }
 }
@@ -27,8 +34,8 @@ extension Config {
             var height: Double?
             var margin: Double?
             var workspaces: [Workspace]?
-            var left: [Widget]?
-            var right: [Widget]?
+            var left: [WidgetEntry]?
+            var right: [WidgetEntry]?
             var clicks: [String: String]?
         }
         let raw = try JSONDecoder().decode(Raw.self, from: data)
@@ -42,8 +49,8 @@ extension Config {
             config.margin = margin
         }
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
-        if let left = raw.left { config.left = left }
-        if let right = raw.right { config.right = right }
+        if let left = raw.left { config.left = left.compactMap(\.widget) }
+        if let right = raw.right { config.right = right.compactMap(\.widget) }
         config.clicks.merge(raw.clicks ?? [:]) { $1 }
         for case .script(let script) in config.left + config.right {
             if let interval = script.interval, interval < 1 {

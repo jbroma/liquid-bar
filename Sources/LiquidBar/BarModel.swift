@@ -20,7 +20,7 @@ final class BarModel {
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
     var frontApp: FrontApp?
-    /// Other apps' status items, for the tray.
+    /// Other apps' status items, listed in Control Center's dropdown.
     var menuExtras: [MenuExtra<AXUIElement>] = []
     let controls = Controls()
 

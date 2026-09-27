@@ -113,12 +113,14 @@ func openSettings(_ pane: String) {
 }
 
 /// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: wide tiles with a status
-/// line, round tiles, the brightness sliders, the paired Bluetooth devices, and a way into the real one.
+/// line, round tiles, the brightness sliders, the paired Bluetooth devices, the other apps' status items the bar
+/// covers, and a way into the real one.
 struct ControlCenterMenu: View {
-    let controls: Controls
+    let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
+        let controls = model.controls
         let state = controls.state
         MenuBody {
             MenuTitle(title: "Control Center")
@@ -161,6 +163,7 @@ struct ControlCenterMenu: View {
                     }
                 }
             }
+            MenuExtrasSection(extras: model.menuExtras)
             MenuSeparator()
             MenuButton {
                 slot.dismiss()
@@ -170,6 +173,7 @@ struct ControlCenterMenu: View {
             }
         }
         .task {
+            MenuExtras.refresh(model)
             controls.refresh()
             for await _ in DistributedNotificationCenter.default().notifications(named: .init("AppleInterfaceThemeChangedNotification")) {
                 controls.refresh()
