@@ -130,9 +130,8 @@ struct WidgetView: View {
 
     private var pillHeight: CGFloat { barHeight - 8 }
 
-    /// The screen point just below the bar at the left edge of `rect`, a global frame in this bar.
     private func belowBar(_ rect: CGRect) -> NSPoint {
-        NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - barHeight + 2)
+        menuOrigin(rect, screenFrame: screenFrame, barHeight: barHeight)
     }
 
     var body: some View {
@@ -246,6 +245,12 @@ struct ScrollCatcher: NSViewRepresentable {
     }
 }
 
+/// Where a menu under `rect`, a global frame in the bar, opens: its left edge, at the bar's bottom. AppKit keeps a menu
+/// below the menu bar's strip and scrolls it instead, hiding its first item, so any higher and that item is lost.
+func menuOrigin(_ rect: CGRect, screenFrame: CGRect, barHeight: CGFloat) -> NSPoint {
+    NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - barHeight)
+}
+
 struct AppleButton: View {
     let model: BarModel
     let screenFrame: CGRect
@@ -262,7 +267,7 @@ struct AppleButton: View {
                 if let command = model.config.clicks["apple"] {
                     shell(command)
                 } else {
-                    AppleMenu.popUp(at: NSPoint(x: screenFrame.minX + frame.minX, y: screenFrame.maxY - barHeight + 2))
+                    AppleMenu.popUp(at: menuOrigin(frame, screenFrame: screenFrame, barHeight: barHeight))
                 }
             }
     }
