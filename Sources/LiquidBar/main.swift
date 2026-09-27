@@ -4,7 +4,7 @@ import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BarModel()
-    /// Each screen's bar and, as its child, its dropdown.
+    /// Each screen's bar and, as its children, its two dropdown windows.
     var panels: [NSPanel] = []
     var aerospace: AeroSpaceSource?
     var sources: [AnyObject] = []

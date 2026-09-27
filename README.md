@@ -47,7 +47,7 @@ Other targets:
 
 ## Permissions
 
-The bar works without any permission. Two grants add features, and macOS asks for each the first time it is needed:
+The bar works without any permission. These grants add features, and macOS asks for each the first time it is needed:
 
 - **Accessibility** lets the bar show the front app's menus, open other apps' menu bar items, Screen Mirroring and the real Control Center, and read and switch Focus. Clicking the focused workspace or Control Center… without it explains what is missing and offers to open the Privacy pane.
 - **Bluetooth** lets the Control Center dropdown list paired devices, connect them, and switch Bluetooth. macOS asks the first time the dropdown opens.
@@ -124,5 +124,5 @@ Everything updates from system events: `aerospace subscribe`, IOKit power notifi
 
 ## Layout
 
-- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, colour extraction, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
+- `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it.
 - `Sources/LiquidBar` is the app: panels, SwiftUI views, the dropdown and its menus, the data sources, and the Apple and app menus.

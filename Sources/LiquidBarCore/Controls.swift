@@ -35,7 +35,7 @@ public enum AirDropMode: String, Sendable {
     case everyone = "Everyone"
 }
 
-/// The Control Center tiles: four wide ones with a status line, then three round ones.
+/// The Control Center tiles: wide ones with a status line, laid out two per row, then round ones.
 public enum ControlTile: CaseIterable, Sendable {
     case bluetooth, airDrop, focus, screenMirroring, darkMode, nightShift, screenshot
 

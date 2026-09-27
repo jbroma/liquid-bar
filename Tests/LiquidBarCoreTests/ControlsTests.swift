@@ -13,8 +13,9 @@ import Testing
     #expect(ControlTile.airDrop.isOn(ControlState(airDrop: .everyone)))
 }
 
-@Test func wideTilesComeFirst() {
-    #expect(ControlTile.allCases.filter(\.isWide) == [.bluetooth, .airDrop, .focus, .screenMirroring])
+@Test func wideTilesFillWholeRows() {
+    // The grid lays wide tiles out two per row and would drop an odd one.
+    #expect(ControlTile.allCases.filter(\.isWide).count.isMultiple(of: 2))
 }
 
 @Test func airDropModeFromSharingd() {

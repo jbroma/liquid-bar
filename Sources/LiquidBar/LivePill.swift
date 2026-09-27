@@ -1,7 +1,7 @@
 import LiquidBarCore
 import SwiftUI
 
-/// The one spring every motion in the bar uses.
+/// The spring most motions in the bar use.
 let spring = Animation.spring(response: 0.38, dampingFraction: 0.8)
 
 /// The single open item of one bar. Pills report hover, pulses and their frames here, the dropdown reports the
