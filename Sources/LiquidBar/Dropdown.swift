@@ -86,7 +86,11 @@ struct DropdownView: View {
                 }
                 .clipShape(shape)
                 .contentShape(shape)
-                .onHover { slot.hold($0) }
+                // SwiftUI can miss the exit when the dropdown closes under a still pointer, and then never reports
+                // the next entry; every move inside reports it again.
+                .onContinuousHover { phase in
+                    if case .active = phase { slot.hold(true) } else { slot.hold(false) }
+                }
                 .offset(x: geometry.x - Self.fillet)
                 .animation(spring, value: geometry)
         }

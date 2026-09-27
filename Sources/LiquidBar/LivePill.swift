@@ -29,6 +29,8 @@ final class ExpansionSlot {
     }
 
     func hold(_ inside: Bool) {
+        // A dropdown that just closed under the pointer can still report the pointer inside it.
+        guard inside != inputs.holding, owner != nil || !inside else { return }
         trace("hold \(inside)")
         inputs.holding = inside
         if !inside, let owner { inputs.left = .init(owner, Date()) }
