@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
+    var bannerPointer: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         scripts = ScriptRunner(model: model)
@@ -63,7 +64,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// it places them 16pt from the top, inside the bar. While one shows, the bars drop below it so it is not cut.
     func setBanner(_ showing: Bool) {
         trace("banner \(showing)")
+        bannerPointer.map(NSEvent.removeMonitor)
+        bannerPointer = nil
         panels.forEach { $0.level = showing ? belowBanners : barLevel }
+        guard showing else { return }
+        // Pushing into the top edge reveals the native menu bar, which is above the lowered bar, and macOS moves the
+        // banner below it. Until the pointer leaves that strip, the bar goes back on top of the menu bar.
+        bannerPointer = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let bar = self.panels.first, let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
+                else { return }
+                let depth = screen.frame.maxY - NSEvent.mouseLocation.y
+                let level = depth < 1 ? barLevel : depth > bar.frame.height ? belowBanners : bar.level
+                if level != bar.level { self.panels.forEach { $0.level = level } }
+            }
+        }
     }
 
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {
