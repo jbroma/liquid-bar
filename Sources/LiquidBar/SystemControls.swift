@@ -249,21 +249,10 @@ enum SystemControlCenter {
             for _ in 0..<100 where !windows(app).isEmpty && !(fromDetail && mainView()) { usleep(10_000) }
         }
     }
-
-    /// Opens the status item's own panel or menu. False when there is no such item or no Accessibility access.
-    static func open(_ id: String) -> Bool {
-        guard let item = extras()[id] else { return false }
-        MenuExtras.press(item)
-        return true
-    }
 }
 
 enum AirDrop {
     static func mode() -> AirDropMode? {
         (CFPreferencesCopyAppValue("DiscoverableMode" as CFString, "com.apple.sharingd" as CFString) as? String).flatMap(AirDropMode.init)
-    }
-
-    static func openWindow() {
-        shell("open -b com.apple.finder.Open-AirDrop")
     }
 }

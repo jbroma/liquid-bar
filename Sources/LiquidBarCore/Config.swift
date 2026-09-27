@@ -4,11 +4,11 @@ public struct ConfigError: Error, CustomStringConvertible {
     public let description: String
 }
 
-/// One entry of `left` or `right`: a widget, or nil for a name the bar no longer has.
+/// One entry of `left` or `right`: a widget name or a script object.
 private struct WidgetEntry: Decodable {
     static let named: [Widget] = [.apple, .workspaces, .nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
 
-    let widget: Widget?
+    let widget: Widget
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -16,19 +16,15 @@ private struct WidgetEntry: Decodable {
             widget = .script(try container.decode(ScriptWidget.self))
             return
         }
-        // Other apps' status items, which now sit in Control Center's dropdown.
-        if name == "menuExtras" {
-            widget = nil
-        } else if let named = Self.named.first(where: { $0.name == name }) {
-            widget = named
-        } else {
+        guard let named = Self.named.first(where: { $0.name == name }) else {
             throw ConfigError(description: "unknown widget \"\(name)\"")
         }
+        widget = named
     }
 }
 
 extension Config {
-    /// Every key is optional; missing keys keep today's defaults. `clicks` merges over the default clicks.
+    /// Every key is optional; missing keys keep the defaults. `clicks` merges over the default clicks.
     public static func decode(_ data: Data) throws -> Config {
         struct Raw: Decodable {
             var margin: Double?
@@ -44,8 +40,8 @@ extension Config {
             config.margin = margin
         }
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
-        if let left = raw.left { config.left = left.compactMap(\.widget) }
-        if let right = raw.right { config.right = right.compactMap(\.widget) }
+        if let left = raw.left { config.left = left.map(\.widget) }
+        if let right = raw.right { config.right = right.map(\.widget) }
         config.clicks.merge(raw.clicks ?? [:]) { $1 }
         for case .script(let script) in config.left + config.right {
             if let interval = script.interval, interval < 1 {

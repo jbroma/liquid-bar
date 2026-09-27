@@ -43,7 +43,7 @@ final class Controls {
         switch tile {
         case .airDrop:
             dismiss()
-            AirDrop.openWindow()
+            shell("open -b com.apple.finder.Open-AirDrop")
         case .screenMirroring:
             dismiss()
             showControlCenterModule("controlcenter-screen-mirroring", else: "com.apple.Displays-Settings.extension")
@@ -62,7 +62,11 @@ final class Controls {
             guard let on = state.bluetooth, Bluetooth.canSwitch else { return openSettings("com.apple.BluetoothSettings") }
             state.bluetooth = !on
             Bluetooth.setOn(!on)
-            refresh(after: .seconds(1.5))
+            // The controller takes a moment to power up or down.
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                refresh()
+            }
         case .focus:
             guard let on = state.focus else { return openSettings("com.apple.Focus-Settings.extension") }
             // A toggle drives Control Center for about 3s; a second click meanwhile would press into the same panel.
@@ -82,21 +86,6 @@ final class Controls {
         Task {
             await Bluetooth.toggle(device.id)
             refresh()
-        }
-    }
-
-    /// Reads again once a change the system makes in the background has landed.
-    private func refresh(after delay: Duration) {
-        Task {
-            try? await Task.sleep(for: delay)
-            refresh()
-        }
-    }
-
-    /// The real Control Center, for anything the dropdown does not cover.
-    func openSystemControlCenter() {
-        if !SystemControlCenter.open(SystemControlCenter.controlCenter) {
-            AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
         }
     }
 }
@@ -167,7 +156,11 @@ struct ControlCenterMenu: View {
             MenuSeparator()
             MenuButton {
                 slot.dismiss()
-                controls.openSystemControlCenter()
+                if let item = SystemControlCenter.extras()[SystemControlCenter.controlCenter] {
+                    MenuExtras.press(item)
+                } else {
+                    AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
+                }
             } content: {
                 Text("Control Center…").foregroundStyle(secondary)
             }

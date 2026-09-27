@@ -4,7 +4,6 @@ import Observation
 
 struct FrontApp: Equatable {
     var name: String
-    var bundleID: String
     var pid: pid_t
 }
 

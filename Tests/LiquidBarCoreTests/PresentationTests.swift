@@ -2,7 +2,7 @@ import Foundation
 import LiquidBarCore
 import Testing
 
-@Test func batteryFollowsTodaysColorRules() {
+@Test func batteryTintAndSymbol() {
     let onBattery = BatteryState.Power.battery(minutesLeft: 90)
     #expect(BatteryState(percent: 51, power: onBattery).tint == .normal)
     #expect(BatteryState(percent: 40, power: onBattery).tint == .yellow)
@@ -57,11 +57,8 @@ import Testing
     let date = Date(timeIntervalSince1970: 1_790_364_425)  // 2026-09-25 19:27:05 UTC
     let utc = TimeZone(identifier: "UTC")!
     #expect(clockText(date, timeZone: utc) == "19:27")
-    #expect(clockText(date, seconds: true, timeZone: utc) == "19:27:05")
-    #expect(dateText(date, timeZone: utc) == "Fri 25 Sep")
-    #expect(longDateText(date, timeZone: utc) == "Friday 25 September")
     #expect(fullDateText(date, timeZone: utc) == "Friday 25 September 2026")
-    #expect(dateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thu 28 May")
+    #expect(fullDateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thursday 28 May 2026")
 }
 
 @Test func monthGridStartsOnFirstWeekday() {

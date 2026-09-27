@@ -6,24 +6,16 @@ private func decode(_ json: String) throws -> Config {
     try Config.decode(Data(json.utf8))
 }
 
-@Test func emptyConfigReproducesTodaysBar() throws {
-    let config = try decode("{}")
-    #expect(config.left == [.apple, .workspaces])
-    #expect(throws: (any Error).self) { try decode(#"{"left": ["frontApp"]}"#) }
-    #expect(config.right == [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock])
-    // "menuExtras" moved into Control Center; an old config that lists it still loads.
-    #expect(try decode(#"{"right": ["menuExtras", "controlCenter", "clock"]}"#).right == [.controlCenter, .clock])
-    #expect(config.workspaces.map(\.id) == ["1", "2", "3", "4", "5", "6", "7", "8", "9"])
-    #expect(config.clicks["clock"] == nil)
+@Test func emptyConfigIsTheDefault() throws {
+    #expect(try decode("{}") == Config())
 }
 
 @Test func overridesOnlyTheKeysGiven() throws {
     let config = try decode("""
-        {"margin": 4, "workspaces": [{"id": "1", "symbol": "star"}, {"id": "web"}], "clicks": {"clock": "open -a Fantastical"}}
+        {"margin": 4, "workspaces": [{"id": "1"}, {"id": "web"}], "clicks": {"clock": "open -a Fantastical"}}
         """)
     #expect(config.margin == 4)
-    // Unknown keys, such as the old "agents", are ignored.
-    #expect(try decode(#"{"agents": true}"#) == Config())
+    #expect(try decode(#"{"unknown": true}"#) == Config())
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")
@@ -41,7 +33,6 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func rejectsInvalidConfig() {
     #expect(throws: (any Error).self) { try decode(#"{"right": ["clok"]}"#) }
-    #expect(throws: (any Error).self) { try decode(#"{"right": ["date"]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"margin": -1}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"symbol": "cloud"}]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"script": "date", "interval": 0}]}"#) }

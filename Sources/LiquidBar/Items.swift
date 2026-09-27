@@ -4,9 +4,9 @@ import SwiftUI
 /// A slim level bar, 0...1.
 struct Meter: View {
     let value: Double
-    var tint = Color.barWhite
-    var width: CGFloat = 48
-    var height: CGFloat = 4
+    let tint: Color
+    let width: CGFloat
+    let height: CGFloat
 
     var body: some View {
         Capsule()

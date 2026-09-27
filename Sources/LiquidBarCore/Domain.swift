@@ -208,19 +208,9 @@ extension NetworkState {
     }
 }
 
-/// "19:27", or "19:27:05" with seconds.
-public func clockText(_ date: Date, seconds: Bool = false, timeZone: TimeZone = .current) -> String {
-    format(date, seconds ? "HH:mm:ss" : "HH:mm", timeZone)
-}
-
-/// "Fri 25 Sep".
-public func dateText(_ date: Date, timeZone: TimeZone = .current) -> String {
-    format(date, "EEE d MMM", timeZone)
-}
-
-/// "Friday 25 September".
-public func longDateText(_ date: Date, timeZone: TimeZone = .current) -> String {
-    format(date, "EEEE d MMMM", timeZone)
+/// "19:27".
+public func clockText(_ date: Date, timeZone: TimeZone = .current) -> String {
+    format(date, "HH:mm", timeZone)
 }
 
 /// "Saturday 26 September 2026".
