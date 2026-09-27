@@ -177,16 +177,39 @@ struct MenuRow<Content: View>: View {
     }
 }
 
-/// A row that does something on click, with the native menus' rounded hover highlight.
+/// A row that does something on click.
 struct MenuButton<Content: View>: View {
     let action: () -> Void
     @ViewBuilder var content: () -> Content
-    @State private var hovering = false
 
     var body: some View {
-        MenuRow(content: content)
-            .background { RoundedRectangle(cornerRadius: 7).fill(.white.opacity(hovering ? 0.12 : 0)) }
-            .contentShape(RoundedRectangle(cornerRadius: 7))
+        MenuRow(content: content).hoverButton(action: action)
+    }
+}
+
+extension View {
+    /// A click target with the native menus' rounded hover highlight and a haptic tick.
+    func hoverButton(radius: CGFloat = 7, action: @escaping () -> Void) -> some View {
+        modifier(HoverButton(radius: radius, action: action))
+    }
+
+    /// A symbol's circle, filled white while `on`, like the controls in Control Center.
+    func iconCircle(on: Bool, size: CGFloat) -> some View {
+        foregroundStyle(on ? Color.black : Color.barWhite)
+            .frame(width: size, height: size)
+            .background(Circle().fill(on ? Color.barWhite : .white.opacity(0.14)))
+    }
+}
+
+private struct HoverButton: ViewModifier {
+    let radius: CGFloat
+    let action: () -> Void
+    @State private var hovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .background { RoundedRectangle(cornerRadius: radius).fill(.white.opacity(hovering ? 0.12 : 0)) }
+            .contentShape(RoundedRectangle(cornerRadius: radius))
             .onHover { hovering = $0 }
             .onTapGesture {
                 haptic()
@@ -252,7 +275,7 @@ struct SettingsButton: View {
     let pane: String
 
     var body: some View {
-        MenuButton { shell("open 'x-apple.systempreferences:\(pane)'") } content: { Text(title) }
+        MenuButton { openSettings(pane) } content: { Text(title) }
     }
 }
 

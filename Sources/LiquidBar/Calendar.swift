@@ -74,15 +74,11 @@ private struct MonthButton: View {
     let symbol: String
     var size: CGFloat = 11
     let action: () -> Void
-    @State private var hovering = false
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: size, weight: .semibold))
             .frame(width: 24, height: 22)
-            .background { RoundedRectangle(cornerRadius: 6).fill(.white.opacity(hovering ? 0.12 : 0)) }
-            .contentShape(Rectangle())
-            .onHover { hovering = $0 }
-            .onTapGesture(perform: action)
+            .hoverButton(radius: 6, action: action)
     }
 }

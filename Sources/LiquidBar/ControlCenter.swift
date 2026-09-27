@@ -199,9 +199,7 @@ private struct TileIcon: View {
             }
         }
         .font(.system(size: size * 0.43, weight: .semibold))
-        .foregroundStyle(on ? Color.black : Color.barWhite)
-        .frame(width: size, height: size)
-        .background(Circle().fill(on ? Color.barWhite : .white.opacity(0.14)))
+        .iconCircle(on: on, size: size)
     }
 }
 

@@ -83,9 +83,7 @@ struct DeviceIcon: View {
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(selected ? Color.black : Color.barWhite)
-            .frame(width: 24, height: 24)
-            .background(Circle().fill(selected ? Color.barWhite : .white.opacity(0.14)))
+            .iconCircle(on: selected, size: 24)
             .padding(.vertical, 2)
     }
 }
@@ -209,19 +207,12 @@ struct NowPlayingMenu: View {
 private struct TransportButton: View {
     let symbol: String
     let action: () -> Void
-    @State private var hovering = false
 
     var body: some View {
         Image(systemName: symbol)
             .font(.system(size: 16))
             .contentTransition(.symbolEffect(.replace))
             .frame(width: 44, height: 30)
-            .background { RoundedRectangle(cornerRadius: 7).fill(.white.opacity(hovering ? 0.12 : 0)) }
-            .contentShape(Rectangle())
-            .onHover { hovering = $0 }
-            .onTapGesture {
-                haptic()
-                action()
-            }
+            .hoverButton(action: action)
     }
 }

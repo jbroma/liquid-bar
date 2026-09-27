@@ -157,7 +157,6 @@ private struct MenuTitleButton: View {
     let title: AppMenuTitle
     let bold: Bool
     let open: (CGRect) -> Void
-    @State private var hovering = false
     @State private var frame = CGRect.zero
 
     var body: some View {
@@ -166,10 +165,7 @@ private struct MenuTitleButton: View {
             .fixedSize()
             .padding(.horizontal, 7)
             .frame(height: 18)
-            .background { if hovering { Capsule().fill(.white.opacity(0.14)) } }
-            .contentShape(Capsule())
-            .onHover { hovering = $0 }
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-            .onTapGesture { open(frame) }
+            .hoverButton(radius: 9) { open(frame) }
     }
 }
