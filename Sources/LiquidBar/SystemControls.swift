@@ -157,7 +157,6 @@ enum NightShift {
 /// The real Control Center, through Accessibility: its status items, and its panel for the one control with no API.
 enum SystemControlCenter {
     nonisolated static let controlCenter = "com.apple.menuextra.controlcenter"
-    static let screenMirroring = "com.apple.menuextra.screen-mirroring"
     /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
     static let focus = "com.apple.menuextra.focusmode"
 
@@ -183,13 +182,7 @@ enum SystemControlCenter {
         else { return nil }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
-        close(app, item)
-        // The status item keeps its own idea of whether the panel is open, which drifts when the panel closes by
-        // itself; then the first press only resets it.
-        for _ in 0..<2 where windows(app).isEmpty {
-            AXUIElementPerformAction(item, kAXPressAction as CFString)
-            for _ in 0..<40 where windows(app).isEmpty { usleep(10_000) }
-        }
+        openPanel(app, item)
         defer { close(app, item) }
         func isMode(_ element: AXUIElement) -> Bool { AppMenus.string(element, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
         if let module = waitFor(app, { isMode($0) || AppMenus.string($0, "AXIdentifier") == "controlcenter-focus-modes" }).first, !isMode(module) {
@@ -201,6 +194,30 @@ enum SystemControlCenter {
         guard let target else { return nil }
         AXUIElementPerformAction(target, kAXPressAction as CFString)
         return active == nil
+    }
+
+    /// Opens the real Control Center on one of its modules, as a click on the module would, and leaves it open for
+    /// the user: Screen Mirroring lists the displays to mirror to, Sound lists every output, AirPlay receivers
+    /// included. It blocks until the module has opened, and returns false when it did not, or without Accessibility.
+    nonisolated static func showModule(_ id: String) -> Bool {
+        guard let item = extras()[controlCenter], let pid = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
+        else { return false }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        openPanel(app, item)
+        guard let module = waitFor(app, { AppMenus.string($0, "AXIdentifier") == id }).first else { return false }
+        return AXUIElementPerformAction(module, kAXPressAction as CFString) == .success
+    }
+
+    /// Opens Control Center's panel on its main view.
+    private nonisolated static func openPanel(_ app: AXUIElement, _ item: AXUIElement) {
+        close(app, item)
+        // The status item keeps its own idea of whether the panel is open, which drifts when the panel closes by
+        // itself; then the first press only resets it.
+        for _ in 0..<2 where windows(app).isEmpty {
+            AXUIElementPerformAction(item, kAXPressAction as CFString)
+            for _ in 0..<40 where windows(app).isEmpty { usleep(10_000) }
+        }
     }
 
     private nonisolated static func windows(_ app: AXUIElement) -> [AXUIElement] {

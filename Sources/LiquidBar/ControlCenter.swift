@@ -46,7 +46,7 @@ final class Controls {
             AirDrop.openWindow()
         case .screenMirroring:
             dismiss()
-            if !SystemControlCenter.open(SystemControlCenter.screenMirroring) { openSettings("com.apple.Displays-Settings.extension") }
+            showControlCenterModule("controlcenter-screen-mirroring", else: "com.apple.Displays-Settings.extension")
         case .screenshot:
             dismiss()
             shell("open -b com.apple.screenshot.launcher")
@@ -98,6 +98,13 @@ final class Controls {
         if !SystemControlCenter.open(SystemControlCenter.controlCenter) {
             AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
         }
+    }
+}
+
+/// Opens a module of the real Control Center off the main thread, or the settings pane when it cannot.
+func showControlCenterModule(_ id: String, else pane: String) {
+    Task {
+        if await !Task.detached(operation: { SystemControlCenter.showModule(id) }).value { openSettings(pane) }
     }
 }
 
