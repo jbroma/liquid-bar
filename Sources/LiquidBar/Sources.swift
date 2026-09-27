@@ -5,24 +5,11 @@ import IOKit.ps
 import LiquidBarCore
 import Network
 
-/// Runs a command (resolved through PATH) and returns stdout, or nil on failure.
-nonisolated func run(_ args: [String]) async -> String? {
-    await Task.detached {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = args
-        let out = Pipe()
-        process.standardOutput = out
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        let data = out.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return process.terminationStatus == 0 ? String(decoding: data, as: UTF8.self) : nil
-    }.value
-}
-
+/// Runs a shell command, like a click's action, without waiting for it or reading its output.
 func shell(_ command: String) {
-    Task { _ = await run(["/bin/sh", "-c", command]) }
+    let process = makeProcess(["/bin/sh", "-c", command])
+    process.standardOutput = FileHandle.nullDevice
+    try? process.run()
 }
 
 final class AeroSpaceSource {
@@ -54,12 +41,9 @@ final class AeroSpaceSource {
     }
 
     private func subscribeOnce() async {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["aerospace", "subscribe", "focus-changed", "focused-workspace-changed", "window-detected", "mode-changed"]
+        let process = makeProcess(["aerospace", "subscribe", "focus-changed", "focused-workspace-changed", "window-detected", "mode-changed"])
         let out = Pipe()
         process.standardOutput = out
-        process.standardError = FileHandle.nullDevice
         do { try process.run() } catch { return }
         subscriber = process
         // Seed focus so the focused workspace's stack is right before the first focus event.
@@ -370,6 +354,8 @@ final class ScriptRunner {
     let model: BarModel
     private var scripts: [ScriptWidget] = []
     private var timers: [Timer] = []
+    /// Scripts with a run in flight. A slow script is not started again until its last run ends.
+    private var running: Set<String> = []
 
     init(model: BarModel) {
         self.model = model
@@ -403,8 +389,11 @@ final class ScriptRunner {
     }
 
     private func refresh(_ script: ScriptWidget) {
+        guard running.insert(script.script).inserted else { return }
         Task {
-            guard let output = await run(["/bin/sh", "-c", script.script]) else { return }
+            let output = await run(["/bin/sh", "-c", script.script], timeout: 60)
+            running.remove(script.script)
+            guard let output else { return }
             model.scriptLabels[script.script] = output.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
@@ -477,7 +466,8 @@ final class NowPlayingSource {
                 return (player state as string) & linefeed & name of current track & linefeed & artist of current track & linefeed & (\(idProperty) of current track as string)
                 """
             Task {
-                guard let output = await run(["osascript", "-e", script]) else { return }
+                // The first run can wait on the Automation prompt.
+                guard let output = await run(["osascript", "-e", script], timeout: 120) else { return }
                 let fields = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 4 else { return }
                 let info: [AnyHashable: Any] = [

@@ -54,7 +54,7 @@ final class BarModel {
     /// "playpause", "next track" or "previous track"; both players understand the same commands.
     func control(_ command: String) {
         guard let player = nowPlaying?.player else { return }
-        Task { _ = await run(["osascript", "-e", "tell application \"\(player.appName)\" to \(command)"]) }
+        Task { _ = await run(["osascript", "-e", "tell application \"\(player.appName)\" to \(command)"], timeout: 120) }
     }
 
     func click(_ widget: Widget) {
