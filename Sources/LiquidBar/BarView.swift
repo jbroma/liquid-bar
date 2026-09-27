@@ -22,11 +22,9 @@ extension Color {
 /// One bar per screen. `leftWidth`/`rightWidth` are the areas beside the notch; nil means no notch.
 struct BarView: View {
     let model: BarModel
-    let screenFrame: CGRect
-    let height: CGFloat
     let leftWidth: CGFloat?
     let rightWidth: CGFloat?
-    let slot: ExpansionSlot
+    @Environment(\.bar) private var bar
     @State private var menuMode = MenuMode()
 
     var body: some View {
@@ -39,11 +37,10 @@ struct BarView: View {
         .font(.system(size: 12, weight: .semibold))
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
-        .environment(slot)
         .environment(menuMode)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
-        .frame(height: height)
+        .frame(height: bar.height)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
@@ -72,16 +69,14 @@ struct BarView: View {
         let outer = leading ? shown.first : shown.last
         let reach = model.config.margin - itemGap / 2
         let edgeReach = leading ? EdgeInsets(top: 0, leading: reach, bottom: 0, trailing: 0) : EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: reach)
-        return ZStack(alignment: alignment) {
-            GlassEffectContainer(spacing: 4) {
-                HStack(spacing: 0) {
-                    ForEach(shown, id: \.self) { widget in
-                        WidgetView(model: model, widget: widget, screenFrame: screenFrame, barHeight: height)
-                            .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
-                    }
+        return GlassEffectContainer(spacing: 4) {
+            HStack(spacing: 0) {
+                ForEach(shown, id: \.self) { widget in
+                    WidgetView(model: model, widget: widget)
+                        .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
                 }
-                .animation(spring, value: model.nowPlaying == nil)
             }
+            .animation(spring, value: model.nowPlaying == nil)
         }
         // Islands get a finite width beside the notch. Each item's hit area already reaches half a gap past it.
         .padding(leading ? .trailing : .leading, 8 - itemGap / 2)
@@ -127,29 +122,22 @@ extension Tint {
 struct WidgetView: View {
     let model: BarModel
     let widget: LiquidBarCore.Widget
-    let screenFrame: CGRect
-    let barHeight: CGFloat
     @Environment(MenuMode.self) private var menuMode
-
-    private var pillHeight: CGFloat { barHeight - 8 }
-
-    private func belowBar(_ rect: CGRect) -> NSPoint {
-        menuOrigin(rect, screenFrame: screenFrame, barHeight: barHeight)
-    }
+    @Environment(\.bar) private var bar
 
     var body: some View {
         switch widget {
         case .apple:
-            AppleButton(model: model, screenFrame: screenFrame, barHeight: barHeight)
+            AppleButton(model: model)
         case .workspaces:
             Group {
                 if let titles = menuMode.titles {
-                    MenuStrip(titles: titles) { menuMode.open($0, at: belowBar($1)) }
+                    MenuStrip(titles: titles) { menuMode.open($0, at: bar.menuOrigin(under: $1)) }
                         .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
                 } else {
-                    WorkspaceStrip(model: model, itemHeight: pillHeight - 3) { frame in
+                    WorkspaceStrip(model: model) { frame in
                         // Clicking the focused workspace, whose front app is in front, shows that app's menus.
-                        if let app = model.frontApp { menuMode.toggle(app, at: belowBar(frame)) }
+                        if let app = model.frontApp { menuMode.toggle(app, at: bar.menuOrigin(under: frame)) }
                     }
                     .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
                 }
@@ -158,13 +146,13 @@ struct WidgetView: View {
             .barHitArea()
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
-                MenuPill(id: .nowPlaying, pulse: nowPlaying.trackID, height: pillHeight, padding: 4) {
+                MenuPill(id: .nowPlaying, pulse: nowPlaying.trackID, padding: 4) {
                     NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork)
                 }
                 .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
-            MenuPill(id: .volume, pulse: model.volume, height: pillHeight) {
+            MenuPill(id: .volume, pulse: model.volume) {
                 Image(systemName: model.volume.symbol)
                     .frame(width: 16)
                     .contentTransition(.symbolEffect(.replace))
@@ -173,7 +161,7 @@ struct WidgetView: View {
             .overlay { ScrollCatcher { model.nudgeVolume($0) } }
             .onTapGesture { model.click(widget) }
         case .wifi:
-            MenuPill(id: .wifi, pulse: model.network.kind, height: pillHeight) {
+            MenuPill(id: .wifi, pulse: model.network.kind) {
                 Image(systemName: model.network.symbol)
                     .frame(width: 16)
                     .contentTransition(.symbolEffect(.replace))
@@ -181,15 +169,15 @@ struct WidgetView: View {
             .onTapGesture { model.click(widget) }
         case .battery:
             if let battery = model.battery {
-                MenuPill(id: .battery, pulse: battery.onAC, height: pillHeight) { BatteryLabel(battery: battery) }
+                MenuPill(id: .battery, pulse: battery.onAC) { BatteryLabel(battery: battery) }
                     .onTapGesture { model.click(widget) }
             }
         case .controlCenter:
-            MenuPill(id: .controlCenter, pulse: 0, height: pillHeight) { Image(systemName: "switch.2").frame(width: 16) }
+            MenuPill(id: .controlCenter, pulse: 0) { Image(systemName: "switch.2").frame(width: 16) }
                 .onTapGesture { model.click(widget) }
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
-            MenuPill(id: .clock, pulse: 0, height: pillHeight) { Text(clockText(model.now)) }
+            MenuPill(id: .clock, pulse: 0) { Text(clockText(model.now)) }
                 .onTapGesture { model.click(widget) }
         case .script(let script):
             HStack(spacing: 5) {
@@ -200,7 +188,7 @@ struct WidgetView: View {
             }
             .animation(spring, value: model.scriptLabels[script.script])
             .fixedSize()
-            .pill(height: pillHeight)
+            .pill(height: bar.pill)
             .barHitArea()
             .onTapGesture { model.click(widget) }
         }
@@ -246,16 +234,28 @@ struct ScrollCatcher: NSViewRepresentable {
     }
 }
 
-/// Where a menu under `rect`, a global frame in the bar, opens: its left edge, at the bar's bottom. AppKit keeps a menu
-/// below the menu bar's strip and scrolls it instead, hiding its first item, so any higher and that item is lost.
-func menuOrigin(_ rect: CGRect, screenFrame: CGRect, barHeight: CGFloat) -> NSPoint {
-    NSPoint(x: screenFrame.minX + rect.minX, y: screenFrame.maxY - barHeight)
+/// One screen's bar: its frame and height, and the sizes and menu positions that follow from them.
+struct BarMetrics {
+    var screen = CGRect.zero
+    var height: CGFloat = 33
+    var pill: CGFloat { height - 8 }
+    /// A workspace, drawn straight on the bar.
+    var item: CGFloat { pill - 3 }
+
+    /// Where a menu under `rect`, a global frame in the bar, opens: its left edge, at the bar's bottom. AppKit keeps a
+    /// menu below the menu bar's strip and scrolls it instead, hiding its first item, so any higher and it is lost.
+    func menuOrigin(under rect: CGRect) -> NSPoint {
+        NSPoint(x: screen.minX + rect.minX, y: screen.maxY - height)
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var bar = BarMetrics()
 }
 
 struct AppleButton: View {
     let model: BarModel
-    let screenFrame: CGRect
-    let barHeight: CGFloat
+    @Environment(\.bar) private var bar
     @State private var frame = CGRect.zero
 
     var body: some View {
@@ -268,7 +268,7 @@ struct AppleButton: View {
                 if let command = model.config.clicks["apple"] {
                     shell(command)
                 } else {
-                    AppleMenu.popUp(at: menuOrigin(frame, screenFrame: screenFrame, barHeight: barHeight))
+                    AppleMenu.popUp(at: bar.menuOrigin(under: frame))
                 }
             }
     }
@@ -278,7 +278,7 @@ struct AppleButton: View {
 /// workspace and flows between workspaces like a droplet.
 struct WorkspaceStrip: View {
     let model: BarModel
-    let itemHeight: CGFloat
+    @Environment(\.bar) private var bar
     /// A click on the already focused workspace, with its global frame.
     let focusedTap: (CGRect) -> Void
     @State private var frames: [String: CGRect] = [:]
@@ -295,7 +295,7 @@ struct WorkspaceStrip: View {
                     id: workspace.id,
                     apps: model.workspaces.apps(on: workspace.id),
                     focused: focused == workspace.id,
-                    height: itemHeight
+                    height: bar.item
                 ) {
                     if focused == workspace.id, let frame = frames[workspace.id] {
                         focusedTap(frame.offsetBy(dx: stripOrigin.x, dy: 0))
@@ -311,7 +311,7 @@ struct WorkspaceStrip: View {
                     .textCase(.uppercase)
                     .foregroundStyle(Color.barYellow)
                     .padding(.horizontal, 7)
-                    .frame(height: itemHeight - 4)
+                    .frame(height: bar.item - 4)
                     .background(Capsule().fill(Color.barYellow.opacity(0.18)))
                     .padding(.leading, 4)
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
@@ -321,7 +321,7 @@ struct WorkspaceStrip: View {
             if let focusedFrame {
                 DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
                     .fill(.white.opacity(0.14))
-                    .frame(height: itemHeight)
+                    .frame(height: bar.item)
             }
         }
         .coordinateSpace(.named("strip"))

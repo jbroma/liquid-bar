@@ -126,16 +126,16 @@ private struct BarHitArea: ViewModifier {
 struct MenuPill<Pulse: Equatable, Label: View>: View {
     let id: Dropdown
     var pulse: Pulse
-    let height: CGFloat
     var padding: CGFloat = 10
     @ViewBuilder var label: () -> Label
+    @Environment(\.bar) private var bar
 
     var body: some View {
         LivePill(id: id, pulse: pulse) { open in
             label()
                 .fixedSize()
                 .padding(.horizontal, open ? 3 : 0)
-                .pill(height: height, padding: padding)
+                .pill(height: bar.pill, padding: padding)
         }
     }
 }

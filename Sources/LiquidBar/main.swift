@@ -58,19 +58,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let height = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
         // Pure black, like the bezel and the notch on a mini-LED panel.
-        let bar = panel(frame, background: .black, root: BarView(
-            model: model,
-            screenFrame: screen.frame,
-            height: height,
-            leftWidth: screen.auxiliaryTopLeftArea?.width,
-            rightWidth: screen.auxiliaryTopRightArea?.width,
-            slot: slot
-        ).environment(slot))
+        let (left, right) = (screen.auxiliaryTopLeftArea?.width, screen.auxiliaryTopRightArea?.width)
+        let metrics = BarMetrics(screen: screen.frame, height: height)
+        let bar = panel(frame, background: .black, root: BarView(model: model, leftWidth: left, rightWidth: right).environment(slot).environment(\.bar, metrics))
         // One dropdown window on each side of the notch, from the bar down to the bottom of the screen. Their clear
         // pixels let the pointer through, as long as `ignoresMouseEvents` is never set.
-        let rightX = screen.auxiliaryTopRightArea.map { screen.frame.width - $0.width } ?? screen.frame.width / 2
-        let leftWidth = screen.auxiliaryTopLeftArea?.width ?? screen.frame.width / 2
-        let dropdowns = [(0, leftWidth, true), (rightX, screen.frame.width - rightX, false)].map { originX, width, left in
+        let (leftWidth, rightWidth) = (left ?? screen.frame.width / 2, right ?? screen.frame.width / 2)
+        let dropdowns = [(0, leftWidth, true), (screen.frame.width - rightWidth, rightWidth, false)].map { originX, width, left in
             let height = screen.frame.height - frame.height
             let dropdown = panel(
                 NSRect(x: screen.frame.minX + originX, y: frame.minY - height, width: width, height: height),
