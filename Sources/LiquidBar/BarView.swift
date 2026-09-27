@@ -126,6 +126,11 @@ struct WidgetView: View {
     @Environment(\.bar) private var bar
 
     var body: some View {
+        // Widgets with their own clicks, like the workspaces, take the tap first.
+        item.onTapGesture { model.click(widget) }
+    }
+
+    @ViewBuilder private var item: some View {
         switch widget {
         case .apple:
             AppleButton(model: model)
@@ -159,26 +164,21 @@ struct WidgetView: View {
             }
             // Scroll changes the level in steps of 2.
             .overlay { ScrollCatcher { model.nudgeVolume($0) } }
-            .onTapGesture { model.click(widget) }
         case .wifi:
             MenuPill(id: .wifi, pulse: model.network.kind) {
                 Image(systemName: model.network.symbol)
                     .frame(width: 16)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .onTapGesture { model.click(widget) }
         case .battery:
             if let battery = model.battery {
                 MenuPill(id: .battery, pulse: battery.onAC) { BatteryLabel(battery: battery) }
-                    .onTapGesture { model.click(widget) }
             }
         case .controlCenter:
             MenuPill(id: .controlCenter, pulse: 0) { Image(systemName: "switch.2").frame(width: 16) }
-                .onTapGesture { model.click(widget) }
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             MenuPill(id: .clock, pulse: 0) { Text(clockText(model.now)) }
-                .onTapGesture { model.click(widget) }
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }
@@ -190,7 +190,6 @@ struct WidgetView: View {
             .fixedSize()
             .pill(height: bar.pill)
             .barHitArea()
-            .onTapGesture { model.click(widget) }
         }
     }
 }
