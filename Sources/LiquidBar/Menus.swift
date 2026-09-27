@@ -8,6 +8,7 @@ struct VolumeMenu: View {
     let model: BarModel
     @State private var devices: [OutputDevice] = []
     @State private var current: AudioObjectID = 0
+    @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
         let volume = model.volume
@@ -26,6 +27,14 @@ struct VolumeMenu: View {
                     DeviceIcon(symbol: device.symbol, selected: device.id == current)
                     Text(device.name).lineLimit(1)
                 }
+            }
+            // CoreAudio lists an AirPlay receiver only while it plays; Control Center's Sound module lists them all.
+            MenuButton {
+                slot.dismiss()
+                showControlCenterModule("controlcenter-volume", else: "com.apple.Sound-Settings.extension")
+            } content: {
+                DeviceIcon(symbol: "airplayaudio", selected: false)
+                Text("AirPlay…")
             }
             MenuSeparator()
             SettingsButton(title: "Sound Settings…", pane: "com.apple.Sound-Settings.extension")
