@@ -66,7 +66,7 @@ struct DropdownView: View {
         let open = slot.owner.flatMap(Dropdown.init(owner:)).flatMap { $0.isLeft == left && hasContent($0) ? $0 : nil }
         let pill = open.flatMap { slot.frames[$0.owner] } ?? anchor
         GeometryReader { proxy in
-            let geometry = geometry(open, pill: pill, panelWidth: proxy.size.width)
+            let geometry = geometry(open, pill: pill, panel: proxy.size)
             let shape = DropdownShape(fillet: Self.fillet, corner: Self.corner)
             shape
                 .fill(.black)
@@ -74,12 +74,16 @@ struct DropdownView: View {
                 .overlay(alignment: .top) {
                     ZStack(alignment: .top) {
                         if let open {
-                            content(open)
-                                .frame(width: open.width)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[open] = $0 }
-                                .id(open)
-                                .transition(.opacity)
+                            // Scrolls only when the menu is taller than the screen below the bar.
+                            ScrollView {
+                                content(open)
+                                    .frame(width: open.width)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[open] = $0 }
+                            }
+                            .scrollBounceBehavior(.basedOnSize)
+                            .id(open)
+                            .transition(.opacity)
                         }
                     }
                 }
@@ -103,11 +107,11 @@ struct DropdownView: View {
         if case .workspace(let id) = dropdown { model.workspaces.apps(on: id).count > 1 } else { true }
     }
 
-    private func geometry(_ open: Dropdown?, pill: CGRect, panelWidth: CGFloat) -> Geometry {
+    private func geometry(_ open: Dropdown?, pill: CGRect, panel: CGSize) -> Geometry {
         guard let open, let height = heights[open] else { return Geometry(x: pill.minX - originX, width: pill.width, height: 0) }
-        // Clear of the notch, and a few points in from the screen edge.
-        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: Self.fillet + (left ? 4 : 0), upper: panelWidth - Self.fillet - (left ? 0 : 4))
-        return Geometry(x: x, width: open.width, height: height)
+        // Clear of the notch, and a few points in from the screen edges.
+        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: Self.fillet + (left ? 4 : 0), upper: panel.width - Self.fillet - (left ? 0 : 4))
+        return Geometry(x: x, width: open.width, height: min(height, panel.height - 8))
     }
 
     @ViewBuilder private func content(_ dropdown: Dropdown) -> some View {
