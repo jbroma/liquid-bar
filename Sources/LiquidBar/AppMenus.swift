@@ -15,16 +15,16 @@ enum AppMenus {
     /// Top-level menu titles after the Apple menu, or nil without Accessibility access.
     static func titles(pid: pid_t) -> [AppMenuTitle]? {
         guard AXIsProcessTrusted() else { return nil }
-        let items = children(attribute(AXUIElementCreateApplication(pid), kAXMenuBarAttribute).map { $0 as! AXUIElement })
+        let items = AX.children(AX.attribute(AXUIElementCreateApplication(pid), kAXMenuBarAttribute).map { $0 as! AXUIElement })
         return items.dropFirst().enumerated().compactMap { index, item in
-            guard let title = string(item, kAXTitleAttribute), !title.isEmpty else { return nil }
+            guard let title = AX.string(item, kAXTitleAttribute), !title.isEmpty else { return nil }
             return AppMenuTitle(id: index, title: title, element: item)
         }
     }
 
     /// Opens a native dropdown mirroring the menu bar item's menu; picking an item presses it in the app.
     static func popUp(_ title: AppMenuTitle, at screenPoint: NSPoint) {
-        guard let menu = children(title.element).first else { return }
+        guard let menu = AX.children(title.element).first else { return }
         fillers = []
         mirror(menu, title: title.title).popUp(positioning: nil, at: screenPoint, in: nil)
     }
@@ -53,7 +53,10 @@ enum AppMenus {
         menu.delegate = filler
         return menu
     }
+}
 
+/// Reads and presses other apps' UI elements through the Accessibility API.
+enum AX {
     nonisolated static func attribute(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
         var value: CFTypeRef?
         return AXUIElementCopyAttributeValue(element, name as CFString, &value) == .success ? value : nil
@@ -65,6 +68,11 @@ enum AppMenus {
 
     nonisolated static func children(_ element: AXUIElement?) -> [AXUIElement] {
         element.flatMap { attribute($0, kAXChildrenAttribute) as? [AXUIElement] } ?? []
+    }
+
+    @discardableResult
+    nonisolated static func press(_ element: AXUIElement) -> Bool {
+        AXUIElementPerformAction(element, kAXPressAction as CFString) == .success
     }
 }
 
@@ -78,19 +86,19 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        for child in AppMenus.children(element) {
-            let title = AppMenus.string(child, kAXTitleAttribute) ?? ""
-            let submenu = AppMenus.children(child).first
+        for child in AX.children(element) {
+            let title = AX.string(child, kAXTitleAttribute) ?? ""
+            let submenu = AX.children(child).first
             guard !title.isEmpty || submenu != nil else {
                 menu.addItem(.separator())
                 continue
             }
-            let item = actionItem(title) { AXUIElementPerformAction(child, kAXPressAction as CFString) }
-            item.isEnabled = AppMenus.attribute(child, kAXEnabledAttribute) as? Bool ?? true
-            if AppMenus.string(child, kAXMenuItemMarkCharAttribute)?.isEmpty == false { item.state = .on }
-            if let key = AppMenus.string(child, kAXMenuItemCmdCharAttribute), !key.isEmpty {
+            let item = actionItem(title) { AX.press(child) }
+            item.isEnabled = AX.attribute(child, kAXEnabledAttribute) as? Bool ?? true
+            if AX.string(child, kAXMenuItemMarkCharAttribute)?.isEmpty == false { item.state = .on }
+            if let key = AX.string(child, kAXMenuItemCmdCharAttribute), !key.isEmpty {
                 item.keyEquivalent = key.lowercased()
-                let modifiers = ShortcutModifiers(axMask: AppMenus.attribute(child, kAXMenuItemCmdModifiersAttribute) as? Int ?? 0)
+                let modifiers = ShortcutModifiers(axMask: AX.attribute(child, kAXMenuItemCmdModifiersAttribute) as? Int ?? 0)
                 item.keyEquivalentModifierMask = [
                     modifiers.contains(.command) ? .command : [],
                     modifiers.contains(.shift) || key != key.lowercased() ? .shift : [],

@@ -10,7 +10,7 @@ enum MenuExtras {
         let app = AXUIElementCreateApplication(pid)
         // A busy app would otherwise stall the caller for AX's default 6s.
         AXUIElementSetMessagingTimeout(app, 0.25)
-        return AppMenus.children(AppMenus.attribute(app, "AXExtrasMenuBar").map { $0 as! AXUIElement })
+        return AX.children(AX.attribute(app, "AXExtrasMenuBar").map { $0 as! AXUIElement })
     }
 
     /// Re-reads every app's status items into `model.menuExtras`. Asking some 40 apps takes most of a second, so it
@@ -24,9 +24,9 @@ enum MenuExtras {
             nonisolated(unsafe) let extras = trayItems(apps.flatMap { app in
                 items(pid: app.pid).map { item in
                     var origin = CGPoint.zero
-                    if let position = AppMenus.attribute(item, kAXPositionAttribute) { AXValueGetValue(position as! AXValue, .cgPoint, &origin) }
-                    return MenuExtra(bundleID: app.bundleID, appName: app.name, title: AppMenus.string(item, kAXTitleAttribute),
-                                     description: AppMenus.string(item, kAXDescriptionAttribute), x: origin.x, handle: item)
+                    if let position = AX.attribute(item, kAXPositionAttribute) { AXValueGetValue(position as! AXValue, .cgPoint, &origin) }
+                    return MenuExtra(bundleID: app.bundleID, appName: app.name, title: AX.string(item, kAXTitleAttribute),
+                                     description: AX.string(item, kAXDescriptionAttribute), x: origin.x, handle: item)
                 }
             })
             await MainActor.run { if extras != model.menuExtras { model.menuExtras = extras } }
@@ -36,7 +36,7 @@ enum MenuExtras {
     /// A status item's press returns only once the menu it opens closes, so it runs off the main thread.
     static func press(_ item: AXUIElement) {
         nonisolated(unsafe) let item = item
-        Task.detached { AXUIElementPerformAction(item, kAXPressAction as CFString) }
+        Task.detached { AX.press(item) }
     }
 }
 
