@@ -93,12 +93,30 @@ struct LivePill<Pulse: Equatable, Content: View>: View {
 /// The space between two items in a bar.
 let itemGap: CGFloat = 6
 
+extension EnvironmentValues {
+    /// Space between the outermost item of an island and the screen edge, which that item's hit area takes over.
+    @Entry var edgeReach = EdgeInsets()
+}
+
 extension View {
     /// Stretches an item's hover and click area over the full bar height and half the gap to each neighbour, so a
     /// pointer thrown at the top edge of the screen or between two pills still lands on an item. What is drawn does
     /// not change.
     func barHitArea(gap: CGFloat = itemGap) -> some View {
-        padding(.horizontal, gap / 2)
+        modifier(BarHitArea(gap: gap))
+    }
+}
+
+private struct BarHitArea: ViewModifier {
+    let gap: CGFloat
+    @Environment(\.edgeReach) private var reach
+
+    func body(content: Content) -> some View {
+        // Only the outermost hit area reaches the edge, not the items nested in it, like the workspaces in the strip.
+        content
+            .environment(\.edgeReach, EdgeInsets())
+            .padding(.horizontal, gap / 2)
+            .padding(reach)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
     }

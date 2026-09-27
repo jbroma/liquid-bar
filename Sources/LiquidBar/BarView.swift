@@ -66,12 +66,18 @@ struct BarView: View {
     }
 
     private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?) -> some View {
-        let margin = model.config.margin
+        let leading = alignment == .leading
+        let shown = widgets.filter(isShown)
+        // The outermost item's hit area runs on to the screen edge, so a pointer thrown into the corner lands on it.
+        let outer = leading ? shown.first : shown.last
+        let reach = model.config.margin - itemGap / 2
+        let edgeReach = leading ? EdgeInsets(top: 0, leading: reach, bottom: 0, trailing: 0) : EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: reach)
         return ZStack(alignment: alignment) {
             GlassEffectContainer(spacing: 4) {
                 HStack(spacing: 0) {
-                    ForEach(widgets.filter(isShown), id: \.self) { widget in
+                    ForEach(shown, id: \.self) { widget in
                         WidgetView(model: model, widget: widget, screenFrame: screenFrame, barHeight: height)
+                            .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
                     }
                 }
                 .animation(spring, value: slot.owner)
@@ -79,8 +85,7 @@ struct BarView: View {
             }
         }
         // Islands get a finite width beside the notch. Each item's hit area already reaches half a gap past it.
-        .padding(alignment == .leading ? .leading : .trailing, margin - itemGap / 2)
-        .padding(alignment == .leading ? .trailing : .leading, 8 - itemGap / 2)
+        .padding(leading ? .trailing : .leading, 8 - itemGap / 2)
         .frame(width: width, alignment: alignment)
         .frame(maxWidth: width == nil ? .infinity : nil, alignment: alignment)
     }
