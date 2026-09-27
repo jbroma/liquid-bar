@@ -443,10 +443,7 @@ final class NowPlayingSource {
                 MainActor.assumeIsolated { self?.update(state, from: player) }
             }
         }
-        #if !DEBUG
-        // Debug builds run from a terminal, which would own the Automation prompt instead of LiquidBar.
         queryRunningPlayers()
-        #endif
     }
 
     private func update(_ state: NowPlaying?, from player: NowPlaying.Player) {
