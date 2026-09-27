@@ -8,7 +8,6 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func emptyConfigReproducesTodaysBar() throws {
     let config = try decode("{}")
-    #expect(config.height == 32)
     #expect(config.left == [.apple, .workspaces])
     #expect(throws: (any Error).self) { try decode(#"{"left": ["frontApp"]}"#) }
     #expect(config.right == [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock])
@@ -20,10 +19,9 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func overridesOnlyTheKeysGiven() throws {
     let config = try decode("""
-        {"height": 36, "workspaces": [{"id": "1", "symbol": "star"}, {"id": "web"}], "clicks": {"clock": "open -a Fantastical"}}
+        {"margin": 4, "workspaces": [{"id": "1", "symbol": "star"}, {"id": "web"}], "clicks": {"clock": "open -a Fantastical"}}
         """)
-    #expect(config.height == 36)
-    #expect(config.margin == 10)
+    #expect(config.margin == 4)
     // Unknown keys, such as the old "agents", are ignored.
     #expect(try decode(#"{"agents": true}"#) == Config())
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
@@ -44,8 +42,8 @@ private func decode(_ json: String) throws -> Config {
 @Test func rejectsInvalidConfig() {
     #expect(throws: (any Error).self) { try decode(#"{"right": ["clok"]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": ["date"]}"#) }
-    #expect(throws: (any Error).self) { try decode(#"{"height": 400}"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"margin": -1}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"symbol": "cloud"}]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"script": "date", "interval": 0}]}"#) }
-    #expect(throws: (any Error).self) { try decode(#"{"height": 40,"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"margin": 4,"#) }
 }

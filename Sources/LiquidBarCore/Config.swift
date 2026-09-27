@@ -31,7 +31,6 @@ extension Config {
     /// Every key is optional; missing keys keep today's defaults. `clicks` merges over the default clicks.
     public static func decode(_ data: Data) throws -> Config {
         struct Raw: Decodable {
-            var height: Double?
             var margin: Double?
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
@@ -40,10 +39,6 @@ extension Config {
         }
         let raw = try JSONDecoder().decode(Raw.self, from: data)
         var config = Config()
-        if let height = raw.height {
-            guard (24...80).contains(height) else { throw ConfigError(description: "height must be 24...80, got \(height)") }
-            config.height = height
-        }
         if let margin = raw.margin {
             guard margin >= 0 else { throw ConfigError(description: "margin must be >= 0, got \(margin)") }
             config.margin = margin

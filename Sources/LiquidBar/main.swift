@@ -12,13 +12,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
-    var bannerPointer: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
-        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), BannerWatcher { [weak self] in self?.setBanner($0) }, FrontAppSource(model: model), MenuExtrasSource(model: model)]
+        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
@@ -48,10 +47,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func apply(_ config: Config) {
-        let rebuild = config.height != model.config.height
         model.config = config
         scripts?.load(config.left + config.right)
-        if rebuild && !panels.isEmpty { rebuildPanels() }
     }
 
     func rebuildPanels() {
@@ -60,32 +57,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panels = zip(NSScreen.screens, slots).flatMap(makePanels)
     }
 
-    /// Notification Center draws banners at level 21, below the native menu bar's 24, and without a visible menu bar
-    /// it places them 16pt from the top, inside the bar. While one shows, the bars drop below it so it is not cut.
-    func setBanner(_ showing: Bool) {
-        trace("banner \(showing)")
-        bannerPointer.map(NSEvent.removeMonitor)
-        bannerPointer = nil
-        panels.forEach { $0.level = showing ? belowBanners : barLevel }
-        guard showing else { return }
-        // Pushing into the top edge reveals the native menu bar, which is above the lowered bar, and macOS moves the
-        // banner below it. Until the pointer leaves that strip, the bar goes back on top of the menu bar.
-        bannerPointer = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, let bar = self.panels.first, let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
-                else { return }
-                let depth = screen.frame.maxY - NSEvent.mouseLocation.y
-                let level = depth < 1 ? barLevel : depth > bar.frame.height ? belowBanners : bar.level
-                if level != bar.level { self.panels.forEach { $0.level = level } }
-            }
-        }
-    }
-
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {
-        // On a notched screen the bar is exactly the notch's height, so the notch reads as part of the black bar.
-        // The native menu bar is one point taller than the notch (33 vs 32); cover all of it. On black the extra
-        // point below the notch is invisible.
-        let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top + 1 : model.config.height
+        // Exactly as tall as the native menu bar under it, which macOS keeps banners, Notification Center and
+        // windows below. On a notched screen that is one point taller than the notch (33 vs 32), invisible on black.
+        let height = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
         // Pure black, like the bezel and the notch on a mini-LED panel.
         let bar = panel(frame, background: .black, root: BarView(
@@ -138,7 +113,7 @@ extension AppDelegate {
     /// inject "click x y" / "scroll x y lines" (screen points, top-left origin) through the panel's own event path.
     /// A click lands where the real pointer is, so warp there first. "drag x y x2" drags horizontally from x to x2,
     /// and "down x y" / "up x y" send half a click, to hold a control pressed.
-    /// "tick" advances the clock a minute, "banner on|off" stands in for a notification banner, and
+    /// "tick" advances the clock a minute, and
     /// "hover <item> on|off" stands in for the pointer entering or leaving an item.
     func installDebugInput() {
         // Popup menus wait for a real click, and distributed notifications do not arrive while one tracks the mouse,
@@ -154,7 +129,6 @@ extension AppDelegate {
             MainActor.assumeIsolated {
                 guard let self, let parts = command?.split(separator: " ") else { return }
                 if parts == ["tick"] { return self.model.now += 60 }
-                if parts == ["banner", "on"] || parts == ["banner", "off"] { return self.setBanner(parts[1] == "on") }
                 if parts.count == 3, parts[0] == "hover" { return self.slots.first?.hover(String(parts[1]), parts[2] == "on") ?? () }
                 guard parts.count >= 3,
                       let x = Double(parts[1]), let y = Double(parts[2]) else { return }
@@ -191,10 +165,8 @@ extension AppDelegate {
 }
 #endif
 
-/// Above the auto-hidden native menu bar, which slides in at the main menu level (24) on hover.
+/// Above the native menu bar (24), which stays under the bar as a fallback.
 let barLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
-/// The Dock's level, 20, one below notification banners.
-let belowBanners = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)))
 
 let quitNotification = Notification.Name("dev.liquidbar.quit")
 
