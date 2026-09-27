@@ -1,4 +1,5 @@
 import Foundation
+import IOKit.ps
 
 public struct Workspace: Identifiable, Equatable, Sendable, Codable {
     public let id: String
@@ -42,6 +43,21 @@ public struct BatteryState: Equatable, Sendable {
 
     public var onAC: Bool {
         if case .battery = power { false } else { true }
+    }
+
+    /// The internal battery from one `IOPSGetPowerSourceDescription` entry, or nil for any other power source.
+    public init?(description d: [String: Any]) {
+        guard d[kIOPSTypeKey] as? String == kIOPSInternalBatteryType,
+              let current = d[kIOPSCurrentCapacityKey] as? Int,
+              let max = d[kIOPSMaxCapacityKey] as? Int, max > 0
+        else { return nil }
+        // IOKit reports -1 minutes while it is still estimating.
+        func minutes(_ key: String) -> Int? { (d[key] as? Int).flatMap { $0 >= 0 ? $0 : nil } }
+        let power: Power =
+            d[kIOPSPowerSourceStateKey] as? String != kIOPSACPowerValue ? .battery(minutesLeft: minutes(kIOPSTimeToEmptyKey))
+            : d[kIOPSIsChargingKey] as? Bool == true ? .charging(minutesToFull: minutes(kIOPSTimeToFullChargeKey))
+            : .pluggedIn
+        self.init(percent: current * 100 / max, power: power)
     }
 }
 

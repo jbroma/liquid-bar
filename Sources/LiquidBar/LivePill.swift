@@ -12,9 +12,8 @@ final class ExpansionSlot {
     private(set) var owner: Dropdown?
     /// Pill frames in the bar window, top-left origin, so the dropdown can sit under its item.
     var frames: [Dropdown: CGRect] = [:]
-    @ObservationIgnored private var inputs = ExpansionInputs<Dropdown>()
+    @ObservationIgnored private var inputs = ExpansionInputs<Dropdown>(quietUntil: Date() + 2)
     @ObservationIgnored private var timer: Task<Void, Never>?
-    @ObservationIgnored private let created = Date()
 
     func hover(_ id: Dropdown, _ inside: Bool) {
         trace("hover \(id) \(inside ? "in" : "out")")
@@ -40,17 +39,13 @@ final class ExpansionSlot {
     /// Closes the open item now, when one of its rows hands over to a native menu.
     func dismiss() {
         trace("dismiss")
-        inputs = ExpansionInputs()
+        inputs = ExpansionInputs(quietUntil: inputs.quietUntil)
         update()
     }
 
     func pulse(_ id: Dropdown, _ value: String) {
         trace("pulse \(id) \(value)")
-        // Sources report their first real state just after launch; that is not news. A change made while the pointer
-        // is on the item, like dragging its volume slider, is not news either.
-        guard created.timeIntervalSinceNow < -2, inputs.inside?.id != id, !(inputs.holding && owner == id) else { return }
-        inputs.pulse = .init(id, Date() + ExpansionInputs<Dropdown>.pulseLength)
-        update()
+        if inputs.startPulse(id, now: Date(), current: owner) { update() }
     }
 
     private func update() {

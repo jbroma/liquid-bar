@@ -54,6 +54,20 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     #expect(inputs.owner(now: at(2.3), current: "volume").id == nil)
 }
 
+@Test func pulsesThatAreNotNewsAreIgnored() {
+    var quiet = Inputs(quietUntil: at(2))
+    #expect(quiet.startPulse("volume", now: at(1), current: nil) == false)
+    #expect(quiet.startPulse("volume", now: at(2), current: nil) == true)
+    #expect(quiet.pulse == .init("volume", at(2) + Inputs.pulseLength))
+    // Dragging the volume slider: the pointer is in volume's open dropdown.
+    var dragging = Inputs(holding: true)
+    #expect(dragging.startPulse("volume", now: t0, current: "volume") == false)
+    #expect(dragging.startPulse("wifi", now: t0, current: "volume") == true)
+    var hovering = Inputs(inside: .init("volume", t0))
+    #expect(hovering.startPulse("volume", now: at(1), current: "volume") == false)
+    #expect(hovering.pulse == nil)
+}
+
 @Test func theOpenDropdownHoldsItsItem() {
     // The pointer crossed from the pill into its dropdown: the pill's exit and the dropdown's entry arrive in either
     // order, and neither the linger nor a pulse elsewhere closes it.

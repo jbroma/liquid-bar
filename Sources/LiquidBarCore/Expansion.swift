@@ -24,12 +24,23 @@ public struct ExpansionInputs<ID: Hashable & Sendable>: Equatable, Sendable {
     public var left: Mark?
     /// The pointer is in the open item's dropdown, which lives in another window than the pill.
     public var holding: Bool
+    /// Pulses before this are ignored: sources report their first state just after launch, which is not news.
+    public var quietUntil: Date
 
-    public init(inside: Mark? = nil, pulse: Mark? = nil, left: Mark? = nil, holding: Bool = false) {
+    public init(inside: Mark? = nil, pulse: Mark? = nil, left: Mark? = nil, holding: Bool = false, quietUntil: Date = .distantPast) {
         self.inside = inside
         self.pulse = pulse
         self.left = left
         self.holding = holding
+        self.quietUntil = quietUntil
+    }
+
+    /// Starts a pulse of `id` at `now`, and returns false when the change is not news: during the quiet time, or made
+    /// while the pointer is on the item or in its open dropdown, like dragging its volume slider.
+    public mutating func startPulse(_ id: ID, now: Date, current: ID?) -> Bool {
+        guard now >= quietUntil, inside?.id != id, !(holding && current == id) else { return false }
+        pulse = Mark(id, now + Self.pulseLength)
+        return true
     }
 
     public static var hoverIntent: TimeInterval { 0.04 }

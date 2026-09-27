@@ -16,6 +16,22 @@ import Testing
     #expect(BatteryState(percent: 12, power: .charging(minutesToFull: nil)).symbol == "battery.100percent.bolt")
 }
 
+@Test func batteryFromPowerSourceDescription() {
+    // Keys and values as IOPSGetPowerSourceDescription reports them on this Mac.
+    let unplugged: [String: Any] = ["Type": "InternalBattery", "Current Capacity": 96, "Max Capacity": 100,
+                                    "Power Source State": "Battery Power", "Is Charging": false, "Time to Empty": 73, "Time to Full Charge": -1]
+    #expect(BatteryState(description: unplugged) == BatteryState(percent: 96, power: .battery(minutesLeft: 73)))
+    var estimating = unplugged
+    estimating["Time to Empty"] = -1
+    #expect(BatteryState(description: estimating) == BatteryState(percent: 96, power: .battery(minutesLeft: nil)))
+    var charging = unplugged
+    charging.merge(["Power Source State": "AC Power", "Is Charging": true, "Time to Full Charge": 25]) { $1 }
+    #expect(BatteryState(description: charging) == BatteryState(percent: 96, power: .charging(minutesToFull: 25)))
+    charging["Is Charging"] = false
+    #expect(BatteryState(description: charging) == BatteryState(percent: 96, power: .pluggedIn))
+    #expect(BatteryState(description: ["Type": "UPS", "Current Capacity": 50, "Max Capacity": 100]) == nil)
+}
+
 @Test func batteryTimeRemainingText() {
     #expect(BatteryState(percent: 51, power: .battery(minutesLeft: 192)).detail == "3:12 left")
     #expect(BatteryState(percent: 51, power: .battery(minutesLeft: 7)).detail == "0:07 left")

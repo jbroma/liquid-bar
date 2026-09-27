@@ -119,21 +119,9 @@ nonisolated func readBattery() -> BatteryState? {
     guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
           let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
     else { return nil }
-    for source in list {
-        guard let d = IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue() as? [String: Any],
-              d[kIOPSTypeKey] as? String == kIOPSInternalBatteryType,
-              let current = d[kIOPSCurrentCapacityKey] as? Int,
-              let max = d[kIOPSMaxCapacityKey] as? Int, max > 0
-        else { continue }
-        // IOKit reports -1 minutes while it is still estimating.
-        func minutes(_ key: String) -> Int? { (d[key] as? Int).flatMap { $0 >= 0 ? $0 : nil } }
-        let power: BatteryState.Power =
-            d[kIOPSPowerSourceStateKey] as? String != kIOPSACPowerValue ? .battery(minutesLeft: minutes(kIOPSTimeToEmptyKey))
-            : d[kIOPSIsChargingKey] as? Bool == true ? .charging(minutesToFull: minutes(kIOPSTimeToFullChargeKey))
-            : .pluggedIn
-        return BatteryState(percent: current * 100 / max, power: power)
-    }
-    return nil
+    return list.lazy.compactMap { source in
+        (IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue() as? [String: Any]).flatMap(BatteryState.init(description:))
+    }.first
 }
 
 /// Cycle count and wear from the `AppleSmartBattery` registry entry, readable without privileges.
