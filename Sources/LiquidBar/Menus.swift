@@ -76,7 +76,7 @@ struct LevelSlider: View {
     }
 }
 
-/// An output device's symbol in a circle, filled white for the current device.
+/// An output device's symbol in a circle, filled with the accent colour for the current device.
 struct DeviceIcon: View {
     let symbol: String
     let selected: Bool

@@ -157,11 +157,11 @@ extension View {
         modifier(HoverButton(radius: radius, action: action))
     }
 
-    /// A symbol's circle, filled white while `on`, like the controls in Control Center.
+    /// A symbol's circle, filled with the accent colour while `on`, like the controls in Control Center.
     func iconCircle(on: Bool, size: CGFloat) -> some View {
-        foregroundStyle(on ? Color.black : Color.barWhite)
+        foregroundStyle(Color.white)
             .frame(width: size, height: size)
-            .background(Circle().fill(on ? Color.barWhite : .white.opacity(0.14)))
+            .background(Circle().fill(on ? Color.accentColor : .white.opacity(0.14)))
     }
 }
 

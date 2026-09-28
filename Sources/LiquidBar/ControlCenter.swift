@@ -191,7 +191,7 @@ private func percent(_ fraction: Double) -> Int {
     Int((fraction * 100).rounded())
 }
 
-/// A switch as a row: its circle, filled white while on, then its name over its state.
+/// A switch as a row: its circle, filled with the accent colour while on, then its name over its state.
 private struct ControlRow: View {
     let tile: ControlTile
     let state: ControlState
@@ -243,7 +243,7 @@ private struct TallSlider: View {
     }
 }
 
-/// A control's symbol in a circle, filled white while the control is on, like the output devices in the Sound menu. No
+/// A control's symbol in a circle, filled with the accent colour while the control is on, like the output devices in the Sound menu. No
 /// tile is More.
 private struct TileIcon: View {
     let tile: ControlTile?
