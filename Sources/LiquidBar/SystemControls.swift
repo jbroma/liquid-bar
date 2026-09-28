@@ -56,7 +56,9 @@ enum KeyboardBrightness {
     private static let set = method(client, "setBrightness:forKeyboard:", as: (@convention(c) (NSObject, Selector, Float, UInt64) -> Bool).self)
 
     private static var keyboard: UInt64? {
-        (client?.perform(NSSelectorFromString("copyKeyboardBacklightIDs"))?.takeRetainedValue() as? [NSNumber])?.first?.uint64Value
+        let ids = NSSelectorFromString("copyKeyboardBacklightIDs")
+        guard let client, client.responds(to: ids) else { return nil }
+        return (client.perform(ids)?.takeRetainedValue() as? [NSNumber])?.first?.uint64Value
     }
 
     static func read() -> Double? {

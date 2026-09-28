@@ -300,6 +300,15 @@ final class ClockSource {
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
+        // Travel, a manual time zone or a clock set by hand.
+        for name in [Notification.Name.NSSystemTimeZoneDidChange, .NSSystemClockDidChange] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    NSTimeZone.resetSystemTimeZone()
+                    self?.tick()
+                }
+            }
+        }
         tick()
     }
 
