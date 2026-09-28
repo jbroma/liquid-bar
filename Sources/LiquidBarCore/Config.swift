@@ -29,6 +29,9 @@ extension Config {
         struct Raw: Decodable {
             var margin: Double?
             var workspaceSource: String?
+            var clock24Hour: Bool?
+            var clockSeconds: Bool?
+            var batteryPercent: Bool?
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
@@ -47,6 +50,9 @@ extension Config {
             }
             config.workspaceSource = source
         }
+        config.clock24Hour = raw.clock24Hour ?? config.clock24Hour
+        config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
+        config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
@@ -59,3 +65,4 @@ extension Config {
         return config
     }
 }
+

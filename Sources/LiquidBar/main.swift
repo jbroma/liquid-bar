@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var panels: [NSPanel] = []
     var workspaces: WorkspacesSource?
     var sources: [AnyObject] = []
+    var clock: ClockSource?
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
@@ -24,7 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         workspaces = WorkspacesSource(model: model)
-        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
+        clock = ClockSource(model: model)
+        sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
@@ -93,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.config = config
         workspaces?.update()
         scripts?.load(config.left + config.right)
+        clock?.tick()
     }
 
     func rebuildPanels() {

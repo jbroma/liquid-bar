@@ -174,7 +174,7 @@ struct WidgetView: View {
             }
         case .battery:
             if let battery = model.battery {
-                MenuPill(id: .battery, pulse: battery.onAC) { BatteryLabel(battery: battery) }
+                MenuPill(id: .battery, pulse: battery.onAC) { BatteryLabel(battery: battery, percent: model.config.batteryPercent) }
             }
         case .controlCenter:
             MenuPill(id: .controlCenter, pulse: 0) { Image(systemName: "switch.2").frame(width: 16) }
@@ -182,7 +182,7 @@ struct WidgetView: View {
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             // The trailing room is where macOS draws its privacy dot (camera, microphone, screen recording), so the
             // dot sits inside the pill instead of on the time.
-            MenuPill(id: .clock, pulse: 0, padding: 14) { Text(clockText(model.now)).padding(.trailing, 12) }
+            MenuPill(id: .clock, pulse: 0, padding: 14) { Text(clockText(model.now, hour24: model.config.clock24Hour, seconds: model.config.clockSeconds)).padding(.trailing, 12) }
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }

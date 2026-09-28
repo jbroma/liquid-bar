@@ -135,6 +135,9 @@ public enum Widget: Equatable, Hashable, Sendable {
 public struct Config: Equatable, Sendable {
     public var margin: Double = 10
     public var workspaceSource = WorkspaceSource.auto
+    public var clock24Hour = true
+    public var clockSeconds = false
+    public var batteryPercent = true
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
@@ -227,9 +230,9 @@ extension NetworkState {
     }
 }
 
-/// "19:27".
-public func clockText(_ date: Date, timeZone: TimeZone = .current) -> String {
-    format(date, "HH:mm", timeZone)
+/// "19:27", "19:27:05", "7:27 PM" or "7:27:05 PM".
+public func clockText(_ date: Date, hour24: Bool = true, seconds: Bool = false, timeZone: TimeZone = .current) -> String {
+    format(date, (hour24 ? "HH:mm" : "h:mm") + (seconds ? ":ss" : "") + (hour24 ? "" : " a"), timeZone)
 }
 
 /// "Saturday 26 September 2026".

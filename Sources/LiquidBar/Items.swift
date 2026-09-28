@@ -18,9 +18,10 @@ struct Meter: View {
     }
 }
 
-/// A slim battery filled to the level, then the percentage. A bolt shows only while charging.
+/// A slim battery filled to the level, then the percentage unless turned off. A bolt shows only while charging.
 struct BatteryLabel: View {
     let battery: BatteryState
+    let percent: Bool
 
     var body: some View {
         HStack(spacing: 5) {
@@ -29,7 +30,7 @@ struct BatteryLabel: View {
                 BatteryGlyph(level: Double(battery.percent) / 100, fill: battery.tint.color)
             }
             // Changes every few minutes at rest, so it swaps without a transition, like the clock.
-            Text("\(battery.percent)%")
+            if percent { Text("\(battery.percent)%") }
         }
         .animation(spring, value: battery.charging)
     }

@@ -67,6 +67,9 @@ import Testing
     let date = Date(timeIntervalSince1970: 1_790_364_425)  // 2026-09-25 19:27:05 UTC
     let utc = TimeZone(identifier: "UTC")!
     #expect(clockText(date, timeZone: utc) == "19:27")
+    #expect(clockText(date, seconds: true, timeZone: utc) == "19:27:05")
+    #expect(clockText(date, hour24: false, timeZone: utc) == "7:27 PM")
+    #expect(clockText(date, hour24: false, seconds: true, timeZone: utc) == "7:27:05 PM")
     #expect(fullDateText(date, timeZone: utc) == "Friday 25 September 2026")
     #expect(fullDateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thursday 28 May 2026")
 }

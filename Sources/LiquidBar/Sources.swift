@@ -432,10 +432,11 @@ final class ClockSource {
         tick()
     }
 
-    /// Updates the time and re-arms for the next minute boundary, so the label never lags.
-    private func tick() {
+    /// Updates the time and re-arms for the next minute boundary, or second while seconds show, so the label never lags.
+    func tick() {
         model.now = Date()
-        let next = Date(timeIntervalSinceReferenceDate: (model.now.timeIntervalSinceReferenceDate / 60).rounded(.down) * 60 + 60)
+        let step: Double = model.config.clockSeconds ? 1 : 60
+        let next = Date(timeIntervalSinceReferenceDate: (model.now.timeIntervalSinceReferenceDate / step).rounded(.down) * step + step)
         timer?.invalidate()
         timer = Timer(fire: next, interval: 0, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }

@@ -95,6 +95,9 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | --- | --- | --- | --- |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
 | `workspaceSource` | string | `"auto"` | Where the workspace strip's items come from: `"auto"`, `"aerospace"`, `"spaces"` or `"apps"` (see Workspaces). |
+| `clock24Hour` | boolean | `true` | `false` shows the clock as 12-hour with AM or PM. |
+| `clockSeconds` | boolean | `false` | Shows seconds in the clock. |
+| `batteryPercent` | boolean | `true` | `false` shows the battery symbol without the percentage. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
