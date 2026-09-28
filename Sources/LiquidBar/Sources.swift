@@ -12,32 +12,85 @@ func shell(_ command: String) {
     try? process.run()
 }
 
-final class AeroSpaceSource {
+/// Feeds the strip's `WorkspaceState` from one source until stopped.
+protocol WorkspaceFeed: AnyObject {
+    func stop()
+}
+
+/// Observes NSWorkspace notifications on the main queue until the returned observers are removed.
+func observeWorkspace(_ names: [Notification.Name], _ handler: @escaping (Notification) -> Void) -> [NSObjectProtocol] {
+    names.map { NSWorkspace.shared.notificationCenter.addObserver(forName: $0, object: nil, queue: .main, using: handler) }
+}
+
+/// Picks the strip's source, the configured one or the one `auto` resolves to, and swaps feeds when that changes:
+/// AeroSpace launching or quitting, desktops added or removed, or a new config.
+final class WorkspacesSource {
+    let model: BarModel
+    private(set) var feed: WorkspaceFeed?
+    private var observers: [NSObjectProtocol] = []
+
+    init(model: BarModel) {
+        self.model = model
+        observers = observeWorkspace([
+            NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
+            NSWorkspace.activeSpaceDidChangeNotification,
+        ]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.update() }
+        }
+        update()
+    }
+
+    func update() {
+        let aerospace = NSRunningApplication.runningApplications(withBundleIdentifier: "bobko.aerospace").contains { !$0.isTerminated }
+        let source = model.config.workspaceSource.resolved(aerospaceRunning: aerospace, desktops: Desktops.current()?.desktops.count ?? 0)
+        let ids = model.config.workspaces.map(\.id)
+        if source == .aerospace, model.workspaces.ids != ids { model.workspaces.ids = ids }
+        guard feed == nil || source != model.workspaces.source else { return }
+        log.info("workspaces from \(source.rawValue, privacy: .public)")
+        feed?.stop()
+        model.workspaces = WorkspaceState(source: source, ids: source == .aerospace ? ids : [])
+        model.workspacesConnected = source != .aerospace
+        feed = switch source {
+        case .spaces: WindowListFeed(model: model) { _ in Desktops.read() }
+        case .apps: WindowListFeed(model: model, read: readApps)
+        case .aerospace, .auto: AeroSpaceSource(model: model)
+        }
+    }
+}
+
+final class AeroSpaceSource: WorkspaceFeed {
     let model: BarModel
     private(set) var subscriber: Process?
     private var refreshTask: Task<Void, Never>?
     private var retry: Task<Void, Never>?
+    private var loop: Task<Void, Never>?
+    private var observers: [NSObjectProtocol] = []
 
     init(model: BarModel) {
         self.model = model
-        let center = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
-            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
-                let launched = name == NSWorkspace.didLaunchApplicationNotification
-                    && (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == "bobko.aerospace"
-                MainActor.assumeIsolated {
-                    if launched { self?.retry?.cancel() }
-                    self?.refreshWindows()
-                }
+        observers = observeWorkspace([NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification]) { [weak self] note in
+            let launched = note.name == NSWorkspace.didLaunchApplicationNotification
+                && (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == "bobko.aerospace"
+            MainActor.assumeIsolated {
+                if launched { self?.retry?.cancel() }
+                self?.refreshWindows()
             }
         }
-        Task { await subscribeForever() }
+        loop = Task { await subscribeForever() }
+    }
+
+    func stop() {
+        observers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+        loop?.cancel()
+        retry?.cancel()
+        refreshTask?.cancel()
+        subscriber?.terminate()
     }
 
     /// AeroSpace may start after us or restart; resubscribe with backoff, or at once when it launches.
     private func subscribeForever() async {
         var backoff = Backoff()
-        while true {
+        while !Task.isCancelled {
             let started = Date()
             await subscribeOnce()
             let wait = backoff.next(after: Date().timeIntervalSince(started))
@@ -54,20 +107,21 @@ final class AeroSpaceSource {
         subscriber = process
         // Seed focus so the focused workspace's stack is right before the first focus event.
         let seed = await run(["aerospace", "list-windows", "--focused", "--format", windowFormat])
-        model.aerospaceConnected = seed != nil
+        guard !Task.isCancelled else { return }
+        model.workspacesConnected = seed != nil
         if let focused = seed.flatMap({ parseWindows($0).first }) {
             _ = model.workspaces.apply(.focusChanged(workspace: focused.workspace, windowID: focused.id))
         }
         refreshWindows()
         do {
             for try await line in out.fileHandleForReading.bytes.lines {
-                guard let event = parseAeroEvent(line) else { continue }
+                guard !Task.isCancelled, let event = parseAeroEvent(line) else { continue }
                 if model.workspaces.apply(event) { refreshWindows() }
             }
         } catch {}
         log.info("AeroSpace subscription ended")
         subscriber = nil
-        model.aerospaceConnected = false
+        if !Task.isCancelled { model.workspacesConnected = false }
     }
 
     func refreshWindows() {
@@ -87,6 +141,72 @@ final class AeroSpaceSource {
 }
 
 private let windowFormat = "%{workspace}|%{window-id}|%{app-bundle-id}"
+
+/// The desktops or the apps, read again on each desktop switch and app activation, launch, quit, hide or unhide. No
+/// notification tells when a window opens or closes, so each read is repeated half a second later, when a launched
+/// app's first window is up; a window closed meanwhile shows until the next event.
+final class WindowListFeed: WorkspaceFeed {
+    let model: BarModel
+    private let read: (_ front: pid_t?) -> WorkspaceState?
+    private var observers: [NSObjectProtocol] = []
+    /// Activation arrives before the app's windows come to the front, and before `frontmostApplication` changes.
+    private var front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+    private var again: Task<Void, Never>?
+
+    init(model: BarModel, read: @escaping (_ front: pid_t?) -> WorkspaceState?) {
+        self.model = model
+        self.read = read
+        observers = observeWorkspace([
+            NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification,
+            NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
+            NSWorkspace.didHideApplicationNotification, NSWorkspace.didUnhideApplicationNotification,
+        ]) { [weak self] note in
+            let activated = note.name == NSWorkspace.didActivateApplicationNotification
+                ? (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier : nil
+            MainActor.assumeIsolated {
+                if let activated { self?.front = activated }
+                self?.refresh()
+            }
+        }
+        refresh()
+    }
+
+    func stop() {
+        observers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+        again?.cancel()
+    }
+
+    private func refresh() {
+        apply()
+        again?.cancel()
+        again = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            if !Task.isCancelled { apply() }
+        }
+    }
+
+    private func apply() {
+        if let state = read(front), state != model.workspaces { model.workspaces = state }
+    }
+}
+
+/// The running apps with a window on screen, the front one first, then in the order windows are stacked, which is the
+/// order the apps were last active in.
+func readApps(front: pid_t?) -> WorkspaceState {
+    let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+    let apps = windows.compactMap { window -> RunningApp? in
+        // Apps keep tiny or transparent helper windows on screen; a real window is at least 50pt each way.
+        guard window[kCGWindowLayer as String] as? Int == 0, (window[kCGWindowAlpha as String] as? Double ?? 0) > 0,
+              let bounds = window[kCGWindowBounds as String].flatMap({ CGRect(dictionaryRepresentation: $0 as! CFDictionary) }),
+              bounds.width >= 50, bounds.height >= 50,
+              let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+              let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular,
+              let bundleID = app.bundleIdentifier
+        else { return nil }
+        return RunningApp(pid: Int(pid), bundleID: bundleID)
+    }
+    return WorkspaceState(apps: apps, recency: front.map { [Int($0)] } ?? [])
+}
 
 final class BatterySource {
     let model: BarModel

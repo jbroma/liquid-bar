@@ -62,14 +62,27 @@ enum AppMenus {
 
     /// Explains the missing permission instead of doing `purpose`, and offers the Privacy pane.
     static func explainAccess(_ purpose: String, at screenPoint: NSPoint) {
-        let menu = NSMenu()
-        let explanation = NSMenuItem(title: "LiquidBar needs Accessibility access to \(purpose).", action: nil, keyEquivalent: "")
-        explanation.isEnabled = false
-        menu.addItem(explanation)
-        menu.addItem(actionItem("Open Accessibility Settings…") {
+        explain("LiquidBar needs Accessibility access to \(purpose).", fix: "Open Accessibility Settings…", at: screenPoint) {
             _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
             shell("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'")
-        })
+        }
+    }
+
+    static func explainDesktopShortcut(_ n: Int, at screenPoint: NSPoint) {
+        explain(
+            "Switching desktops needs the shortcut \"Switch to Desktop \(n)\" on, under Keyboard Shortcuts, Mission Control.",
+            fix: "Open Keyboard Settings…", at: screenPoint
+        ) {
+            shell("open 'x-apple.systempreferences:com.apple.Keyboard-Settings.extension'")
+        }
+    }
+
+    private static func explain(_ text: String, fix: String, at screenPoint: NSPoint, action: @escaping () -> Void) {
+        let menu = NSMenu()
+        let explanation = NSMenuItem(title: text, action: nil, keyEquivalent: "")
+        explanation.isEnabled = false
+        menu.addItem(explanation)
+        menu.addItem(actionItem(fix, handler: action))
         menu.popUp(below: screenPoint)
     }
 

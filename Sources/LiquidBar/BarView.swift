@@ -299,20 +299,21 @@ struct WorkspaceStrip: View {
         let focused = model.workspaces.focused
         let focusedFrame = focused.flatMap { frames[$0] }
         HStack(spacing: 0) {
-            ForEach(model.config.workspaces) { workspace in
+            ForEach(model.workspaces.ids, id: \.self) { id in
                 WorkspaceButton(
-                    id: workspace.id,
-                    stack: model.workspaces.stack(on: workspace.id),
-                    focused: focused == workspace.id,
+                    id: id,
+                    numbered: model.workspaces.numbered,
+                    stack: model.workspaces.stack(on: id),
+                    focused: focused == id,
                     height: bar.item
                 ) {
-                    if focused == workspace.id, let frame = frames[workspace.id] {
+                    if focused == id, let frame = frames[id] {
                         focusedTap(frame.offsetBy(dx: stripOrigin.x, dy: 0))
                     } else {
-                        model.focus(workspace.id)
+                        model.focus(id)
                     }
                 }
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("strip")) } action: { frames[workspace.id] = $0 }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("strip")) } action: { frames[id] = $0 }
             }
             if model.workspaces.mode != "main" {
                 Text(model.workspaces.mode)
@@ -346,19 +347,20 @@ struct WorkspaceStrip: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { if right { trail = new.maxX } else { lead = new.minX } }
             withAnimation(.spring(response: 0.36, dampingFraction: 0.8).delay(0.08)) { if right { lead = new.minX } else { trail = new.maxX } }
         }
-        .opacity(model.aerospaceConnected ? 1 : 0.4)
+        .opacity(model.workspacesConnected ? 1 : 0.4)
         .animation(spring, value: model.workspaces.mode)
         .animation(spring, value: model.workspaces.windows)
-        .animation(spring, value: model.aerospaceConnected)
+        .animation(spring, value: model.workspacesConnected)
         // Wheel away or fingers up goes to the previous workspace, like scrolling up a list.
         .overlay { ScrollCatcher(step: 30) { model.scrollWorkspaces(-$0) } }
     }
 }
 
-/// A workspace shows its number beside a card stack of its apps' icons, or only the number when it has no windows.
+/// A workspace shows its number (apps have none) beside a card stack of its apps' icons, or only the number when it has no windows.
 /// It never changes width on hover, so the strip never shifts under the pointer; its apps show in a dropdown instead.
 struct WorkspaceButton: View {
     let id: String
+    let numbered: Bool
     let stack: (apps: [WorkspaceApp], more: Int)
     let focused: Bool
     let height: CGFloat
@@ -367,9 +369,11 @@ struct WorkspaceButton: View {
     var body: some View {
         LivePill(id: .workspace(id), pulse: 0, gap: 0) { open in
             HStack(spacing: 4) {
-                Text(id)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : stack.apps.isEmpty ? 0.35 : 0.6))
+                if numbered {
+                    Text(id)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : stack.apps.isEmpty ? 0.35 : 0.6))
+                }
                 if !stack.apps.isEmpty {
                     IconStack(apps: stack.apps, more: stack.more)
                 }

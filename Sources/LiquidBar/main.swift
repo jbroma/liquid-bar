@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = BarModel()
     /// Each screen's bar and, as its children, its two dropdown windows.
     var panels: [NSPanel] = []
-    var aerospace: AeroSpaceSource?
+    var workspaces: WorkspacesSource?
     var sources: [AnyObject] = []
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
@@ -23,14 +23,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AXIsProcessTrusted() { log.notice("no Accessibility access: app menus, status items and Focus are unavailable") }
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
-        aerospace = AeroSpaceSource(model: model)
+        workspaces = WorkspacesSource(model: model)
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), ClockSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
         // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
         signal(SIGTERM, SIG_IGN)
         sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         sigterm?.setEventHandler { [weak self] in
-            MainActor.assumeIsolated { self?.aerospace?.subscriber?.terminate() }
+            MainActor.assumeIsolated { self?.workspaces?.feed?.stop() }
             exit(0)
         }
         sigterm?.resume()
@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let center = DistributedNotificationCenter.default()
         center.addObserver(forName: quitNotification, object: nil, queue: .main) { [weak self] note in
             guard note.object as? String != pid else { return }
-            MainActor.assumeIsolated { self?.aerospace?.subscriber?.terminate() }
+            MainActor.assumeIsolated { self?.workspaces?.feed?.stop() }
             exit(0)
         }
         center.postNotificationName(quitNotification, object: pid, userInfo: nil, deliverImmediately: true)
@@ -91,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func apply(_ config: Config) {
         model.config = config
+        workspaces?.update()
         scripts?.load(config.left + config.right)
     }
 

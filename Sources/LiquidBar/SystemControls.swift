@@ -157,6 +157,68 @@ enum NativeMenuBar {
     }
 }
 
+/// The macOS desktops through SkyLight, read as yabai reads them. macOS has no API to switch desktops, so switching
+/// presses the "Switch to Desktop N" shortcut.
+enum Desktops {
+    private static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+    private static let connection = systemFunction(framework, "SLSMainConnectionID", as: (@convention(c) () -> Int32).self)
+    private static let copySpaces = systemFunction(framework, "SLSCopyManagedDisplaySpaces", as: (@convention(c) (Int32) -> Unmanaged<CFArray>?).self)
+    private static let activeSpace = systemFunction(framework, "SLSGetActiveSpace", as: (@convention(c) (Int32) -> UInt64).self)
+    private static let copyWindows = systemFunction(
+        framework, "SLSCopyWindowsWithOptionsAndTags",
+        as: (@convention(c) (Int32, UInt32, CFArray, UInt32, UnsafeMutablePointer<UInt64>, UnsafeMutablePointer<UInt64>) -> Unmanaged<CFArray>?).self
+    )
+
+    /// The desktops of the display the user is on, the one holding the active Space.
+    static func current() -> DisplaySpaces? {
+        guard let connection, let copySpaces, let activeSpace,
+              let list = copySpaces(connection())?.takeRetainedValue() as? [[String: Any]]
+        else { return nil }
+        let displays = parseDisplaySpaces(list)
+        let active = activeSpace(connection())
+        return displays.first { $0.current == active } ?? displays.first
+    }
+
+    /// The current display's desktops with the regular apps' windows on each.
+    static func read() -> WorkspaceState? {
+        guard let desktops = current(), let connection, let copyWindows else { return nil }
+        var windows: [UInt64: [Int]] = [:]
+        for space in desktops.desktops.prefix(9) {
+            // Options 2 with tag bit 1, as in yabai's `space_window_list_for`: the Space's windows front to back,
+            // without minimized ones.
+            var set: UInt64 = 1, clear: UInt64 = 0
+            windows[space] = copyWindows(connection(), 0, [space] as CFArray, 2, &set, &clear)?.takeRetainedValue() as? [Int] ?? []
+        }
+        let info = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
+        var owners: [Int: String] = [:]
+        for window in info where window[kCGWindowLayer as String] as? Int == 0 {
+            guard let id = window[kCGWindowNumber as String] as? Int, let pid = window[kCGWindowOwnerPID as String] as? pid_t,
+                  let app = NSRunningApplication(processIdentifier: pid), app.activationPolicy == .regular,
+                  let bundleID = app.bundleIdentifier
+            else { continue }
+            owners[id] = bundleID
+        }
+        return WorkspaceState(desktops: desktops, windows: windows, owners: owners)
+    }
+
+    /// The shortcut that switches to desktop `n`, or nil while it is off.
+    static func shortcut(_ n: Int) -> KeyShortcut? {
+        let domain = "com.apple.symbolichotkeys" as CFString
+        CFPreferencesAppSynchronize(domain)
+        let hotkeys = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString, domain) as? [String: Any] ?? [:]
+        return desktopShortcut(n, in: hotkeys)
+    }
+
+    static func press(_ shortcut: KeyShortcut) {
+        let source = CGEventSource(stateID: .hidSystemState)
+        for down in [true, false] {
+            let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(shortcut.keyCode), keyDown: down)
+            event?.flags = CGEventFlags(rawValue: shortcut.modifiers)
+            event?.post(tap: .cghidEventTap)
+        }
+    }
+}
+
 /// Night Shift, through CoreBrightness's CBBlueLightClient, which Control Center uses.
 enum NightShift {
     private static let client = privateObject("CoreBrightness", "CBBlueLightClient")

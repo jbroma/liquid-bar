@@ -247,7 +247,7 @@ struct WorkspaceMenu: View {
 
     var body: some View {
         MenuBody {
-            MenuTitle(title: "Workspace \(id)")
+            MenuTitle(title: model.workspaces.title(id))
             ForEach(model.workspaces.apps(on: id), id: \.bundleID) { app in
                 MenuButton {
                     slot.dismiss()

@@ -11,8 +11,9 @@ struct FrontApp: Equatable {
 final class BarModel {
     var config = Config()
     var workspaces = WorkspaceState()
-    /// False while AeroSpace is not answering; the workspaces shown are then the last ones known.
-    var aerospaceConnected = false
+    /// False while AeroSpace is not answering; the workspaces shown are then the last ones known. Desktops and apps are
+    /// always connected.
+    var workspacesConnected = false
     var battery: BatteryState?
     var volume = VolumeState(level: 0, muted: false)
     var network = NetworkState(kind: .offline)
@@ -26,20 +27,40 @@ final class BarModel {
     let controls = Controls()
 
     func focus(_ workspace: String) {
+        switch workspaces.source {
+        case .spaces:
+            guard let n = Int(workspace) else { return }
+            guard let shortcut = Desktops.shortcut(n) else { return AppMenus.explainDesktopShortcut(n, at: NSEvent.mouseLocation) }
+            guard CGPreflightPostEventAccess() else { return AppMenus.explainAccess("switch desktops", at: NSEvent.mouseLocation) }
+            Desktops.press(shortcut)
+        case .apps:
+            activate(workspace)
+        case .aerospace, .auto:
+            Task { _ = await run(["aerospace", "workspace", workspace]) }
+        }
         haptic()
         workspaces.focused = workspace
-        Task { _ = await run(["aerospace", "workspace", workspace]) }
     }
 
-    /// `aerospace focus` switches to the window's workspace by itself.
+    /// `aerospace focus` switches to the window's workspace by itself. Desktops and apps bring the window's app forward.
     func focus(window: Int, on workspace: String) {
+        guard workspaces.source == .aerospace else {
+            if workspace != workspaces.focused { focus(workspace) }
+            return activate(workspaces.windows.first { $0.id == window }?.bundleID)
+        }
         haptic()
         workspaces.focused = workspace
         Task { _ = await run(["aerospace", "focus", "--window-id", String(window)]) }
     }
 
+    /// Opening a running app brings it forward, as clicking it in the Dock does.
+    private func activate(_ bundleID: String?) {
+        guard let url = bundleID.flatMap(NSWorkspace.shared.urlForApplication(withBundleIdentifier:)) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
     func scrollWorkspaces(_ steps: Int) {
-        if let target = workspaces.neighbor(steps, in: config.workspaces.map(\.id)), target != workspaces.focused {
+        if let target = workspaces.neighbor(steps, in: workspaces.ids), target != workspaces.focused {
             focus(target)
         }
     }
