@@ -3,7 +3,7 @@
 A macOS 26 menu bar replacement drawn in Liquid Glass.
 
 <p align="center">
-  <img src="docs/images/hero.png" width="100%" alt="The bar over a blue wallpaper: the Apple logo and workspaces 1 to 9 with app icons on the left, the now playing, volume, Wi-Fi, battery, Control Center, and clock pills on the right, and the clock's calendar dropdown open below the clock">
+  <img src="docs/images/hero-glass.png" width="100%" alt="The bar over a blue wallpaper: the Apple logo and workspaces 1 to 9 with app icons on the left, the now playing, volume, Wi-Fi, battery, Control Center, and clock pills on the right, and the clock's calendar dropdown open below the clock">
 </p>
 
 ## What you get
@@ -17,12 +17,12 @@ A macOS 26 menu bar replacement drawn in Liquid Glass.
 - A LiquidBar submenu in the Apple menu for settings.
 
 <p align="center">
-  <img src="docs/images/clock.png" height="320" alt="Clock dropdown: the full date over a month calendar with week numbers and today marked">
-  <img src="docs/images/battery.png" height="320" alt="Battery dropdown: level, power source, status, condition, maximum capacity, and cycle count">
+  <img src="docs/images/clock-glass.png" height="320" alt="Clock dropdown: the full date over a month calendar with week numbers and today marked">
+  <img src="docs/images/battery-glass.png" height="320" alt="Battery dropdown: level, power source, status, condition, maximum capacity, and cycle count">
 </p>
 <p align="center">
-  <img src="docs/images/workspace.png" height="200" alt="Workspace 9 dropdown listing its apps, Messages and Spotify">
-  <img src="docs/images/now-playing.png" height="200" alt="Now playing dropdown: artwork, title, artist, playback controls, and Open Spotify">
+  <img src="docs/images/workspace-glass.png" height="200" alt="Workspace 9 dropdown listing its apps, Messages and Spotify">
+  <img src="docs/images/now-playing-glass.png" height="200" alt="Now playing dropdown: artwork, title, artist, playback controls, and Open Spotify">
 </p>
 
 ## Install
@@ -53,7 +53,7 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 Open the Apple menu and pick **LiquidBar** to switch the workspace source, the clock format, and whether now playing and the battery percentage show.
 
 <p align="center">
-  <img src="docs/images/settings.png" height="240" alt="The LiquidBar submenu: Workspaces, Clock, Show Now Playing, Show Battery Percentage, Open Config File, Reload Config, and Quit LiquidBar">
+  <img src="docs/images/settings-glass.png" height="240" alt="The LiquidBar submenu: Workspaces, Clock, Show Now Playing, Show Battery Percentage, Open Config File, Reload Config, and Quit LiquidBar">
 </p>
 
 Everything else, like widget order, click commands, and script widgets, lives in `~/.config/liquid-bar/config.json`. See [Configuration](docs/configuration.md).
