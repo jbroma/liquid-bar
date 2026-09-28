@@ -43,10 +43,11 @@ uninstall:
 	rm -rf /Applications/LiquidBar.app
 
 # Bump the version in Support/Info.plist first. Tags the committed tree as v$(VERSION) and publishes the signed app as
-# that GitHub release. The printed sha256 is what a Nix package pins.
+# that GitHub release. The printed sha256 is what a Nix package pins. No resource forks or extended attributes: plain
+# `unzip` turns them into ._ files inside the bundle, which breaks its signature.
 release: app
 	test -z "$$(git status --porcelain)"
-	ditto -c -k --keepParent $(APP) $(ZIP)
+	ditto -c -k --keepParent --norsrc --noextattr --noacl $(APP) $(ZIP)
 	git tag -s v$(VERSION) -m "v$(VERSION)"
 	git push origin v$(VERSION)
 	gh release create v$(VERSION) $(ZIP) --verify-tag --title "v$(VERSION)" --generate-notes
