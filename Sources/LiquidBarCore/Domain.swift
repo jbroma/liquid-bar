@@ -137,26 +137,18 @@ public struct Config: Equatable, Sendable {
 }
 
 public enum Tint: Equatable, Sendable {
-    case normal, green, yellow, red
+    case normal, green, red
 }
 
 extension BatteryState {
-    public var symbol: String {
-        if onAC { return "battery.100percent.bolt" }
-        // Nearest of the five drawn levels, so 26% shows a quarter, not an empty battery.
-        switch percent {
-        case 88...: return "battery.100percent"
-        case 63..<88: return "battery.75percent"
-        case 38..<63: return "battery.50percent"
-        case 13..<38: return "battery.25percent"
-        default: return "battery.0percent"
-        }
+    public var charging: Bool {
+        if case .charging = power { true } else { false }
     }
 
+    /// White by default: green only while charging, red only when low on battery.
     public var tint: Tint {
-        if onAC { return .green }
-        if percent <= 20 { return .red }
-        if percent <= 40 { return .yellow }
+        if charging { return .green }
+        if !onAC && percent <= 20 { return .red }
         return .normal
     }
 }

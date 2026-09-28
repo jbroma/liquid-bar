@@ -111,7 +111,6 @@ extension Tint {
         switch self {
         case .normal: .barWhite
         case .green: .barGreen
-        case .yellow: .barYellow
         case .red: .barRed
         }
     }

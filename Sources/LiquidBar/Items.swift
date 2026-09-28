@@ -18,22 +18,40 @@ struct Meter: View {
     }
 }
 
-/// The level symbol and percentage. The symbol bounces on plug and unplug.
+/// A slim battery filled to the level, then the percentage. A bolt shows only while charging.
 struct BatteryLabel: View {
     let battery: BatteryState
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: battery.symbol)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(battery.tint.color, Color.barWhite.opacity(0.55))
-                .contentTransition(.symbolEffect(.replace))
-                .symbolEffect(.bounce, value: battery.onAC)
+        HStack(spacing: 5) {
+            HStack(spacing: 1.5) {
+                if battery.charging { Image(systemName: "bolt.fill").font(.system(size: 8, weight: .bold)) }
+                BatteryGlyph(level: Double(battery.percent) / 100, fill: battery.tint.color)
+            }
             // Changes every few minutes at rest, so it swaps without a transition, like the clock.
             Text("\(battery.percent)%")
-                .font(.system(size: 11, weight: .bold))
         }
-        .animation(spring, value: battery.onAC)
+        .animation(spring, value: battery.charging)
+    }
+}
+
+struct BatteryGlyph: View {
+    let level: Double
+    let fill: Color
+
+    var body: some View {
+        HStack(spacing: 1) {
+            RoundedRectangle(cornerRadius: 3.5)
+                .strokeBorder(Color.barWhite.opacity(0.45), lineWidth: 1)
+                .frame(width: 23, height: 12)
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 1.75)
+                        .fill(fill)
+                        .frame(width: max(2, 19 * level), height: 8)
+                        .padding(.leading, 2)
+                }
+            RoundedRectangle(cornerRadius: 1).fill(Color.barWhite.opacity(0.45)).frame(width: 1.5, height: 4)
+        }
     }
 }
 
