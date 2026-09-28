@@ -133,6 +133,11 @@ final class MenuMode {
 
     var active: Bool { titles != nil }
 
+    /// Rebuilding the bars for a screen change drops this with the menus still showing.
+    isolated deinit {
+        escape.map(NSEvent.removeMonitor)
+    }
+
     /// Clicking the focused workspace: menus on, or off again. Without Accessibility access it explains why not.
     func toggle(_ app: FrontApp, at screenPoint: NSPoint) {
         if active { return end() }
