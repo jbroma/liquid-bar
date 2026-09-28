@@ -115,6 +115,44 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
         """)
 }
 
+@Test func pinningEditsThePinnedList() throws {
+    let pinned = try apply(.pinned("com.example.a", true), to: #"{"margin": 4}"#)
+    #expect(pinned == """
+        {
+          "margin" : 4,
+          "pinned" : [
+            "com.example.a"
+          ]
+        }
+        """)
+    let two = try apply(.pinned("com.example.b", true), to: pinned)
+    #expect(try decode(two).pinned == ["com.example.a", "com.example.b"])
+    #expect(try apply(.pinned("com.example.a", true), to: two) == two)
+    #expect(try apply(.pinned("com.example.a", false), to: two) == """
+        {
+          "margin" : 4,
+          "pinned" : [
+            "com.example.b"
+          ]
+        }
+        """)
+    #expect(try apply(.pinned("com.example.b", false), to: #"{"pinned": ["com.example.b"], "x": 1}"#) == """
+        {
+          "pinned" : [
+
+          ],
+          "x" : 1
+        }
+        """)
+}
+
+@Test func decodesPinnedApps() throws {
+    #expect(try decode(#"{"pinned": ["a", "b", "a"]}"#).pinned == ["a", "b"])
+    #expect(try decode("{}").pinned == [])
+    #expect(throws: (any Error).self) { try decode(#"{"pinned": [""]}"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"pinned": "a"}"#) }
+}
+
 @Test func createsAMissingConfigFileOnly() throws {
     let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString).appending(path: "liquid-bar/config.json")
     defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent().deletingLastPathComponent()) }

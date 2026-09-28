@@ -35,6 +35,7 @@ extension Config {
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
+            var pinned: [String]?
             var clicks: [String: String]?
         }
         let raw = try JSONDecoder().decode(Raw.self, from: data)
@@ -56,6 +57,10 @@ extension Config {
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
+        if let pinned = raw.pinned {
+            guard !pinned.contains(where: \.isEmpty) else { throw ConfigError(description: "pinned holds bundle ids, not empty strings") }
+            config.pinned = pinned.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
+        }
         config.clicks.merge(raw.clicks ?? [:]) { $1 }
         for case .script(let script) in config.left + config.right {
             if let interval = script.interval, interval < 1 {
@@ -73,6 +78,7 @@ public enum Setting: Equatable, Sendable {
     case clockSeconds(Bool)
     case batteryPercent(Bool)
     case nowPlaying(Bool)
+    case pinned(String, Bool)
 
     /// The config file's contents (nil when missing) with this change applied. Every other key stays as written.
     public func applied(to data: Data?) throws -> Data {
@@ -96,6 +102,11 @@ public enum Setting: Equatable, Sendable {
             if on && !shown { right.insert(name, at: 0) }
             if !on { right.removeAll { $0 as? String == name } }
             json["right"] = right
+        case .pinned(let bundleID, let on):
+            var pinned = json["pinned"] as? [String] ?? []
+            if on && !pinned.contains(bundleID) { pinned.append(bundleID) }
+            if !on { pinned.removeAll { $0 == bundleID } }
+            json["pinned"] = pinned
         }
         return try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
     }

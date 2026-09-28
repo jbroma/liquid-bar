@@ -141,6 +141,8 @@ public struct Config: Equatable, Sendable {
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
+    /// Bundle ids of the apps whose status items sit on the bar, in order.
+    public var pinned: [String] = []
     public var clicks: [String: String] = [
         "volume": "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'",
         "wifi": "open 'x-apple.systempreferences:com.apple.Network-Settings.extension'",

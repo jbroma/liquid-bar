@@ -19,6 +19,12 @@ private func extra(_ bundleID: String, _ name: String, title: String? = nil, des
     #expect(tray.map(\.handle) == [1151, 1208, 1248])
 }
 
+@Test func pinnedItemsFollowThePinnedOrderAndSkipAbsentApps() {
+    let extras = [extra("a", "A", x: 1), extra("b", "B", x: 2), extra("a", "A2", x: 3), extra("com.apple.x", "X", x: 4)]
+    #expect(pinnedItems(extras, pinned: ["b", "gone", "a"]).map(\.appName) == ["B", "A"])
+    #expect(pinnedItems(extras, pinned: []).isEmpty)
+}
+
 @Test func labelIsTheFirstNonEmptyTitleOrDescription() {
     #expect(extra("a", "A", title: "", x: 0).label == nil)
     #expect(extra("a", "A", title: "", description: "VPN on", x: 0).label == "VPN on")

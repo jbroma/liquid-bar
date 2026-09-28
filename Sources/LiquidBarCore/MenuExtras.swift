@@ -31,6 +31,12 @@ public func trayItems<Handle>(_ extras: [MenuExtra<Handle>]) -> [MenuExtra<Handl
     extras.filter { !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != "bobko.aerospace" }.sorted { $0.x < $1.x }
 }
 
+/// The status items on the bar: the first item of each pinned app that has one, in the order pinned.
+public func pinnedItems<Handle>(_ extras: [MenuExtra<Handle>], pinned: [String]) -> [MenuExtra<Handle>] {
+    let tray = trayItems(extras)
+    return pinned.compactMap { id in tray.first { $0.bundleID == id } }
+}
+
 /// One entry of another app's menu, read through Accessibility. `handle` presses it and `submenu` holds the entries it
 /// opens.
 public struct MenuEntry<Handle> {
