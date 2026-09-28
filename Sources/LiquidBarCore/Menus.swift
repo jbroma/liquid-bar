@@ -67,3 +67,14 @@ private func fourCC(_ code: UInt32) -> String {
 public func dropdownX(center: Double, width: Double, lower: Double, upper: Double) -> Double {
     max(lower, min(center - width / 2, upper - width))
 }
+
+/// How many menu titles, `widths` wide, fit in `budget` points. When not all do, the count leaves room for an overflow
+/// title `overflowWidth` wide that holds the rest.
+public func menuTitlesThatFit(widths: [Double], budget: Double, overflowWidth: Double) -> Int {
+    guard widths.reduce(0, +) > budget else { return widths.count }
+    var used = overflowWidth
+    return widths.prefix { width in
+        used += width
+        return used <= budget
+    }.count
+}

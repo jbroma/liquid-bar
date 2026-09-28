@@ -98,8 +98,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
         // Pure black, like the bezel and the notch on a mini-LED panel.
         let (left, right) = (screen.auxiliaryTopLeftArea?.width, screen.auxiliaryTopRightArea?.width)
-        let metrics = BarMetrics(screen: screen.frame, height: height)
-        let bar = panel(frame, background: .black, root: BarView(model: model, leftWidth: left, rightWidth: right).environment(slot).environment(\.bar, metrics))
+        let metrics = BarMetrics(screen: screen.frame, height: height, left: left, right: right)
+        let bar = panel(frame, background: .black, root: BarView(model: model).environment(slot).environment(\.bar, metrics))
         // One dropdown window on each side of the notch, from the bar down to the bottom of the screen. Their clear
         // pixels let the pointer through, as long as `ignoresMouseEvents` is never set.
         let (leftWidth, rightWidth) = (left ?? screen.frame.width / 2, right ?? screen.frame.width / 2)

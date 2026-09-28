@@ -139,34 +139,63 @@ struct Equalizer: NSViewRepresentable {
 }
 
 /// The front app's menu titles, the app's own menu first and in bold, like the native menu bar. Each opens a native
-/// dropdown of that menu.
+/// dropdown of that menu. Titles that do not fit beside the notch move into a trailing "»" title's menu.
 struct MenuStrip: View {
     let titles: [AppMenuTitle]
     let openTitle: Int?
-    let open: (AppMenuTitle, _ columns: [(title: AppMenuTitle, rect: CGRect)]) -> Void
+    let open: (_ id: Int, _ columns: [MenuColumn]) -> Void
     @Environment(\.bar) private var bar
     @State private var frames: [Int: CGRect] = [:]
     @State private var hovered: Int?
+    @State private var originX: CGFloat = 0
+    private static let overflowID = -1
 
     var body: some View {
+        // The island ends 8pt short of the notch, counting the strip's own hit area.
+        let budget = bar.left.map { $0 - 8 - originX } ?? .infinity
+        let fit = menuTitlesThatFit(
+            widths: titles.map { Self.width($0.title, bold: $0.id == titles.first?.id) },
+            budget: budget,
+            overflowWidth: Self.width("»", bold: false)
+        )
+        let overflow = Array(titles[fit...])
         HStack(spacing: 0) {
-            ForEach(titles) { title in
-                Text(title.title)
-                    .font(.system(size: 12, weight: title.id == titles.first?.id ? .bold : .medium))
-                    .fixedSize()
-                    .padding(.horizontal, 7)
-                    .frame(height: 18)
-                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames[title.id] = $0 }
-                    .background { RoundedRectangle(cornerRadius: 9).fill(.white.opacity((openTitle ?? hovered) == title.id ? 0.12 : 0)) }
-                    .contentShape(RoundedRectangle(cornerRadius: 9))
-                    .onHover { inside in
-                        if inside { hovered = title.id } else if hovered == title.id { hovered = nil }
-                    }
-                    .onTapGesture {
-                        haptic()
-                        open(title, titles.compactMap { title in frames[title.id].map { (title, bar.column(under: $0)) } })
-                    }
+            ForEach(titles[..<fit]) { title in
+                self.title(title.title, id: title.id, bold: title.id == titles.first?.id, overflow: overflow)
             }
+            if !overflow.isEmpty { self.title("»", id: Self.overflowID, bold: false, overflow: overflow) }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minX } action: { originX = $0 }
+    }
+
+    private func title(_ text: String, id: Int, bold: Bool, overflow: [AppMenuTitle]) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: bold ? .bold : .medium))
+            .fixedSize()
+            .padding(.horizontal, 7)
+            .frame(height: 18)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames[id] = $0 }
+            .background { RoundedRectangle(cornerRadius: 9).fill(.white.opacity((openTitle ?? hovered) == id ? 0.12 : 0)) }
+            .contentShape(RoundedRectangle(cornerRadius: 9))
+            .onHover { inside in
+                if inside { hovered = id } else if hovered == id { hovered = nil }
+            }
+            .onTapGesture {
+                haptic()
+                open(id, columns(overflow: overflow))
+            }
+    }
+
+    private func columns(overflow: [AppMenuTitle]) -> [MenuColumn] {
+        let shown = titles.filter { title in !overflow.contains { $0.id == title.id } }
+        let menus = shown.map { title in (title.id, { AppMenus.menu(for: title) }) }
+            + (overflow.isEmpty ? [] : [(Self.overflowID, { AppMenus.overflowMenu(overflow) })])
+        return menus.compactMap { id, menu in frames[id].map { MenuColumn(id: id, rect: bar.column(under: $0), menu: menu) } }
+    }
+
+    /// A title's width in the strip, text and padding.
+    private static func width(_ text: String, bold: Bool) -> Double {
+        let font = NSFont.systemFont(ofSize: 12, weight: bold ? .bold : .medium)
+        return ceil((text as NSString).size(withAttributes: [.font: font]).width) + 14
     }
 }

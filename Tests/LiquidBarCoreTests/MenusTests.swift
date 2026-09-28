@@ -41,3 +41,11 @@ import Testing
     #expect(dropdownX(center: 610, width: 260, lower: 12, upper: 640) == 380)
     #expect(dropdownX(center: 40, width: 260, lower: 12, upper: 640) == 12)
 }
+
+@Test func menuTitlesOverflowBesideTheNotch() {
+    #expect(menuTitlesThatFit(widths: [50, 30, 40], budget: 120, overflowWidth: 20) == 3)
+    #expect(menuTitlesThatFit(widths: [50, 30, 40], budget: 100, overflowWidth: 20) == 2)
+    #expect(menuTitlesThatFit(widths: [50, 30, 40], budget: 90, overflowWidth: 20) == 1)
+    #expect(menuTitlesThatFit(widths: [50, 30, 40], budget: 60, overflowWidth: 20) == 0)
+    #expect(menuTitlesThatFit(widths: [], budget: 0, overflowWidth: 20) == 0)
+}

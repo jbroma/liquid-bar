@@ -19,20 +19,18 @@ extension Color {
     static let barRed = Color(hex: 0xfc618d)
 }
 
-/// One bar per screen. `leftWidth`/`rightWidth` are the areas beside the notch; nil means no notch.
+/// One bar per screen.
 struct BarView: View {
     let model: BarModel
-    let leftWidth: CGFloat?
-    let rightWidth: CGFloat?
     @Environment(\.bar) private var bar
     @State private var menuMode = MenuMode()
 
     var body: some View {
         let config = model.config
         HStack(spacing: 0) {
-            island(config.left, alignment: .leading, width: leftWidth)
+            island(config.left, alignment: .leading, width: bar.left)
             Spacer(minLength: 0)
-            island(config.right, alignment: .trailing, width: rightWidth)
+            island(config.right, alignment: .trailing, width: bar.right)
         }
         .font(.system(size: 12, weight: .semibold))
         .monospacedDigit()
@@ -237,6 +235,9 @@ struct ScrollCatcher: NSViewRepresentable {
 struct BarMetrics {
     var screen = CGRect.zero
     var height: CGFloat = 33
+    /// The widths beside the notch; nil without one.
+    var left: CGFloat?
+    var right: CGFloat?
     var pill: CGFloat { height - 8 }
     /// A workspace, drawn straight on the bar.
     var item: CGFloat { pill - 3 }

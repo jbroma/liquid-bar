@@ -22,13 +22,27 @@ enum AppMenus {
         }
     }
 
-    /// Opens a native dropdown mirroring the menu bar item's menu; picking an item presses it in the app. Returns the
-    /// title from `titleUnder` that the pointer slid onto, which closed the menu, if any.
-    static func popUp(_ title: AppMenuTitle, at screenPoint: NSPoint, titleUnder: @escaping (NSPoint) -> AppMenuTitle?) -> AppMenuTitle? {
-        guard let element = AX.children(title.element).first else { return nil }
-        fillers = []
-        let menu = mirror(element, title: title.title)
-        let switcher = TitleSwitch(menu: menu, titleUnder: titleUnder)
+    /// A native dropdown mirroring the menu bar item's menu; picking an item presses it in the app.
+    static func menu(for title: AppMenuTitle) -> NSMenu? {
+        AX.children(title.element).first.map { mirror($0, title: title.title) }
+    }
+
+    /// The menus that do not fit beside the notch, each as a submenu.
+    static func overflowMenu(_ titles: [AppMenuTitle]) -> NSMenu {
+        let menu = NSMenu()
+        for title in titles {
+            let item = NSMenuItem(title: title.title, action: nil, keyEquivalent: "")
+            item.submenu = self.menu(for: title)
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    /// Shows `menu` until it closes. Returns the column from `columnUnder` that the pointer slid onto, which closed the
+    /// menu, if any.
+    static func popUp(_ menu: NSMenu, at screenPoint: NSPoint, columnUnder: @escaping (NSPoint) -> Int?) -> Int? {
+        defer { fillers = [] }
+        let switcher = TitleSwitch(menu: menu, columnUnder: columnUnder)
         // A tracking menu hides the pointer from SwiftUI's hover, so poll it in the menu's run loop mode instead.
         let poll = Timer(timeInterval: 1.0 / 60, target: switcher, selector: #selector(TitleSwitch.poll), userInfo: nil, repeats: true)
         RunLoop.main.add(poll, forMode: .eventTracking)
@@ -50,7 +64,7 @@ enum AppMenus {
         menu.popUp(positioning: nil, at: screenPoint, in: nil)
     }
 
-    /// NSMenu holds its delegate weakly; the fillers of the open menu tree live here until the next popup.
+    /// NSMenu holds its delegate weakly; the fillers of the open menu tree live here until it closes.
     private static var fillers: [MenuFiller] = []
 
     fileprivate static func mirror(_ element: AXUIElement, title: String) -> NSMenu {
@@ -63,20 +77,27 @@ enum AppMenus {
     }
 }
 
+/// A title in the strip: its full-height strip of the bar in screen coordinates, and the menu it opens.
+struct MenuColumn {
+    let id: Int
+    let rect: CGRect
+    let menu: () -> NSMenu?
+}
+
 /// Closes an open menu once the pointer is over another title, remembering that title.
 private final class TitleSwitch: NSObject {
     let menu: NSMenu
-    let titleUnder: (NSPoint) -> AppMenuTitle?
-    var next: AppMenuTitle?
+    let columnUnder: (NSPoint) -> Int?
+    var next: Int?
 
-    init(menu: NSMenu, titleUnder: @escaping (NSPoint) -> AppMenuTitle?) {
+    init(menu: NSMenu, columnUnder: @escaping (NSPoint) -> Int?) {
         self.menu = menu
-        self.titleUnder = titleUnder
+        self.columnUnder = columnUnder
     }
 
     @objc func poll() {
-        guard next == nil, let title = titleUnder(NSEvent.mouseLocation) else { return }
-        next = title
+        guard next == nil, let column = columnUnder(NSEvent.mouseLocation) else { return }
+        next = column
         menu.cancelTracking()
     }
 }
@@ -186,16 +207,16 @@ final class MenuMode {
         return true
     }
 
-    /// Opens `title`'s menu. Sliding onto another title while it is open switches to that title's menu, as in the
-    /// native menu bar. `columns` are the titles' full-height strips of the bar, in screen coordinates.
-    func open(_ title: AppMenuTitle, columns: [(title: AppMenuTitle, rect: CGRect)]) {
+    /// Opens the menu of the column `id`. Sliding onto another title while it is open switches to that title's menu,
+    /// as in the native menu bar.
+    func open(_ id: Int, columns: [MenuColumn]) {
         dropdownOpen = true
-        var next: AppMenuTitle? = title
-        while let current = next, let rect = columns.first(where: { $0.title.id == current.id })?.rect {
+        var next: Int? = id
+        while let current = columns.first(where: { $0.id == next }), let menu = current.menu() {
             openTitle = current.id
-            next = AppMenus.popUp(current, at: rect.origin) { point in
+            next = AppMenus.popUp(menu, at: current.rect.origin) { point in
                 // NSMouseInRect counts the top edge as inside, where the pointer rests when pushed against it.
-                columns.first { $0.title.id != current.id && NSMouseInRect(point, $0.rect, false) }?.title
+                columns.first { $0.id != current.id && NSMouseInRect(point, $0.rect, false) }?.id
             }
         }
         openTitle = nil
