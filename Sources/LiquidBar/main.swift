@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
     var fullscreenPoll: Timer?
+    var pendingRebuild: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
@@ -41,7 +42,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.rebuildPanels() }
+            // Mirroring and resolution changes post several of these while the geometry settles; build once at the end.
+            MainActor.assumeIsolated {
+                self?.pendingRebuild?.cancel()
+                self?.pendingRebuild = Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }
+                    self?.rebuildPanels()
+                }
+            }
         }
         // Polled: no notification fires when a covering window closes or a fullscreen animation settles.
         fullscreenPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -73,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func rebuildPanels() {
+        trace("rebuild panels")
         panels.forEach { $0.close() }
         panels = NSScreen.screens.flatMap { makePanels(for: $0, slot: ExpansionSlot()) }
     }
