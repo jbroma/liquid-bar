@@ -210,7 +210,7 @@ private struct BluetoothRune: Shape {
     }
 }
 
-/// A control's circle over its label. Its rounded area lightens under the pointer.
+/// A control's circle, named by its tooltip. Its rounded area lightens under the pointer.
 private struct CircleTile: View {
     let tile: ControlTile?
     let label: String
@@ -220,13 +220,12 @@ private struct CircleTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 2) {
-                TileIcon(tile: tile, on: on, size: 32)
-                Text(label).font(.system(size: 10, weight: .medium)).lineLimit(1)
-            }
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity)
+            TileIcon(tile: tile, on: on, size: 36)
+                .padding(.vertical, 5)
+                .frame(maxWidth: .infinity)
         }
+        .help(label)
+        .accessibilityLabel(label)
         .buttonStyle(TileStyle(hovering: hovering))
         .onHover { hovering = $0 }
     }
