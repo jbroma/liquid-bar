@@ -101,6 +101,12 @@ extension WorkspaceState {
             .map { WorkspaceApp(bundleID: $0.bundleID, windowID: $0.id, focused: workspace == focused && $0.id == recency.first) }
     }
 
+    /// A workspace's icon stack: its three most recent apps, front first, and how many more it has.
+    public func stack(on workspace: String) -> (apps: [WorkspaceApp], more: Int) {
+        let apps = apps(on: workspace)
+        return (Array(apps.prefix(3)), max(apps.count - 3, 0))
+    }
+
     /// The workspace `steps` away from the focused one, among those with windows plus the focused one, in
     /// config order and clamped at the ends, like scrolling through AeroSpace's `workspace next`/`prev`.
     public func neighbor(_ steps: Int, in order: [String]) -> String? {

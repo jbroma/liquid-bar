@@ -100,3 +100,25 @@ private let listing = """
     #expect(backoff.next(after: 3600) == 1)
     #expect(backoff.next(after: 0.1) == 2)
 }
+
+@Test func iconStackShowsThreeMostRecentAppsThenCountsTheRest() {
+    var state = WorkspaceState()
+    state.setWindows(parseWindows("""
+        5|1|com.apple.Notes
+        5|2|com.example.browser
+        5|3|com.apple.MobileSMS
+        5|4|com.spotify.client
+        5|5|com.example.chat
+        5|6|com.apple.Notes
+        7|7|com.apple.Notes
+        """))
+    _ = state.apply(.focusChanged(workspace: "5", windowID: 4))
+    _ = state.apply(.focusChanged(workspace: "5", windowID: 6))
+    let stack = state.stack(on: "5")
+    #expect(stack.apps.map(\.bundleID) == ["com.apple.Notes", "com.spotify.client", "com.example.browser"])
+    #expect(stack.more == 2)
+    #expect(state.stack(on: "7").apps.map(\.bundleID) == ["com.apple.Notes"])
+    #expect(state.stack(on: "7").more == 0)
+    #expect(state.stack(on: "3").apps.isEmpty)
+    #expect(state.stack(on: "3").more == 0)
+}

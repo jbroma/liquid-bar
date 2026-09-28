@@ -4,7 +4,7 @@ A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu
 
 The pills sit on an opaque pure black bar that runs the full width of the screen. On a notched screen the bar is exactly as tall as the notch, so the notch disappears into it.
 
-Left of the notch, drawn straight on the black: the Apple logo and the AeroSpace workspaces, each showing the icon of its most recently used app. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, Control Center, and the clock. Control Center's dropdown also lists the other apps' menu bar items.
+Left of the notch, drawn straight on the black: the Apple logo and the AeroSpace workspaces, each showing a card stack of its apps' icons, the most recently used on top. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, Control Center, and the clock. Control Center's dropdown also lists the other apps' menu bar items.
 
 Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
 
@@ -77,7 +77,7 @@ A widget is one of these names, or a script object:
 | Name | At rest | Dropdown on hover |
 | --- | --- | --- |
 | `apple` | Apple logo. Click opens the Apple menu. | |
-| `workspaces` | Each workspace shows its number and the icon of its most recently used app; empty workspaces show a dim number only. A soft fill marks the focused workspace. | With two or more apps, a black dropdown under the workspace lists them, the most recent first, with a dot on the app holding the focused window. Clicking one focuses that app's window there, switching workspace if needed. Workspaces never change width on hover. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
+| `workspaces` | Each workspace shows its number and a card stack of its apps' icons, the app of its most recently focused window on top and leftmost, up to three, then "+N"; empty workspaces show a dim number only. A soft fill marks the focused workspace. | With two or more apps, a black dropdown under the workspace lists them, the most recent first, with a dot on the app holding the focused window. Clicking one focuses that app's window there, switching workspace if needed. Workspaces never change width on hover. Scroll over the strip to step through workspaces that have windows. Click the focused workspace to see its front app's menus. |
 | `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Artwork, title, artist, previous, play or pause, and next, and a row that opens the player. |
 | `volume` | Speaker symbol. | A slider that sets the level on click or drag, Mute, the output devices with the current one filled in (click one to switch), AirPlay… (opens the real Control Center on its Sound outputs, where AirPlay receivers are listed), and Sound Settings…. Scroll over the pill to change the volume in steps of 2. |
 | `wifi` | Network symbol. | Network name (or the signal when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |

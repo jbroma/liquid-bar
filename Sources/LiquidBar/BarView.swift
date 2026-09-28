@@ -301,7 +301,7 @@ struct WorkspaceStrip: View {
             ForEach(model.config.workspaces) { workspace in
                 WorkspaceButton(
                     id: workspace.id,
-                    apps: model.workspaces.apps(on: workspace.id),
+                    stack: model.workspaces.stack(on: workspace.id),
                     focused: focused == workspace.id,
                     height: bar.item
                 ) {
@@ -354,11 +354,11 @@ struct WorkspaceStrip: View {
     }
 }
 
-/// A workspace shows the icon of its most recently used app, or its number when it has no windows. It never changes
-/// width on hover, so the strip never shifts under the pointer; its apps show in a dropdown instead.
+/// A workspace shows its number beside a card stack of its apps' icons, or only the number when it has no windows.
+/// It never changes width on hover, so the strip never shifts under the pointer; its apps show in a dropdown instead.
 struct WorkspaceButton: View {
     let id: String
-    let apps: [WorkspaceApp]
+    let stack: (apps: [WorkspaceApp], more: Int)
     let focused: Bool
     let height: CGFloat
     let action: () -> Void
@@ -368,19 +368,50 @@ struct WorkspaceButton: View {
             HStack(spacing: 4) {
                 Text(id)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : apps.isEmpty ? 0.35 : 0.6))
-                if let app = apps.first {
-                    Image(nsImage: AppIcons.icon(app.bundleID))
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                        .transition(.scale(0.5).combined(with: .opacity))
+                    .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : stack.apps.isEmpty ? 0.35 : 0.6))
+                if !stack.apps.isEmpty {
+                    IconStack(apps: stack.apps, more: stack.more)
                 }
             }
-            .padding(.horizontal, apps.isEmpty ? 7 : 6)
+            .padding(.horizontal, stack.apps.isEmpty ? 7 : 6)
             .frame(minWidth: height, minHeight: height)
             .background { hoverFill(open && !focused) }
         }
         .onTapGesture(perform: action)
+    }
+}
+
+/// Overlapping icon cards, the first on top and leftmost, each further one smaller and dimmer, then "+N".
+struct IconStack: View {
+    let apps: [WorkspaceApp]
+    let more: Int
+    private let size: CGFloat = 16
+    private let peek: CGFloat = 5
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ZStack(alignment: .leading) {
+                ForEach(Array(apps.enumerated()), id: \.element.bundleID) { index, app in
+                    let depth = CGFloat(index)
+                    Image(nsImage: AppIcons.icon(app.bundleID))
+                        .resizable()
+                        .frame(width: size, height: size)
+                        .shadow(color: .black.opacity(0.35), radius: 1, y: 0.5)
+                        .scaleEffect(1 - 0.14 * depth)
+                        .opacity(1 - 0.28 * depth)
+                        .offset(x: depth * peek)
+                        .zIndex(-depth)
+                        .transition(.scale(0.5).combined(with: .opacity))
+                }
+            }
+            .frame(width: size + CGFloat(apps.count - 1) * peek, alignment: .leading)
+            if more > 0 {
+                Text("+\(more)")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(Color.barWhite.opacity(0.7))
+                    .contentTransition(.numericText())
+            }
+        }
     }
 }
 
