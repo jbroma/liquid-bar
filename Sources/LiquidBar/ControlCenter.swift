@@ -74,7 +74,7 @@ final class Controls {
             togglingFocus = true
             state.focus = !on
             Task {
-                if let now = await Task.detached(operation: { SystemControlCenter.toggleFocus() }).value { focusSet = (now, Date()) }
+                if let now = await blocking({ SystemControlCenter.toggleFocus() }) { focusSet = (now, Date()) }
                 togglingFocus = false
                 refresh()
             }
@@ -93,7 +93,7 @@ final class Controls {
 /// Opens a module of the real Control Center off the main thread, or the settings pane when it cannot.
 func showControlCenterModule(_ id: String, else pane: String) {
     Task {
-        if await !Task.detached(operation: { SystemControlCenter.showModule(id) }).value { openSettings(pane) }
+        if await !blocking({ SystemControlCenter.showModule(id) }) { openSettings(pane) }
     }
 }
 

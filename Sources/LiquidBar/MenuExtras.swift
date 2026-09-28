@@ -20,16 +20,16 @@ enum MenuExtras {
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy != .prohibited }
             .map { (pid: $0.processIdentifier, bundleID: $0.bundleIdentifier ?? "", name: $0.localizedName ?? "") }
-        Task.detached {
-            nonisolated(unsafe) let extras = trayItems(apps.flatMap { app in
+        Task {
+            let extras = await blocking { trayItems(apps.flatMap { app in
                 items(pid: app.pid).map { item in
                     var origin = CGPoint.zero
                     if let position = AX.attribute(item, kAXPositionAttribute) { AXValueGetValue(position as! AXValue, .cgPoint, &origin) }
                     return MenuExtra(bundleID: app.bundleID, appName: app.name, title: AX.string(item, kAXTitleAttribute),
                                      description: AX.string(item, kAXDescriptionAttribute), x: origin.x, handle: item)
                 }
-            })
-            await MainActor.run { if extras != model.menuExtras { model.menuExtras = extras } }
+            }) }
+            if extras != model.menuExtras { model.menuExtras = extras }
         }
     }
 }

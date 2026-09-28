@@ -6,6 +6,14 @@ import LiquidBarCore
 // One boundary per subsystem behind the Control Center dropdown. Each reads nil and does nothing when this macOS
 // lacks what it needs, so a missing private symbol costs a tile, never a crash.
 
+/// Runs blocking work, like Accessibility waits, polling loops or Bluetooth's permission prompt, on a GCD thread, so it
+/// never holds one of the few threads Swift concurrency shares.
+nonisolated func blocking<T>(_ work: @escaping @Sendable () -> sending T) async -> sending T {
+    await withCheckedContinuation { continuation in
+        DispatchQueue.global().async { continuation.resume(returning: work()) }
+    }
+}
+
 /// A C function from a system framework, or nil when this macOS does not have it.
 private func systemFunction<T>(_ path: String, _ name: String, as type: T.Type) -> T? {
     guard let handle = dlopen(path, RTLD_LAZY), let pointer = dlsym(handle, name) else { return nil }
@@ -87,10 +95,10 @@ enum Bluetooth {
     /// Whether the controller is on, and the paired devices while it is. The first read asks for Bluetooth access and
     /// waits for the answer, so reads run off the main thread.
     static func read() async -> (on: Bool?, devices: [BluetoothDevice]) {
-        await Task.detached {
+        await blocking {
             let on = IOBluetoothHostController.default().map { $0.powerState == kBluetoothHCIPowerStateON }
             return (on, on == true ? devices() : [])
-        }.value
+        }
     }
 
     private nonisolated static func devices() -> [BluetoothDevice] {
@@ -112,10 +120,10 @@ enum Bluetooth {
 
     /// Connects or disconnects the device. Both wait for the device to answer, so they run off the main thread.
     static func toggle(_ address: String) async {
-        await Task.detached {
+        await blocking {
             guard let device = IOBluetoothDevice(addressString: address) else { return }
             if device.isConnected() { device.closeConnection() } else { device.openConnection() }
-        }.value
+        }
     }
 }
 
