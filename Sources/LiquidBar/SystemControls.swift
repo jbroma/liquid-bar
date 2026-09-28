@@ -249,6 +249,56 @@ enum NightShift {
     }
 }
 
+/// macOS's "Turn Do Not Disturb On/Off" shortcut (symbolic hotkey 175), pressed with a posted key event. It switches
+/// Focus without opening Control Center, which still shows its own banner. Unless the user bound it, the shortcut gets
+/// ⌃⌥⇧⌘ plus a letter no other system shortcut uses, only for the moment of the press. SkyLight keeps that binding in
+/// the login session and never writes the user's keyboard shortcut preferences.
+enum DoNotDisturbShortcut {
+    private nonisolated static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+    private nonisolated static let get = systemFunction(framework, "CGSGetSymbolicHotKeyValue",
+        as: (@convention(c) (Int32, UnsafeMutablePointer<UInt16>, UnsafeMutablePointer<UInt16>, UnsafeMutablePointer<UInt32>) -> Int32).self)
+    private nonisolated static let set = systemFunction(framework, "CGSSetSymbolicHotKeyValue", as: (@convention(c) (Int32, UInt16, UInt16, UInt32) -> Int32).self)
+    private nonisolated static let isEnabled = systemFunction(framework, "CGSIsSymbolicHotKeyEnabled", as: (@convention(c) (Int32) -> Bool).self)
+    private nonisolated static let setEnabled = systemFunction(framework, "CGSSetSymbolicHotKeyEnabled", as: (@convention(c) (Int32, Bool) -> Int32).self)
+    private nonisolated static let id: Int32 = 175
+    private nonisolated static let unbound: UInt16 = 0xFFFF
+    private nonisolated static let hyper: UInt32 = 0x1E0000
+    /// D, F, J and K as (character, virtual key code).
+    private nonisolated static let letters: [(UInt16, UInt16)] = [(100, 2), (102, 3), (106, 38), (107, 40)]
+
+    /// Presses the shortcut, and returns false when SkyLight lacks the calls or every candidate combo is taken.
+    nonisolated static func press() -> Bool {
+        guard let get, let set, let isEnabled, let setEnabled else { return false }
+        func value(_ id: Int32) -> (char: UInt16, key: UInt16, mods: UInt32)? {
+            var char: UInt16 = 0, key: UInt16 = 0, mods: UInt32 = 0
+            return get(id, &char, &key, &mods) == 0 ? (char, key, mods) : nil
+        }
+        let old = value(id) ?? (unbound, unbound, 0), wasEnabled = isEnabled(id)
+        let rebound = !wasEnabled || old.key == unbound
+        var combo = (old.key, old.mods)
+        if rebound {
+            let taken = Set((0..<512).compactMap { other in isEnabled(other) ? value(other).flatMap { $0.mods == hyper ? $0.key : nil } : nil })
+            guard let (char, key) = letters.first(where: { !taken.contains($0.1) }) else { return false }
+            _ = set(id, char, key, hyper)
+            _ = setEnabled(id, true)
+            combo = (key, hyper)
+        }
+        let source = CGEventSource(stateID: .hidSystemState)
+        for down in [true, false] {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: combo.0, keyDown: down) else { return false }
+            event.flags = CGEventFlags(rawValue: UInt64(combo.1))
+            event.post(tap: .cghidEventTap)
+        }
+        if rebound {
+            // WindowServer reads the event after the post returns, and needs the binding until then.
+            usleep(200_000)
+            _ = set(id, old.char, old.key, old.mods)
+            _ = setEnabled(id, wasEnabled)
+        }
+        return true
+    }
+}
+
 /// The real Control Center, through Accessibility: its status items, and its panel for the one control with no API.
 enum SystemControlCenter {
     nonisolated static let controlCenter = "com.apple.menuextra.controlcenter"
@@ -272,13 +322,13 @@ enum SystemControlCenter {
         return items.isEmpty ? nil : items[focus] != nil
     }
 
-    /// Turns the active Focus off, or Do Not Disturb on, by pressing in Control Center; donotdisturbd rejects clients
-    /// without Apple's entitlement, so nothing else can switch Focus. While a Focus is on, its own status item opens a
-    /// small panel of modes. Otherwise there is no such item and the full Control Center opens, then its Focus module.
-    /// It blocks until the panel has closed again, and returns whether a Focus is on now, or nil when no Focus modes
-    /// showed.
-    nonisolated static func toggleFocus() -> Bool? {
-        guard let (app, item) = openPanel(extras()[focus] != nil ? focus : controlCenter) else { return nil }
+    /// Switches Do Not Disturb with its keyboard shortcut; donotdisturbd rejects clients without Apple's entitlement.
+    /// Without SkyLight's shortcut calls it presses in Control Center instead: while a Focus is on, its own status item
+    /// opens a small panel of modes, otherwise the full Control Center opens, then its Focus module. It blocks until
+    /// done, and returns false when nothing was switched.
+    nonisolated static func toggleFocus() -> Bool {
+        if DoNotDisturbShortcut.press() { return true }
+        guard let (app, item) = openPanel(extras()[focus] != nil ? focus : controlCenter) else { return false }
         defer { close(app, item) }
         func isMode(_ element: AXUIElement) -> Bool { AX.string(element, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
         if let module = waitFor(app, { isMode($0) || AX.string($0, "AXIdentifier") == "controlcenter-focus-modes" }).first, !isMode(module) {
@@ -287,9 +337,8 @@ enum SystemControlCenter {
         let modes = waitFor(app, isMode)
         let active = modes.first { AX.attribute($0, kAXValueAttribute) as? Int == 1 }
         let target = active ?? modes.first { AX.string($0, "AXIdentifier")?.hasSuffix(".donotdisturb.mode.default") == true }
-        guard let target else { return nil }
-        AX.press(target)
-        return active == nil
+        guard let target else { return false }
+        return AX.press(target)
     }
 
     /// Opens the real Control Center on one of its modules, as a click on the module would, and leaves it open for

@@ -76,12 +76,12 @@ final class Controls {
             }
         case .focus:
             guard let on = state.focus else { return openSettings("com.apple.Focus-Settings.extension") }
-            // A toggle drives Control Center for about 3s; a second click meanwhile would press into the same panel.
+            // Without the shortcut a toggle drives Control Center for about 3s; a second click would press into its panel.
             guard !togglingFocus else { return }
             togglingFocus = true
             state.focus = !on
             Task {
-                if await blocking({ SystemControlCenter.toggleFocus() }) == nil { state.focus = on }
+                if await !blocking({ SystemControlCenter.toggleFocus() }) { state.focus = on }
                 togglingFocus = false
             }
         }
