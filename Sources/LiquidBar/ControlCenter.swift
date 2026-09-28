@@ -124,10 +124,9 @@ struct ControlCenterMenu: View {
                     }
                     CircleTile(tile: nil, label: "More", on: false) {
                         slot.dismiss()
-                        if let item = SystemControlCenter.extras()[SystemControlCenter.controlCenter] {
-                            AX.pressLater(item)
-                        } else {
-                            AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
+                        let point = NSEvent.mouseLocation
+                        Task {
+                            if await !blocking({ SystemControlCenter.show() }) { AppMenus.explainAccess("open Control Center", at: point) }
                         }
                     }
                 }

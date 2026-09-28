@@ -15,7 +15,7 @@ nonisolated func blocking<T>(_ work: @escaping @Sendable () -> sending T) async 
 }
 
 /// A C function from a system framework, or nil when this macOS does not have it.
-private func systemFunction<T>(_ path: String, _ name: String, as type: T.Type) -> T? {
+private nonisolated func systemFunction<T>(_ path: String, _ name: String, as type: T.Type) -> T? {
     guard let handle = dlopen(path, RTLD_LAZY), let pointer = dlsym(handle, name) else { return nil }
     return unsafeBitCast(pointer, to: type)
 }
@@ -147,13 +147,22 @@ enum Appearance {
 /// the glass when the pointer reaches the top edge, and ignores the mouse. It lasts only while this process runs, so
 /// the native bar comes back if the bar quits or crashes.
 enum NativeMenuBar {
-    private static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
-    private static let connection = systemFunction(framework, "SLSMainConnectionID", as: (@convention(c) () -> Int32).self)
+    private nonisolated static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+    private nonisolated static let connection = systemFunction(framework, "SLSMainConnectionID", as: (@convention(c) () -> Int32).self)
     private static let set = systemFunction(framework, "SLSSetMenuBarInsetAndAlpha", as: (@convention(c) (Int32, Double, Double, Float) -> Int32).self)
+
+    private nonisolated static let setShown = systemFunction(framework, "SLSSetMenuBarVisibilityOverrideOnDisplay",
+                                                             as: (@convention(c) (Int32, CGDirectDisplayID, Bool) -> Void).self)
 
     static func setAlpha(_ alpha: Float) {
         guard let connection, let set else { return }
         _ = set(connection(), 0, 1, alpha)
+    }
+
+    /// Keeps the menu bar shown while menu bar auto-hide would hide it, or lets it hide again.
+    nonisolated static func setShown(_ shown: Bool) {
+        guard let connection, let setShown else { return }
+        setShown(connection(), CGMainDisplayID(), shown)
     }
 }
 
@@ -290,6 +299,11 @@ enum SystemControlCenter {
         return AX.press(module)
     }
 
+    /// Opens the real Control Center on its main view and leaves it open. False without Accessibility access.
+    nonisolated static func show() -> Bool {
+        openPanel() != nil
+    }
+
     /// Opens Control Center's panel on its main view, and returns Control Center and its status item. Nil without
     /// Accessibility access.
     private nonisolated static func openPanel() -> (app: AXUIElement, item: AXUIElement)? {
@@ -297,6 +311,11 @@ enum SystemControlCenter {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
         close(app, item)
+        // With menu bar auto-hide on, the status item sits above the screen, where a press opens nothing. The panel
+        // stays open once the menu bar hides again.
+        NativeMenuBar.setShown(true)
+        defer { NativeMenuBar.setShown(false) }
+        for _ in 0..<50 where position(item).y < 0 { usleep(10_000) }
         // The status item keeps its own idea of whether the panel is open, which drifts when the panel closes by
         // itself; then the first press only resets it.
         for _ in 0..<2 where windows(app).isEmpty {
@@ -304,6 +323,12 @@ enum SystemControlCenter {
             for _ in 0..<40 where windows(app).isEmpty { usleep(10_000) }
         }
         return (app, item)
+    }
+
+    private nonisolated static func position(_ item: AXUIElement) -> CGPoint {
+        var point = CGPoint.zero
+        if let value = AX.attribute(item, kAXPositionAttribute) { AXValueGetValue(value as! AXValue, .cgPoint, &point) }
+        return point
     }
 
     private nonisolated static func windows(_ app: AXUIElement) -> [AXUIElement] {
