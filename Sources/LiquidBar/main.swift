@@ -78,6 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let covered = covering.contains { $0.contains(frame) }
             if covered == bar.isVisible { covered ? bar.orderOut(nil) : bar.orderFrontRegardless() }
         }
+        // While a fullscreen window hides a bar, the native menu bar is the way to that app's menus. Reapplied every
+        // tick, as yabai reapplies it on Space changes.
+        NativeMenuBar.setAlpha(panels.contains { $0.parent == nil && !$0.isVisible } ? 1 : 0)
     }
 
     func apply(_ config: Config) {

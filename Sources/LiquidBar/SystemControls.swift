@@ -143,6 +143,20 @@ enum Appearance {
     }
 }
 
+/// The native menu bar's opacity, through SkyLight, as yabai's `menubar_opacity` sets it. At 0 it never shows through
+/// the glass when the pointer reaches the top edge, and ignores the mouse. It lasts only while this process runs, so
+/// the native bar comes back if the bar quits or crashes.
+enum NativeMenuBar {
+    private static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+    private static let connection = systemFunction(framework, "SLSMainConnectionID", as: (@convention(c) () -> Int32).self)
+    private static let set = systemFunction(framework, "SLSSetMenuBarInsetAndAlpha", as: (@convention(c) (Int32, Double, Double, Float) -> Int32).self)
+
+    static func setAlpha(_ alpha: Float) {
+        guard let connection, let set else { return }
+        _ = set(connection(), 0, 1, alpha)
+    }
+}
+
 /// Night Shift, through CoreBrightness's CBBlueLightClient, which Control Center uses.
 enum NightShift {
     private static let client = privateObject("CoreBrightness", "CBBlueLightClient")
