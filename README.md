@@ -4,13 +4,13 @@ A macOS 26 menu bar replacement drawn in Liquid Glass. It covers the native menu
 
 The pills sit on a Liquid Glass bar that runs the full width of the screen. On a notched screen the bar is as tall as the native menu bar, one point taller than the notch.
 
-Left of the notch, drawn straight on the glass: the Apple logo and the AeroSpace workspaces, each showing a card stack of its apps' icons, the most recently used on top. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, Control Center, and the clock. Control Center's dropdown also lists the other apps' menu bar items.
+Left of the notch, drawn straight on the glass: the Apple logo and the workspaces, each showing a card stack of its apps' icons, the most recently used on top. The workspaces are AeroSpace's when it runs, else the macOS desktops, else the running apps (see Workspaces). A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, Control Center, and the clock. Control Center's dropdown also lists the other apps' menu bar items.
 
 ## Requirements
 
 - macOS 26 or later.
 - Menu bar auto-hide off: in System Settings, set "Automatically hide and show the menu bar" to Never, or `defaults write NSGlobalDomain _HIHideMenuBar -bool false`. macOS then keeps windows, notification banners and Notification Center below the menu bar strip, and the bar is exactly as tall as it. The bar makes the native menu bar invisible while it runs (see Behavior), so it never shows through the glass, and it comes back if the bar quits. With auto-hide on the bar still works, but windows and banners can slide under it.
-- [AeroSpace](https://github.com/nikitabobko/AeroSpace) for the workspaces. Without it the workspace strip stays empty.
+- Optional: [AeroSpace](https://github.com/nikitabobko/AeroSpace). Without it the strip shows the macOS desktops or the running apps (see Workspaces).
 - Accessibility access for the front app's menus and other apps' menu bar items (see Permissions).
 - Building from source needs Xcode 26 (Swift 6.2 or later).
 
@@ -75,6 +75,18 @@ The bar works without any permission. These grants add features, and macOS asks 
 
 The Apple menu's Force Quit item lists running apps and force-quits the one you pick. The system Force Quit window can only be opened with a synthesized ⌥⌘⎋ keystroke.
 
+## Workspaces
+
+The strip left of the notch shows one of three sources, picked by `workspaceSource` (see Configure):
+
+- `aerospace`: the AeroSpace workspaces from the `workspaces` key, each with its apps. Clicking one or scrolling runs `aerospace workspace`.
+- `spaces`: the desktops (Spaces) of the display you are on, numbered 1 to 9 as in Mission Control, each with the apps of its windows; fullscreen apps are left out. Clicking a desktop or scrolling presses its "Switch to Desktop N" shortcut, since macOS has no API to switch desktops. Those shortcuts are off by default: turn them on in System Settings, Keyboard, Keyboard Shortcuts, Mission Control. While one is off, clicking its desktop explains this and offers to open the settings. Pressing the shortcut needs Accessibility access. The list is read through SkyLight and refreshes when you switch desktops or an app activates, launches, quits, hides or unhides.
+- `apps`: no workspaces. The strip shows each running app with a window on screen, icon only, the front app first and the rest in the order they were last used. Clicking one brings it forward.
+
+`auto`, the default, uses AeroSpace while it runs, else the desktops when the current display has two or more, else the apps, and picks again when AeroSpace launches or quits and when you switch desktops.
+
+In every source, hovering an item with two or more apps lists them, and clicking the focused item shows the front app's menus.
+
 ## Configure
 
 liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A missing key keeps the default, and a missing file means all defaults. The bar reloads the file when it changes. If the new file is invalid, the bar logs the error to stderr and keeps the previous config.
@@ -82,6 +94,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
+| `workspaceSource` | string | `"auto"` | Where the workspace strip's items come from: `"auto"`, `"aerospace"`, `"spaces"` or `"apps"` (see Workspaces). |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
@@ -141,7 +154,7 @@ A script object is the SketchyBar-style escape hatch:
 
 Control Center has no public API for most of its controls, so the dropdown uses the private frameworks macOS itself uses, loaded at runtime so a missing one costs a tile, never a crash: DisplayServices for display brightness, CoreBrightness for the keyboard backlight and Night Shift, SkyLight for Dark Mode (no Automation prompt), and `IOBluetoothPreferenceSetControllerPowerState` for Bluetooth power. Focus has neither an API nor a readable store without Full Disk Access, so the Focus tile reads Focus from its menu bar item and switches it by pressing through the real Control Center over Accessibility, which opens Control Center behind the dropdown for about three seconds.
 
-Everything updates from system events: `aerospace subscribe`, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling runs only while the Wi-Fi dropdown is open, and Control Center reads its controls only when its dropdown opens, after a change, and on appearance changes while it is open.
+Everything updates from system events: `aerospace subscribe`, NSWorkspace app and desktop notifications, IOKit power notifications, CoreAudio property listeners, `NWPathMonitor`, the players' distributed notifications, and Accessibility notifications. At rest the only timer is the clock, which fires on each minute boundary, plus script intervals. Throughput sampling runs only while the Wi-Fi dropdown is open, and Control Center reads its controls only when its dropdown opens, after a change, and on appearance changes while it is open.
 
 ## Layout
 
