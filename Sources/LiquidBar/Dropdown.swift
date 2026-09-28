@@ -84,8 +84,11 @@ struct DropdownView: View {
                 .onContinuousHover { phase in
                     if case .active = phase { slot.hold(true) } else { slot.hold(false) }
                 }
+                // Closed, the panel shrinks to a flat strip whose edge and shadow would still draw a line.
+                .opacity(open == nil ? 0 : 1)
                 .offset(x: geometry.x, y: 6)
                 .animation(spring, value: geometry)
+                .animation(.easeOut(duration: 0.18), value: open == nil)
         }
         .font(.system(size: 13))
         .foregroundStyle(Color.barWhite)
