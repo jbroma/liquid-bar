@@ -99,5 +99,6 @@ import Testing
     #expect(ShortcutModifiers(axMask: 1) == [.command, .shift])
     #expect(ShortcutModifiers(axMask: 3) == [.command, .shift, .option])
     #expect(ShortcutModifiers(axMask: 12) == [.control])
+    #expect(ShortcutModifiers(axMask: 14) == [.option, .control])
     #expect(ShortcutModifiers(axMask: 8) == [])
 }

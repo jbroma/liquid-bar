@@ -107,7 +107,7 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
                 let modifiers = ShortcutModifiers(axMask: AX.attribute(child, kAXMenuItemCmdModifiersAttribute) as? Int ?? 0)
                 item.keyEquivalentModifierMask = [
                     modifiers.contains(.command) ? .command : [],
-                    modifiers.contains(.shift) || key != key.lowercased() ? .shift : [],
+                    modifiers.contains(.shift) ? .shift : [],
                     modifiers.contains(.option) ? .option : [],
                     modifiers.contains(.control) ? .control : [],
                 ]
