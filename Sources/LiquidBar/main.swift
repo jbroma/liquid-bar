@@ -14,6 +14,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var fullscreenPoll: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)

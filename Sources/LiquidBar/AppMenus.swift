@@ -74,6 +74,12 @@ enum AX {
     nonisolated static func press(_ element: AXUIElement) -> Bool {
         AXUIElementPerformAction(element, kAXPressAction as CFString) == .success
     }
+
+    /// Presses without waiting: a press returns only once the menu or dialog it opens closes.
+    static func pressLater(_ element: AXUIElement) {
+        nonisolated(unsafe) let element = element
+        DispatchQueue.global().async { press(element) }
+    }
 }
 
 /// Fills an NSMenu from an AX menu only when it opens, so deep menus cost nothing until shown.
@@ -93,7 +99,7 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
                 menu.addItem(.separator())
                 continue
             }
-            let item = actionItem(title) { AX.press(child) }
+            let item = actionItem(title) { AX.pressLater(child) }
             item.isEnabled = AX.attribute(child, kAXEnabledAttribute) as? Bool ?? true
             if AX.string(child, kAXMenuItemMarkCharAttribute)?.isEmpty == false { item.state = .on }
             if let key = AX.string(child, kAXMenuItemCmdCharAttribute), !key.isEmpty {

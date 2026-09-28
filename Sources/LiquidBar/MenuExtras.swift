@@ -32,12 +32,6 @@ enum MenuExtras {
             await MainActor.run { if extras != model.menuExtras { model.menuExtras = extras } }
         }
     }
-
-    /// A status item's press returns only once the menu it opens closes, so it runs off the main thread.
-    static func press(_ item: AXUIElement) {
-        nonisolated(unsafe) let item = item
-        Task.detached { AX.press(item) }
-    }
 }
 
 /// Apps add their status items just after they finish launching, and lose them when they quit.
@@ -68,7 +62,7 @@ struct MenuExtrasSection: View {
             ForEach(Array(extras.enumerated()), id: \.offset) { _, extra in
                 MenuButton {
                     slot.dismiss()
-                    MenuExtras.press(extra.handle)
+                    AX.pressLater(extra.handle)
                 } content: {
                     Image(nsImage: AppIcons.icon(extra.bundleID))
                         .resizable()

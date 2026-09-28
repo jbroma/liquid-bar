@@ -157,7 +157,7 @@ struct ControlCenterMenu: View {
             MenuButton {
                 slot.dismiss()
                 if let item = SystemControlCenter.extras()[SystemControlCenter.controlCenter] {
-                    MenuExtras.press(item)
+                    AX.pressLater(item)
                 } else {
                     AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
                 }
