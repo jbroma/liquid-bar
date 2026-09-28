@@ -142,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func panel(_ frame: NSRect, root: some View) -> NSPanel {
-        let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        let panel = BarPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = barLevel
         panel.backgroundColor = .clear
         panel.isOpaque = false
@@ -158,8 +158,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// Above the native menu bar (24), which stays under the bar as a fallback.
-let barLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
+/// AppKit pushes a window below the menu bar when its level is under the menu bar's; the bar sits over that strip.
+final class BarPanel: NSPanel {
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
+}
+
+/// The Dock's level (20), below Notification Center (21) so banners draw over the bar as over the native menu bar. The
+/// native menu bar (24) is invisible and ignores the mouse, so the bar need not sit above it.
+let barLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.dockWindow)))
 
 /// Read with `log show --predicate 'subsystem == "dev.liquidbar"'`; launchd discards stderr.
 let log = Logger(subsystem: "dev.liquidbar", category: "bar")
