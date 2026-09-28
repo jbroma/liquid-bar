@@ -194,21 +194,16 @@ final class MenuMode {
     /// Clicking the focused workspace: menus on, or off again. Without Accessibility access it explains why not.
     func toggle(_ app: FrontApp, at screenPoint: NSPoint) {
         if active { return end() }
-        if !show(app), !AXIsProcessTrusted() { AppMenus.explainAccess("show \(app.name)'s menus", at: screenPoint) }
-    }
-
-    /// Shows the app's menus; false without Accessibility access or when the app has none.
-    @discardableResult
-    func show(_ app: FrontApp) -> Bool {
-        guard !active else { return true }
-        guard let titles = AppMenus.titles(pid: app.pid), !titles.isEmpty else { return false }
+        guard let titles = AppMenus.titles(pid: app.pid), !titles.isEmpty else {
+            if !AXIsProcessTrusted() { AppMenus.explainAccess("show \(app.name)'s menus", at: screenPoint) }
+            return
+        }
         withAnimation(spring) { self.titles = titles }
         // Global key events need Accessibility access, which reading the menus already proved.
         escape = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.keyCode == 53 else { return }
             MainActor.assumeIsolated { self?.end() }
         }
-        return true
     }
 
     /// Opens the menu of the column `id`. Sliding onto another title while it is open switches to that title's menu,

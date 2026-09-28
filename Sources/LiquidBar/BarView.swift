@@ -44,10 +44,8 @@ struct BarView: View {
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
-            case .active(let location):
+            case .active:
                 menuMode.hover(true)
-                // Pushing into the top edge, where macOS reveals its menu bar, shows the front app's menus.
-                if location.y <= 3, let app = model.frontApp { menuMode.show(app) }
             case .ended:
                 menuMode.hover(false)
             }

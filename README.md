@@ -42,7 +42,7 @@ Other targets:
 
 	liquid-bar subscribes to AeroSpace itself and retries until AeroSpace is running, so it needs no startup hook.
 
-3. Keep the native menu bar visible (System Settings > Control Center > Automatically hide and show the menu bar: Never, or `defaults write NSGlobalDomain _HIHideMenuBar -bool false`). liquid-bar covers it exactly, and it shows again if liquid-bar ever stops. When the pointer touches the top edge, the left side turns into the front app's menus.
+3. Keep the native menu bar visible (System Settings > Control Center > Automatically hide and show the menu bar: Never, or `defaults write NSGlobalDomain _HIHideMenuBar -bool false`). liquid-bar covers it exactly, and it shows again if liquid-bar ever stops. Click the focused workspace to see the front app's menus.
 
 4. Run `make install`.
 
@@ -115,7 +115,7 @@ A script object is the SketchyBar-style escape hatch:
 ## Behavior
 
 - One dropdown per bar is open at a time. Hovering a pill opens its dropdown after 40 ms, so a fast sweep across the bar does not open every one, and the pill widens by a few points. Once a dropdown is open, moving to another item opens that one at once, like the native menu bar. Each item reacts across the full bar height and up to halfway to its neighbours, and the outermost ones out to the screen edge, so a pointer thrown at the top edge, into a corner, or between two pills still lands on one. The dropdown stays open while the pointer is on the pill or in the dropdown and closes 0.5 s after it leaves both. Moving to another pill morphs the dropdown over to it. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, opens the dropdown for 2.2 s. A dropdown never crosses the notch and stays on screen; one taller than the screen below the bar scrolls.
-- The front app's menus: pushing the pointer into the top edge of the screen, or clicking the focused workspace, turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
+- The front app's menus: clicking the focused workspace turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
 - Height: each screen's bar is exactly as tall as the native menu bar under it, 33 points on a notched screen and 24 on most others. Pills are 8 points shorter. macOS keeps notification banners, Notification Center and windows below the menu bar, so nothing slides under the bar.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
