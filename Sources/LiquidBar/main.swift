@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
+    var fullscreenPoll: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         scripts = ScriptRunner(model: model)
@@ -39,6 +40,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.rebuildPanels() }
+        }
+        // Polled: no notification fires when a covering window closes or a fullscreen animation settles.
+        fullscreenPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hideUnderFullscreenWindows() }
+        }
+    }
+
+    /// Hides a screen's bar while a normal window covers that whole screen: native fullscreen on a screen without a
+    /// notch, a game, a slideshow. A notched screen keeps fullscreen windows below the camera, so its bar stays.
+    func hideUnderFullscreenWindows() {
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        let covering = windows.compactMap { window -> CGRect? in
+            guard window[kCGWindowLayer as String] as? Int == 0, let bounds = window[kCGWindowBounds as String] else { return nil }
+            return CGRect(dictionaryRepresentation: bounds as! CFDictionary)
+        }
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        for bar in panels where bar.parent == nil {
+            guard let screen = NSScreen.screens.first(where: { $0.frame.contains(bar.frame) }) else { continue }
+            // CoreGraphics measures from the top of the primary screen, AppKit from its bottom.
+            let frame = CGRect(x: screen.frame.minX, y: primaryHeight - screen.frame.maxY, width: screen.frame.width, height: screen.frame.height)
+            let covered = covering.contains { $0.contains(frame) }
+            if covered == bar.isVisible { covered ? bar.orderOut(nil) : bar.orderFrontRegardless() }
         }
     }
 
@@ -86,7 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hasShadow = false
         panel.isReleasedWhenClosed = false
         panel.appearance = NSAppearance(named: .darkAqua)
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         let host = NSHostingView(rootView: root)
         host.sizingOptions = []
         panel.contentView = host
