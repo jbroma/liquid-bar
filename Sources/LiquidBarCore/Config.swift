@@ -28,6 +28,7 @@ extension Config {
     public static func decode(_ data: Data) throws -> Config {
         struct Raw: Decodable {
             var margin: Double?
+            var workspaceSource: String?
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
@@ -38,6 +39,13 @@ extension Config {
         if let margin = raw.margin {
             guard margin >= 0 else { throw ConfigError(description: "margin must be >= 0, got \(margin)") }
             config.margin = margin
+        }
+        if let name = raw.workspaceSource {
+            guard let source = WorkspaceSource(rawValue: name) else {
+                let names = WorkspaceSource.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
+                throw ConfigError(description: "workspaceSource must be one of \(names), got \"\(name)\"")
+            }
+            config.workspaceSource = source
         }
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }

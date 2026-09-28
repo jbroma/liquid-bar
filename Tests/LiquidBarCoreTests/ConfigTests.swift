@@ -15,6 +15,8 @@ private func decode(_ json: String) throws -> Config {
         {"margin": 4, "workspaces": [{"id": "1"}, {"id": "web"}], "clicks": {"clock": "open -a Fantastical"}}
         """)
     #expect(config.margin == 4)
+    #expect(config.workspaceSource == .auto)
+    #expect(try decode(#"{"workspaceSource": "spaces"}"#).workspaceSource == .spaces)
     #expect(try decode(#"{"unknown": true}"#) == Config())
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
@@ -37,4 +39,5 @@ private func decode(_ json: String) throws -> Config {
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"symbol": "cloud"}]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"right": [{"script": "date", "interval": 0}]}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"margin": 4,"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"workspaceSource": "desktops"}"#) }
 }

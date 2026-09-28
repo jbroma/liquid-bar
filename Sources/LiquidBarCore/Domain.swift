@@ -9,14 +9,24 @@ public struct Workspace: Identifiable, Equatable, Sendable, Codable {
     }
 }
 
+/// The workspaces the strip shows, whichever source they come from: AeroSpace workspaces, macOS desktops, or apps.
 public struct WorkspaceState: Equatable, Sendable {
+    /// Never `auto`.
+    public var source: WorkspaceSource
+    /// The workspaces in strip order.
+    public var ids: [String]
     public var focused: String?
     public var mode: String
     public internal(set) var windows: [Window]
     /// Window IDs, most recently focused first.
     public var recency: [Int]
 
-    public init(focused: String? = nil, mode: String = "main", windows: [Window] = [], recency: [Int] = []) {
+    public init(
+        source: WorkspaceSource = .aerospace, ids: [String] = [], focused: String? = nil, mode: String = "main",
+        windows: [Window] = [], recency: [Int] = []
+    ) {
+        self.source = source
+        self.ids = ids
         self.focused = focused
         self.mode = mode
         self.windows = windows
@@ -124,6 +134,7 @@ public enum Widget: Equatable, Hashable, Sendable {
 
 public struct Config: Equatable, Sendable {
     public var margin: Double = 10
+    public var workspaceSource = WorkspaceSource.auto
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
