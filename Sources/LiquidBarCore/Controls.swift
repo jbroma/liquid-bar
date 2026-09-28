@@ -46,9 +46,6 @@ public enum AirDropMode: String, CaseIterable, Sendable {
 public enum ControlTile: CaseIterable, Sendable {
     case bluetooth, airDrop, focus, darkMode, nightShift, screenshot
 
-    /// Whether its row unfolds a list of choices.
-    public var expands: Bool { self == .bluetooth || self == .airDrop }
-
     /// Whether the control shows as switched on. Controls that only open something are never on.
     public func isOn(_ state: ControlState) -> Bool {
         switch self {

@@ -70,7 +70,3 @@ import Testing
     #expect(AirDropMode.off.toggled(last: .off) == .contactsOnly)
     #expect(AirDropMode.allCases.map(\.rawValue) == ["Off", "Contacts Only", "Everyone"])
 }
-
-@Test func onlyBluetoothAndAirDropExpand() {
-    #expect(ControlTile.allCases.filter(\.expands) == [.bluetooth, .airDrop])
-}

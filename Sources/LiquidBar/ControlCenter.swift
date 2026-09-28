@@ -119,68 +119,27 @@ func openSettings(_ pane: String) {
     shell("open 'x-apple.systempreferences:\(pane)'")
 }
 
-/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items. The switches with a state
-/// worth reading (Bluetooth, AirDrop, Focus) are rows in one module beside tall brightness sliders; the rest are a strip
-/// of circles. The Bluetooth and AirDrop rows unfold their devices and modes below the module, and the circle beside
-/// each toggles the control. The strip is Dark Mode, Night Shift and Screenshot. Then the other apps' status items the
-/// bar covers.
+/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items. Bluetooth, AirDrop and Focus
+/// come first, then the brightness sliders and a row of labeled tiles, each in its own module. The Bluetooth and AirDrop
+/// rows unfold their devices and modes, and the circle beside each toggles the control. Then the other apps' status
+/// items the bar covers.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
     @State private var expanded: ControlTile?
 
-    private static let rows: [ControlTile] = [.bluetooth, .airDrop, .focus]
     private static let strip: [ControlTile] = [.darkMode, .nightShift, .screenshot]
 
     var body: some View {
         let controls = model.controls
         let state = controls.state
         MenuBody {
-            HStack(spacing: 8) {
-                VStack(spacing: 0) {
-                    ForEach(Self.rows, id: \.self) { tile in
-                        ControlRow(tile: tile, state: state, open: expanded == tile) {
-                            controls.press(tile, dismiss: slot.dismiss)
-                        } expand: {
-                            withAnimation(spring) { expanded = expanded == tile ? nil : tile }
-                        }
-                    }
-                }
-                .padding(2)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.1)))
-                if let brightness = state.brightness {
-                    TallSlider(level: percent(brightness), symbol: "sun.max.fill", name: "Display Brightness", set: controls.setBrightness)
-                }
-                if let keyboard = state.keyboard {
-                    TallSlider(level: percent(keyboard), symbol: "light.max", name: "Keyboard Brightness", set: controls.setKeyboard)
-                }
+            VStack(spacing: 8) {
+                switches(controls, state)
+                BrightnessModule(state: state, controls: controls)
+                tiles(controls, state)
             }
-            // The sliders have no height of their own; this sizes them to the rows.
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 6)
-            .padding(.top, 2)
-            if let tile = expanded {
-                VStack(spacing: 0) {
-                    MenuSeparator()
-                    switch tile {
-                    case .bluetooth: bluetoothDevices(controls, state)
-                    case .airDrop: airDropModes(controls, state)
-                    default: EmptyView()
-                    }
-                    MenuSeparator()
-                }
-                .transition(.opacity)
-            }
-            HStack(spacing: 0) {
-                ForEach(Self.strip, id: \.self) { tile in
-                    ControlButton(name: tile.name, radius: 12) { controls.press(tile, dismiss: slot.dismiss) } label: {
-                        TileIcon(tile: tile, on: tile.isOn(state), size: 32)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 3)
-                    }
-                }
-            }
-            .padding(6)
+            .padding(.bottom, 6)
             MenuExtrasSection(model: model)
         }
         .task {
@@ -189,6 +148,71 @@ struct ControlCenterMenu: View {
             for await _ in DistributedNotificationCenter.default().notifications(named: .init("AppleInterfaceThemeChangedNotification")) {
                 controls.refresh()
             }
+        }
+    }
+
+    /// Bluetooth and AirDrop beside a tall Focus tile, as at the top of macOS's Control Center, and the open list in a
+    /// module of its own below them, so no row moves under the pointer.
+    @ViewBuilder private func switches(_ controls: Controls, _ state: ControlState) -> some View {
+        HStack(spacing: 8) {
+            VStack(spacing: 0) {
+                row(.bluetooth, controls, state)
+                row(.airDrop, controls, state)
+            }
+            .frame(maxWidth: .infinity)
+            .module()
+            ControlButton(name: ControlTile.focus.name, radius: 12) { controls.press(.focus, dismiss: slot.dismiss) } label: {
+                VStack(spacing: 6) {
+                    TileIcon(tile: .focus, on: ControlTile.focus.isOn(state), size: 34)
+                    VStack(spacing: 0) {
+                        Text(ControlTile.focus.name).font(.system(size: 12, weight: .semibold))
+                        if let detail = ControlTile.focus.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
+                    }
+                    .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .module()
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        if let tile = expanded {
+            VStack(spacing: 0) { expansion(tile, controls, state) }
+                .module()
+                .transition(.opacity)
+        }
+    }
+
+    private func row(_ tile: ControlTile, _ controls: Controls, _ state: ControlState) -> some View {
+        ControlRow(tile: tile, state: state, open: expanded == tile) {
+            controls.press(tile, dismiss: slot.dismiss)
+        } expand: {
+            withAnimation(spring) { expanded = expanded == tile ? nil : tile }
+        }
+    }
+
+    private func tiles(_ controls: Controls, _ state: ControlState) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Self.strip, id: \.self) { tile in
+                ControlButton(name: tile.name, radius: 12) { controls.press(tile, dismiss: slot.dismiss) } label: {
+                    VStack(spacing: 4) {
+                        TileIcon(tile: tile, on: tile.isOn(state), size: 34)
+                        Text(tile.name).font(.system(size: 11)).lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .module()
+    }
+
+    @ViewBuilder private func expansion(_ tile: ControlTile, _ controls: Controls, _ state: ControlState) -> some View {
+        switch tile {
+        case .bluetooth: bluetoothDevices(controls, state)
+        case .airDrop: airDropModes(controls, state)
+        default: EmptyView()
         }
     }
 
@@ -223,8 +247,8 @@ private func percent(_ fraction: Double) -> Int {
     Int((fraction * 100).rounded())
 }
 
-/// A switch as a row: its circle, filled with the accent colour while on, then its name over its state. A tile that
-/// expands splits the row in two targets, the circle toggling it and the rest unfolding its list.
+/// A switch with choices as a row of two targets: its circle, filled with the accent colour while on, toggles it, and
+/// its name over its state, with a chevron, unfolds its list.
 private struct ControlRow: View {
     let tile: ControlTile
     let state: ControlState
@@ -243,60 +267,53 @@ private struct ControlRow: View {
     }
 
     var body: some View {
-        if tile.expands {
-            HStack(spacing: 0) {
-                ControlButton(name: tile.name, radius: 14, action: press) { icon.padding(5) }
-                ControlButton(name: "\(tile.name) Options", radius: 14, action: expand) {
-                    HStack(spacing: 2) {
-                        text
-                        Spacer(minLength: 0)
-                        Disclosure(open: open)
-                    }
-                    .padding(.vertical, 5)
-                    .padding(.leading, 3)
-                    .padding(.trailing, 7)
-                }
-            }
-        } else {
-            ControlButton(name: tile.name, radius: 14, action: press) {
-                HStack(spacing: 8) {
-                    icon
+        HStack(spacing: 0) {
+            ControlButton(name: tile.name, radius: 14, action: press) { icon.padding(5) }
+            ControlButton(name: "\(tile.name) Options", radius: 14, action: expand) {
+                HStack(spacing: 2) {
                     text
                     Spacer(minLength: 0)
+                    Disclosure(open: open)
                 }
-                .padding(5)
+                .padding(.vertical, 5)
+                .padding(.leading, 3)
+                .padding(.trailing, 7)
             }
         }
     }
 }
 
-/// A brightness slider standing upright, filled from the bottom. Click or drag anywhere sets the level.
-private struct TallSlider: View {
-    let level: Int
-    let symbol: String
-    let name: String
-    let set: (Int) -> Void
+/// Display and keyboard brightness as labeled horizontal sliders. A slider whose level cannot be read is left out.
+private struct BrightnessModule: View {
+    let state: ControlState
+    let controls: Controls
 
     var body: some View {
-        GeometryReader { proxy in
-            let knob = proxy.size.width
-            let travel = proxy.size.height - knob
-            let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-            ZStack(alignment: .bottom) {
-                shape.fill(.white.opacity(0.14))
-                shape.fill(.white).frame(height: knob + travel * CGFloat(level) / 100)
-                Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.black.opacity(0.6))
-                    .frame(height: knob)
+        if state.brightness != nil || state.keyboard != nil {
+            VStack(spacing: 8) {
+                if let level = state.brightness { slider("Display", level, "sun.max.fill", controls.setBrightness) }
+                if let level = state.keyboard { slider("Keyboard", level, "light.max", controls.setKeyboard) }
             }
-            .contentShape(shape)
-            .gesture(DragGesture(minimumDistance: 0).onChanged { set(VolumeState.level(at: proxy.size.height - $0.location.y - knob / 2, width: travel)) })
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .module()
         }
-        .frame(width: 44)
-        .help(name)
-        .accessibilityLabel(name)
-        .accessibilityValue("\(level)%")
+    }
+
+    private func slider(_ name: String, _ level: Double, _ symbol: String, _ set: @escaping (Int) -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            LevelSlider(level: percent(level), muted: false, symbol: symbol, height: 24, set: set)
+                .accessibilityLabel("\(name) Brightness")
+                .accessibilityValue("\(percent(level))%")
+        }
+    }
+}
+
+private extension View {
+    /// The rounded panel behind a group of controls.
+    func module() -> some View {
+        padding(6).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.1)))
     }
 }
 
