@@ -68,6 +68,17 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     #expect(hovering.pulse == nil)
 }
 
+@Test func pulsesAreQuietForFiveSecondsAfterWake() {
+    var inputs = Inputs(quietUntil: at(2))
+    inputs.woke(at: at(100))
+    #expect(inputs.startPulse("wifi", now: at(104.9), current: nil) == false)
+    #expect(inputs.startPulse("wifi", now: at(105), current: nil) == true)
+    // A wake right after launch keeps the longer of the two quiet times.
+    var launching = Inputs(quietUntil: at(10))
+    launching.woke(at: at(1))
+    #expect(launching.quietUntil == at(10))
+}
+
 @Test func theOpenDropdownHoldsItsItem() {
     // The pointer crossed from the pill into its dropdown: the pill's exit and the dropdown's entry arrive in either
     // order, and neither the linger nor a pulse elsewhere closes it.

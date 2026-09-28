@@ -43,6 +43,11 @@ public struct ExpansionInputs<ID: Hashable & Sendable>: Equatable, Sendable {
         return true
     }
 
+    /// Waking from sleep reconnects the network and re-reads the power source, which is not news either.
+    public mutating func woke(at now: Date) {
+        quietUntil = max(quietUntil, now + 5)
+    }
+
     public static var hoverIntent: TimeInterval { 0.04 }
     public static var linger: TimeInterval { 0.5 }
     public static var pulseLength: TimeInterval { 2.2 }

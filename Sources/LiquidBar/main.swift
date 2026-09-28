@@ -86,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func rebuildPanels() {
         trace("rebuild panels")
         panels.forEach { $0.close() }
-        panels = NSScreen.screens.flatMap { makePanels(for: $0, slot: ExpansionSlot()) }
+        panels = NSScreen.screens.flatMap { makePanels(for: $0, slot: ExpansionSlot(screen: $0.frame)) }
     }
 
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {

@@ -1,3 +1,4 @@
+import AppKit
 import LiquidBarCore
 import SwiftUI
 
@@ -14,6 +15,20 @@ final class ExpansionSlot {
     var frames: [Dropdown: CGRect] = [:]
     @ObservationIgnored private var inputs = ExpansionInputs<Dropdown>(quietUntil: Date() + 2)
     @ObservationIgnored private var timer: Task<Void, Never>?
+    /// The bar's screen; only the screen the user is looking at, the pointer's, pulses.
+    @ObservationIgnored private let screen: CGRect
+    @ObservationIgnored private var wake: NSObjectProtocol?
+
+    init(screen: CGRect) {
+        self.screen = screen
+        wake = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.inputs.woke(at: Date()) }
+        }
+    }
+
+    isolated deinit {
+        wake.map(NSWorkspace.shared.notificationCenter.removeObserver)
+    }
 
     func hover(_ id: Dropdown, _ inside: Bool) {
         trace("hover \(id) \(inside ? "in" : "out")")
@@ -45,6 +60,8 @@ final class ExpansionSlot {
 
     func pulse(_ id: Dropdown, _ value: String) {
         trace("pulse \(id) \(value)")
+        // NSMouseInRect counts the top edge as inside, where the pointer rests when pushed against the menu bar.
+        guard NSMouseInRect(NSEvent.mouseLocation, screen, false) else { return }
         if inputs.startPulse(id, now: Date(), current: owner) { update() }
     }
 
