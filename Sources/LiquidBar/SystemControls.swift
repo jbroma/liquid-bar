@@ -143,6 +143,56 @@ enum Appearance {
     }
 }
 
+/// Keeps Control Center's Focus banner out of sight. macOS shows it on every Focus change with no setting to turn it
+/// off, and reuses one window for it. An Accessibility observer moves that window off screen as Control Center moves
+/// it into view, before it is drawn. It only acts for 2 s after a Focus change, so other banners, like low battery or
+/// AirPods connecting, still show.
+final class FocusBanner {
+    static let shared = FocusBanner()
+    private var observer: AXObserver?
+    private var observedPid: pid_t = 0
+    private var armedUntil = Date.distantPast
+    /// A banner that came into view just before the Focus change was announced. Turning Focus off moves the banner in
+    /// about a millisecond before the notification arrives.
+    private var early: (window: AXUIElement, at: Date)?
+
+    /// Called as Focus changes; also makes sure the observer follows a restarted Control Center.
+    func arm() {
+        armedUntil = Date().addingTimeInterval(2)
+        if let early, Date().timeIntervalSince(early.at) < 0.2 { hide(early.window) }
+        early = nil
+        observe()
+    }
+
+    func observe() {
+        guard AXIsProcessTrusted(), let pid = SystemControlCenter.pid, pid != observedPid else { return }
+        observedPid = pid
+        var observer: AXObserver?
+        let callback: AXObserverCallback = { _, window, _, context in
+            let banner = Unmanaged<FocusBanner>.fromOpaque(context!).takeUnretainedValue()
+            MainActor.assumeIsolated { banner.hide(window) }
+        }
+        guard AXObserverCreate(pid, callback, &observer) == .success, let observer else { return }
+        let app = AXUIElementCreateApplication(pid)
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        for name in [kAXWindowCreatedNotification, kAXWindowMovedNotification] {
+            AXObserverAddNotification(observer, app, name as CFString, context)
+        }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        self.observer = observer
+    }
+
+    private func hide(_ window: AXUIElement) {
+        var position = CGPoint.zero
+        guard AX.string(window, kAXSubroleAttribute) == "AXSystemDialog" else { return }
+        guard Date() < armedUntil else { return early = (window, Date()) }
+        guard let value = AX.attribute(window, kAXPositionAttribute), AXValueGetValue(value as! AXValue, .cgPoint, &position),
+              position.x > -5_000 else { return }
+        var away = CGPoint(x: -10_000, y: -10_000)
+        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &away)!)
+    }
+}
+
 /// The native menu bar's opacity, through SkyLight, as yabai's `menubar_opacity` sets it. At 0 it never shows through
 /// the glass when the pointer reaches the top edge, and ignores the mouse. It lasts only while this process runs, so
 /// the native bar comes back if the bar quits or crashes.
@@ -305,30 +355,8 @@ enum SystemControlCenter {
     /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
     nonisolated static let focus = "com.apple.menuextra.focusmode"
 
-    private nonisolated static var pid: pid_t? {
+    nonisolated static var pid: pid_t? {
         NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
-    }
-
-    /// Moves Control Center's Focus banner, which macOS places under the hidden native Control Center icon, to the
-    /// top right corner below the bar, where notification banners appear. It waits up to 1.5 s for the banner.
-    nonisolated static func moveFocusBanner(toTopRightOf screen: CGRect, below barHeight: CGFloat) {
-        guard AXIsProcessTrusted(), let pid else { return }
-        let app = AXUIElementCreateApplication(pid)
-        for _ in 0..<30 {
-            let banner = (AX.attribute(app, kAXWindowsAttribute) as? [AXUIElement] ?? []).first { window in
-                AX.string(window, kAXSubroleAttribute) == "AXSystemDialog"
-            }
-            var size = CGSize.zero
-            if let banner, let value = AX.attribute(banner, kAXSizeAttribute) {
-                AXValueGetValue(value as! AXValue, .cgSize, &size)
-                // The visible capsule sits inside a larger window, 67 points in from its right edge and 44 below its
-                // top (measured on macOS 26). Accessibility measures from the top left of the primary screen.
-                var origin = CGPoint(x: screen.maxX - 10 + 67 - size.width, y: barHeight + 6 - 44)
-                AXUIElementSetAttributeValue(banner, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &origin)!)
-                return
-            }
-            usleep(50_000)
-        }
     }
 
     /// Control Center's status items by identifier, empty without Accessibility access.
