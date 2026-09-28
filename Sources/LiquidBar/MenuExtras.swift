@@ -200,7 +200,7 @@ struct MenuEntries: View {
 }
 
 /// A chevron that turns down while its row is expanded.
-private struct Disclosure: View {
+struct Disclosure: View {
     let open: Bool
 
     var body: some View {

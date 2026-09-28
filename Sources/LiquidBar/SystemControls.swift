@@ -102,7 +102,7 @@ enum Bluetooth {
     }
 
     private nonisolated static func devices() -> [BluetoothDevice] {
-        uniqueDevices(((IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []).map { device in
+        deviceRows(((IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice]) ?? []).map { device in
             let name = device.name ?? device.addressString ?? "Device"
             return BluetoothDevice(id: device.addressString ?? name, name: name, connected: device.isConnected(), battery: battery(device),
                                    symbol: bluetoothSymbol(name: name, major: device.deviceClassMajor, minor: device.deviceClassMinor))
@@ -411,5 +411,18 @@ enum SystemControlCenter {
 enum AirDrop {
     static func mode() -> AirDropMode? {
         (CFPreferencesCopyAppValue("DiscoverableMode" as CFString, "com.apple.sharingd" as CFString) as? String).flatMap(AirDropMode.init)
+    }
+
+    /// Sets who can see this Mac. sharingd refuses the mode from clients without Apple's `com.apple.private.airdrop.settings`
+    /// entitlement and reads `DiscoverableMode` only at launch, so this writes the preference and restarts sharingd,
+    /// which launchd relaunches within a second. It blocks until the restart has been issued.
+    nonisolated static func set(_ mode: AirDropMode) {
+        CFPreferencesSetAppValue("DiscoverableMode" as CFString, mode.rawValue as CFString, "com.apple.sharingd" as CFString)
+        CFPreferencesAppSynchronize("com.apple.sharingd" as CFString)
+        let killall = Process()
+        killall.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+        killall.arguments = ["sharingd"]
+        try? killall.run()
+        killall.waitUntilExit()
     }
 }

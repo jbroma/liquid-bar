@@ -9,6 +9,7 @@ final class Controls {
     private(set) var state = ControlState()
     @ObservationIgnored private var readingBluetooth: Task<Void, Never>?
     @ObservationIgnored private var togglingFocus = false
+    @ObservationIgnored private var lastAirDrop: AirDropMode?
 
     /// Focus is read once, then followed through the notifications macOS still posts under Do Not Disturb's old name.
     /// They arrive as Focus switches, while its status item leaves the menu bar only about 5s after Focus ends.
@@ -22,8 +23,10 @@ final class Controls {
     }
 
     func refresh() {
+        let airDrop = AirDrop.mode()
+        if let airDrop, airDrop != .off { lastAirDrop = airDrop }
         let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), bluetooth: state.bluetooth,
-                                devices: state.devices, focus: state.focus, airDrop: AirDrop.mode(), darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
+                                devices: state.devices, focus: state.focus, airDrop: airDrop, darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
         if next != state { state = next }
         // Until it lands, the tile shows what the last read found.
         guard readingBluetooth == nil else { return }
@@ -44,13 +47,23 @@ final class Controls {
         KeyboardBrightness.write(Double(level) / 100)
     }
 
-    /// A tile's click. `dismiss` closes the dropdown first when the tile hands over to another window or a system banner.
+    func setAirDrop(_ mode: AirDropMode) {
+        state.airDrop = mode
+        if mode != .off { lastAirDrop = mode }
+        Task {
+            await blocking { AirDrop.set(mode) }
+            refresh()
+        }
+    }
+
+    /// A tile's click, on its circle for the tiles that expand. `dismiss` closes the dropdown first when the tile hands
+    /// over to another window or a system banner.
     func press(_ tile: ControlTile, dismiss: () -> Void) {
         haptic()
         switch tile {
         case .airDrop:
-            dismiss()
-            shell("open -b com.apple.finder.Open-AirDrop")
+            guard let airDrop = state.airDrop else { return openSettings("com.apple.AirDrop-Handoff-Settings.extension") }
+            setAirDrop(airDrop.toggled(last: lastAirDrop))
         case .screenshot:
             dismiss()
             shell("open -b com.apple.screenshot.launcher")
@@ -108,10 +121,13 @@ func openSettings(_ pane: String) {
 
 /// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items. The switches with a state
 /// worth reading (Bluetooth, AirDrop, Focus) are rows in one module beside tall brightness sliders; the rest are a strip
-/// of circles. Then the paired Bluetooth devices, and the other apps' status items the bar covers.
+/// of circles. The Bluetooth and AirDrop rows unfold their devices and modes below the module, and the circle beside
+/// each toggles the control. The strip is Dark Mode, Night Shift and Screenshot. Then the other apps' status items the
+/// bar covers.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
+    @State private var expanded: ControlTile?
 
     private static let rows: [ControlTile] = [.bluetooth, .airDrop, .focus]
     private static let strip: [ControlTile] = [.darkMode, .nightShift, .screenshot]
@@ -123,7 +139,11 @@ struct ControlCenterMenu: View {
             HStack(spacing: 8) {
                 VStack(spacing: 0) {
                     ForEach(Self.rows, id: \.self) { tile in
-                        ControlRow(tile: tile, state: state) { controls.press(tile, dismiss: slot.dismiss) }
+                        ControlRow(tile: tile, state: state, open: expanded == tile) {
+                            controls.press(tile, dismiss: slot.dismiss)
+                        } expand: {
+                            withAnimation(spring) { expanded = expanded == tile ? nil : tile }
+                        }
                     }
                 }
                 .padding(2)
@@ -139,6 +159,18 @@ struct ControlCenterMenu: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 6)
             .padding(.top, 2)
+            if let tile = expanded {
+                VStack(spacing: 0) {
+                    MenuSeparator()
+                    switch tile {
+                    case .bluetooth: bluetoothDevices(controls, state)
+                    case .airDrop: airDropModes(controls, state)
+                    default: EmptyView()
+                    }
+                    MenuSeparator()
+                }
+                .transition(.opacity)
+            }
             HStack(spacing: 0) {
                 ForEach(Self.strip, id: \.self) { tile in
                     ControlButton(name: tile.name, radius: 12) { controls.press(tile, dismiss: slot.dismiss) } label: {
@@ -149,18 +181,6 @@ struct ControlCenterMenu: View {
                 }
             }
             .padding(6)
-            if !state.devices.isEmpty {
-                MenuSeparator()
-                MenuSection(title: "Bluetooth Devices")
-                ForEach(state.devices) { device in
-                    MenuButton { controls.toggle(device) } content: {
-                        DeviceIcon(symbol: device.symbol, selected: device.connected, size: 20)
-                        Text(device.name).lineLimit(1)
-                        Spacer(minLength: 8)
-                        if let battery = device.battery { Text("\(battery)%").foregroundStyle(secondary).monospacedDigit() }
-                    }
-                }
-            }
             MenuExtrasSection(model: model)
         }
         .task {
@@ -171,30 +191,81 @@ struct ControlCenterMenu: View {
             }
         }
     }
+
+    @ViewBuilder private func bluetoothDevices(_ controls: Controls, _ state: ControlState) -> some View {
+        ForEach(state.devices) { device in
+            MenuButton { controls.toggle(device) } content: {
+                DeviceIcon(symbol: device.symbol, selected: device.connected, size: 20)
+                Text(device.name).lineLimit(1)
+                Spacer(minLength: 8)
+                if let battery = device.battery { Text("\(battery)%").foregroundStyle(secondary).monospacedDigit() }
+            }
+            .accessibilityValue(device.connected ? "Connected" : "Not Connected")
+        }
+        MenuSeparator()
+        SettingsButton(title: "Bluetooth Settings…", pane: "com.apple.BluetoothSettings")
+    }
+
+    @ViewBuilder private func airDropModes(_ controls: Controls, _ state: ControlState) -> some View {
+        ForEach(AirDropMode.allCases, id: \.self) { mode in
+            MenuButton { controls.setAirDrop(mode) } content: {
+                Text(mode.rawValue).lineLimit(1)
+                Spacer()
+                if state.airDrop == mode { Image(systemName: "checkmark").fontWeight(.semibold) }
+            }
+        }
+        MenuSeparator()
+        SettingsButton(title: "AirDrop Settings…", pane: "com.apple.AirDrop-Handoff-Settings.extension")
+    }
 }
 
 private func percent(_ fraction: Double) -> Int {
     Int((fraction * 100).rounded())
 }
 
-/// A switch as a row: its circle, filled with the accent colour while on, then its name over its state.
+/// A switch as a row: its circle, filled with the accent colour while on, then its name over its state. A tile that
+/// expands splits the row in two targets, the circle toggling it and the rest unfolding its list.
 private struct ControlRow: View {
     let tile: ControlTile
     let state: ControlState
-    let action: () -> Void
+    let open: Bool
+    let press: () -> Void
+    let expand: () -> Void
+
+    private var icon: some View { TileIcon(tile: tile, on: tile.isOn(state), size: 28) }
+
+    private var text: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(tile.name).font(.system(size: 12, weight: .semibold))
+            if let detail = tile.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
+        }
+        .lineLimit(1)
+    }
 
     var body: some View {
-        ControlButton(name: tile.name, radius: 14, action: action) {
-            HStack(spacing: 8) {
-                TileIcon(tile: tile, on: tile.isOn(state), size: 28)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(tile.name).font(.system(size: 12, weight: .semibold))
-                    if let detail = tile.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
+        if tile.expands {
+            HStack(spacing: 0) {
+                ControlButton(name: tile.name, radius: 14, action: press) { icon.padding(5) }
+                ControlButton(name: "\(tile.name) Options", radius: 14, action: expand) {
+                    HStack(spacing: 2) {
+                        text
+                        Spacer(minLength: 0)
+                        Disclosure(open: open)
+                    }
+                    .padding(.vertical, 5)
+                    .padding(.leading, 3)
+                    .padding(.trailing, 7)
                 }
-                .lineLimit(1)
-                Spacer(minLength: 0)
             }
-            .padding(5)
+        } else {
+            ControlButton(name: tile.name, radius: 14, action: press) {
+                HStack(spacing: 8) {
+                    icon
+                    text
+                    Spacer(minLength: 0)
+                }
+                .padding(5)
+            }
         }
     }
 }

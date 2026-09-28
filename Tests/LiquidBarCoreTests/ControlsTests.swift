@@ -49,5 +49,28 @@ import Testing
     // What IOBluetooth lists on this Mac: the soundbar twice.
     let paired = [device("02-00-00-00-00-01", "Living Room Soundbar"), device("02-00-00-00-00-03", "Sam’s AirPods Pro"),
                   device("02-00-00-00-00-02", "Living Room Soundbar", connected: true), device("02-00-00-00-00-04", "Test iPhone")]
-    #expect(uniqueDevices(paired).map(\.id) == ["02-00-00-00-00-02", "02-00-00-00-00-03", "02-00-00-00-00-04"])
+    #expect(deviceRows(paired).map(\.id) == ["02-00-00-00-00-02", "02-00-00-00-00-03", "02-00-00-00-00-04"])
+}
+
+@Test func connectedDevicesComeFirstInPairedOrder() {
+    func device(_ id: String, connected: Bool) -> BluetoothDevice {
+        BluetoothDevice(id: id, name: id, connected: connected, battery: nil, symbol: "hifispeaker")
+    }
+    let paired = [device("a", connected: false), device("b", connected: true), device("c", connected: false),
+                  device("d", connected: true), device("e", connected: false)]
+    #expect(deviceRows(paired).map(\.id) == ["b", "d", "a", "c", "e"])
+}
+
+@Test func airDropToggleGoesOffOrBackToTheLastVisibleMode() {
+    #expect(AirDropMode.everyone.toggled(last: nil) == .off)
+    #expect(AirDropMode.contactsOnly.toggled(last: .everyone) == .off)
+    #expect(AirDropMode.off.toggled(last: .everyone) == .everyone)
+    #expect(AirDropMode.off.toggled(last: .contactsOnly) == .contactsOnly)
+    #expect(AirDropMode.off.toggled(last: nil) == .contactsOnly)
+    #expect(AirDropMode.off.toggled(last: .off) == .contactsOnly)
+    #expect(AirDropMode.allCases.map(\.rawValue) == ["Off", "Contacts Only", "Everyone"])
+}
+
+@Test func onlyBluetoothAndAirDropExpand() {
+    #expect(ControlTile.allCases.filter(\.expands) == [.bluetooth, .airDrop])
 }

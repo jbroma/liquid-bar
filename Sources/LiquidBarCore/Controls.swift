@@ -28,16 +28,26 @@ public struct ControlState: Equatable, Sendable {
     }
 }
 
-/// Who can see this Mac in AirDrop, as sharingd stores it in `DiscoverableMode`.
-public enum AirDropMode: String, Sendable {
+/// Who can see this Mac in AirDrop, as sharingd stores it in `DiscoverableMode`. The raw value is also the menu
+/// title, which is what macOS 26 Control Center's AirDrop uses.
+public enum AirDropMode: String, CaseIterable, Sendable {
     case off = "Off"
     case contactsOnly = "Contacts Only"
     case everyone = "Everyone"
+
+    /// The mode a click on the AirDrop circle switches to: off from any other mode, otherwise the last visible mode.
+    public func toggled(last: AirDropMode?) -> AirDropMode {
+        guard self == .off else { return .off }
+        return last.flatMap { $0 == .off ? nil : $0 } ?? .contactsOnly
+    }
 }
 
 /// The Control Center controls.
 public enum ControlTile: CaseIterable, Sendable {
     case bluetooth, airDrop, focus, darkMode, nightShift, screenshot
+
+    /// Whether its row unfolds a list of choices.
+    public var expands: Bool { self == .bluetooth || self == .airDrop }
 
     /// Whether the control shows as switched on. Controls that only open something are never on.
     public func isOn(_ state: ControlState) -> Bool {
@@ -120,9 +130,9 @@ public func bluetoothBattery(single: Int, left: Int, right: Int, combined: Int) 
     return combined > 0 ? combined : nil
 }
 
-/// One row per device name, in the original order. macOS can keep a second pairing record for the same device, as
-/// IOBluetooth lists it; the connected record wins.
-public func uniqueDevices(_ devices: [BluetoothDevice]) -> [BluetoothDevice] {
+/// One row per device name, connected devices first, otherwise in paired order. macOS can keep a second pairing record
+/// for the same device, as IOBluetooth lists it; the connected record wins.
+public func deviceRows(_ devices: [BluetoothDevice]) -> [BluetoothDevice] {
     var rows: [BluetoothDevice] = []
     for device in devices {
         if let index = rows.firstIndex(where: { $0.name == device.name }) {
@@ -131,5 +141,5 @@ public func uniqueDevices(_ devices: [BluetoothDevice]) -> [BluetoothDevice] {
             rows.append(device)
         }
     }
-    return rows
+    return rows.filter(\.connected) + rows.filter { !$0.connected }
 }
