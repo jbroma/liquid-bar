@@ -101,9 +101,9 @@ func openSettings(_ pane: String) {
     shell("open 'x-apple.systempreferences:\(pane)'")
 }
 
-/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: wide tiles with a status
-/// line, round tiles, the brightness sliders, the paired Bluetooth devices, the other apps' status items the bar
-/// covers, and a way into the real one.
+/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: a row of the connectivity
+/// controls with their status, a row of the smaller toggles, the brightness sliders, the paired Bluetooth devices, the
+/// other apps' status items the bar covers, and a way into the real one.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
@@ -113,33 +113,28 @@ struct ControlCenterMenu: View {
         let state = controls.state
         MenuBody {
             MenuTitle(title: "Control Center")
-            Grid(horizontalSpacing: 8, verticalSpacing: 8) {
-                let wide = ControlTile.allCases.filter(\.isWide)
-                ForEach(0..<wide.count / 2, id: \.self) { row in
-                    GridRow {
-                        ForEach(wide[row * 2...row * 2 + 1], id: \.self) { tile in
-                            WideTile(tile: tile, on: tile.isOn(state), status: tile.status(state)) { controls.press(tile, dismiss: slot.dismiss) }
-                        }
-                    }
+            HStack(alignment: .top, spacing: 0) {
+                ForEach(ControlTile.allCases.filter(\.isWide), id: \.self) { tile in
+                    CircleTile(tile: tile, on: tile.isOn(state), size: 34, status: tile.status(state)) { controls.press(tile, dismiss: slot.dismiss) }
                 }
             }
-            .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            HStack(spacing: 8) {
+            .background(RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.1)))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            HStack(spacing: 0) {
                 ForEach(ControlTile.allCases.filter { !$0.isWide }, id: \.self) { tile in
-                    RoundTile(tile: tile, on: tile.isOn(state)) { controls.press(tile, dismiss: slot.dismiss) }
+                    CircleTile(tile: tile, on: tile.isOn(state), size: 28, status: nil) { controls.press(tile, dismiss: slot.dismiss) }
                 }
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            if let brightness = state.brightness {
-                MenuSection(title: "Display")
-                MenuRow { LevelSlider(level: percent(brightness), muted: false, symbol: "sun.max.fill", set: controls.setBrightness) }
+            .padding(.vertical, 2)
+            VStack(spacing: 6) {
+                if let brightness = state.brightness { LevelSlider(level: percent(brightness), muted: false, symbol: "sun.max.fill", set: controls.setBrightness) }
+                if let keyboard = state.keyboard { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", set: controls.setKeyboard) }
             }
-            if let keyboard = state.keyboard {
-                MenuSection(title: "Keyboard Brightness")
-                MenuRow { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", set: controls.setKeyboard) }
-            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             if !state.devices.isEmpty {
                 MenuSeparator()
                 MenuSection(title: "Bluetooth Devices")
@@ -213,71 +208,39 @@ private struct BluetoothRune: Shape {
     }
 }
 
-private struct WideTile: View {
+/// A control's circle over its title and optional status line. Its rounded area lightens under the pointer.
+private struct CircleTile: View {
     let tile: ControlTile
     let on: Bool
+    let size: CGFloat
     let status: String?
     let action: () -> Void
-
-    var body: some View {
-        TileButton(radius: 16, action: action) {
-            HStack(spacing: 8) {
-                TileIcon(tile: tile, on: on)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(tile.title).font(.system(size: 12, weight: .semibold))
-                    if let status { Text(status).font(.system(size: 11)).foregroundStyle(secondary) }
-                }
-                .lineLimit(status == nil ? 2 : 1)
-                Spacer(minLength: 0)
-            }
-            .padding(8)
-            .frame(maxWidth: .infinity, minHeight: 50)
-        }
-    }
-}
-
-private struct RoundTile: View {
-    let tile: ControlTile
-    let on: Bool
-    let action: () -> Void
-
-    var body: some View {
-        TileButton(radius: 16, action: action) {
-            VStack(spacing: 4) {
-                TileIcon(tile: tile, on: on, size: 30)
-                Text(tile.title).font(.system(size: 10, weight: .medium)).foregroundStyle(secondary).lineLimit(1)
-            }
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-        }
-    }
-}
-
-/// A rounded glass tile, the pills' material, that lightens under the pointer and sinks while pressed.
-private struct TileButton<Label: View>: View {
-    let radius: CGFloat
-    let action: () -> Void
-    @ViewBuilder var label: () -> Label
     @State private var hovering = false
 
     var body: some View {
-        Button(action: action, label: label)
-            .buttonStyle(TileStyle(radius: radius, hovering: hovering))
-            .onHover { hovering = $0 }
+        Button(action: action) {
+            VStack(spacing: 3) {
+                TileIcon(tile: tile, on: on, size: size)
+                Text(tile == .screenMirroring ? "Mirroring" : tile.title).font(.system(size: 10, weight: .medium))
+                if let status { Text(status).font(.system(size: 9)).foregroundStyle(secondary) }
+            }
+            .lineLimit(1)
+            .padding(.vertical, 5)
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(TileStyle(hovering: hovering))
+        .onHover { hovering = $0 }
     }
 }
 
 private struct TileStyle: ButtonStyle {
-    let radius: CGFloat
     let hovering: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius)
+        let shape = RoundedRectangle(cornerRadius: 12)
         configuration.label
             .contentShape(shape)
-            .background(shape.fill(.white.opacity(configuration.isPressed ? 0.14 : hovering ? 0.08 : 0)))
-            .glassEffect(.regular.interactive(), in: shape)
-            .overlay { shape.strokeBorder(Specular.gradient, lineWidth: 0.5).allowsHitTesting(false) }
+            .background(shape.fill(.white.opacity(configuration.isPressed ? 0.12 : hovering ? 0.06 : 0)))
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(spring, value: configuration.isPressed)
             .animation(.easeOut(duration: 0.12), value: hovering)
