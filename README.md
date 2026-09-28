@@ -65,7 +65,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
-| `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
+| `right` | array of widgets | `["nowPlaying", "volume", "wifi", "controlCenter", "battery", "clock"]` | Widgets right of the notch. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
 The default clicks open the Sound, Network, and Battery settings panes. The `apple` widget opens the Apple menu unless `clicks` sets a command for it. `clock` runs a command only if `clicks` sets one.
