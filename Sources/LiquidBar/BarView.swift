@@ -386,7 +386,7 @@ struct IconStack: View {
     let apps: [WorkspaceApp]
     let more: Int
     private let size: CGFloat = 16
-    private let peek: CGFloat = 5
+    private let peek: CGFloat = 8
 
     var body: some View {
         HStack(spacing: 2) {
@@ -397,8 +397,8 @@ struct IconStack: View {
                         .resizable()
                         .frame(width: size, height: size)
                         .shadow(color: .black.opacity(0.35), radius: 1, y: 0.5)
-                        .scaleEffect(1 - 0.14 * depth)
-                        .opacity(1 - 0.28 * depth)
+                        .scaleEffect(1 - 0.1 * depth)
+                        .opacity(1 - 0.2 * depth)
                         .offset(x: depth * peek)
                         .zIndex(-depth)
                         .transition(.scale(0.5).combined(with: .opacity))
