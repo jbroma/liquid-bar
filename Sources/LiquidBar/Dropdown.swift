@@ -55,7 +55,7 @@ struct DropdownView: View {
             let geometry = geometry(open, pill: pill, panel: proxy.size)
             let shape = RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
             Color.clear
-                .glassEffect(.clear, in: shape)
+                .glassEffect(.regular, in: shape)
                 .frame(width: geometry.width, height: geometry.height)
                 .overlay(alignment: .top) {
                     ZStack(alignment: .top) {
