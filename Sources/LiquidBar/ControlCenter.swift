@@ -51,9 +51,6 @@ final class Controls {
         case .airDrop:
             dismiss()
             shell("open -b com.apple.finder.Open-AirDrop")
-        case .screenMirroring:
-            dismiss()
-            showControlCenterModule("controlcenter-screen-mirroring", else: "com.apple.Displays-Settings.extension")
         case .screenshot:
             dismiss()
             shell("open -b com.apple.screenshot.launcher")
@@ -111,15 +108,13 @@ func openSettings(_ pane: String) {
 
 /// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items. The switches with a state
 /// worth reading (Bluetooth, AirDrop, Focus) are rows in one module beside tall brightness sliders; the rest are a strip
-/// of circles ending in the way into the real Control Center. Then the paired Bluetooth devices, and the other apps'
-/// status items the bar covers.
+/// of circles. Then the paired Bluetooth devices, and the other apps' status items the bar covers.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
 
     private static let rows: [ControlTile] = [.bluetooth, .airDrop, .focus]
-    /// Nil is More, which opens the real Control Center.
-    private static let strip: [ControlTile?] = [.darkMode, .nightShift, .screenMirroring, .screenshot, nil]
+    private static let strip: [ControlTile] = [.darkMode, .nightShift, .screenshot]
 
     var body: some View {
         let controls = model.controls
@@ -146,8 +141,8 @@ struct ControlCenterMenu: View {
             .padding(.top, 2)
             HStack(spacing: 0) {
                 ForEach(Self.strip, id: \.self) { tile in
-                    ControlButton(name: tile?.name ?? "More", radius: 12) { tile.map { controls.press($0, dismiss: slot.dismiss) } ?? more() } label: {
-                        TileIcon(tile: tile, on: tile?.isOn(state) ?? false, size: 32)
+                    ControlButton(name: tile.name, radius: 12) { controls.press(tile, dismiss: slot.dismiss) } label: {
+                        TileIcon(tile: tile, on: tile.isOn(state), size: 32)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 3)
                     }
@@ -174,14 +169,6 @@ struct ControlCenterMenu: View {
             for await _ in DistributedNotificationCenter.default().notifications(named: .init("AppleInterfaceThemeChangedNotification")) {
                 controls.refresh()
             }
-        }
-    }
-
-    private func more() {
-        slot.dismiss()
-        let point = NSEvent.mouseLocation
-        Task {
-            if await !blocking({ SystemControlCenter.show() }) { AppMenus.explainAccess("open Control Center", at: point) }
         }
     }
 }
@@ -242,22 +229,19 @@ private struct TallSlider: View {
     }
 }
 
-/// A control's symbol in a circle, filled with the accent colour while the control is on, like the output devices in the Sound menu. No
-/// tile is More.
+/// A control's symbol in a circle, filled with the accent colour while the control is on, like the output devices in the Sound menu.
 private struct TileIcon: View {
-    let tile: ControlTile?
+    let tile: ControlTile
     let on: Bool
     let size: CGFloat
 
     var body: some View {
         Group {
             switch tile {
-            case nil: Image(systemName: "ellipsis")
             // SF Symbols has no Bluetooth rune.
             case .bluetooth: BluetoothRune().stroke(style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)).frame(width: size * 0.3, height: size * 0.5)
             case .airDrop: Image(systemName: "dot.radiowaves.up.forward")
             case .focus: Image(systemName: "moon.fill")
-            case .screenMirroring: Image(systemName: "rectangle.on.rectangle")
             case .darkMode: Image(systemName: "circle.lefthalf.filled")
             case .nightShift: Image(systemName: "sun.horizon.fill")
             case .screenshot: Image(systemName: "camera.viewfinder")

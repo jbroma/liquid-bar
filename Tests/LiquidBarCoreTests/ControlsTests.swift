@@ -2,9 +2,9 @@ import LiquidBarCore
 import Testing
 
 @Test func tileNamesAndStateLines() {
-    #expect(ControlTile.allCases.map(\.name) == ["Bluetooth", "AirDrop", "Focus", "Mirroring", "Dark Mode", "Night Shift", "Screenshot"])
+    #expect(ControlTile.allCases.map(\.name) == ["Bluetooth", "AirDrop", "Focus", "Dark Mode", "Night Shift", "Screenshot"])
     let state = ControlState(bluetooth: true, focus: false, airDrop: .contactsOnly, darkMode: true)
-    #expect(ControlTile.allCases.map { $0.detail(state) } == ["On", "Contacts Only", "Off", nil, nil, nil, nil])
+    #expect(ControlTile.allCases.map { $0.detail(state) } == ["On", "Contacts Only", "Off", nil, nil, nil])
     #expect(ControlTile.airDrop.detail(ControlState(airDrop: .off)) == "Off")
     #expect(ControlTile.bluetooth.detail(ControlState()) == nil)
 }

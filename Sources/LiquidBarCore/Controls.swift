@@ -37,7 +37,7 @@ public enum AirDropMode: String, Sendable {
 
 /// The Control Center controls.
 public enum ControlTile: CaseIterable, Sendable {
-    case bluetooth, airDrop, focus, screenMirroring, darkMode, nightShift, screenshot
+    case bluetooth, airDrop, focus, darkMode, nightShift, screenshot
 
     /// Whether the control shows as switched on. Controls that only open something are never on.
     public func isOn(_ state: ControlState) -> Bool {
@@ -47,7 +47,7 @@ public enum ControlTile: CaseIterable, Sendable {
         case .focus: state.focus == true
         case .darkMode: state.darkMode == true
         case .nightShift: state.nightShift == true
-        case .screenMirroring, .screenshot: false
+        case .screenshot: false
         }
     }
 
@@ -56,7 +56,6 @@ public enum ControlTile: CaseIterable, Sendable {
         case .bluetooth: "Bluetooth"
         case .airDrop: "AirDrop"
         case .focus: "Focus"
-        case .screenMirroring: "Mirroring"
         case .darkMode: "Dark Mode"
         case .nightShift: "Night Shift"
         case .screenshot: "Screenshot"
@@ -70,7 +69,7 @@ public enum ControlTile: CaseIterable, Sendable {
         case .bluetooth: state.bluetooth.map { $0 ? "On" : "Off" }
         case .airDrop: state.airDrop?.rawValue
         case .focus: state.focus.map { $0 ? "On" : "Off" }
-        case .screenMirroring, .darkMode, .nightShift, .screenshot: nil
+        case .darkMode, .nightShift, .screenshot: nil
         }
     }
 }

@@ -342,17 +342,12 @@ enum SystemControlCenter {
     }
 
     /// Opens the real Control Center on one of its modules, as a click on the module would, and leaves it open for
-    /// the user: Screen Mirroring lists the displays to mirror to, Sound lists every output, AirPlay receivers
-    /// included. It blocks until the module has opened, and returns false when it did not, or without Accessibility.
+    /// the user: Sound lists every output, AirPlay receivers included. It blocks until the module has opened, and
+    /// returns false when it did not, or without Accessibility.
     nonisolated static func showModule(_ id: String) -> Bool {
         guard let (app, _) = openPanel() else { return false }
         guard let module = waitFor(app, { AX.string($0, "AXIdentifier") == id }).first else { return false }
         return AX.press(module)
-    }
-
-    /// Opens the real Control Center on its main view and leaves it open. False without Accessibility access.
-    nonisolated static func show() -> Bool {
-        openPanel() != nil
     }
 
     /// Opens the panel of Control Center's status item `id` (its main view by default), and returns Control Center and
