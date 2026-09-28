@@ -34,19 +34,20 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 ## Control Center
 
-The Control Center dropdown has glass tiles for:
+The Control Center dropdown has a grid of round tiles, filled white while their control is on:
 
-- Bluetooth: on or off. Click to switch it.
-- AirDrop: who can see this Mac. Click to open the AirDrop window.
+- Bluetooth: click to switch it on or off.
+- AirDrop: its label reads Everyone or Contacts while this Mac is visible. Click to open the AirDrop window.
 - Focus: click to turn the active Focus off, or Do Not Disturb on.
 - Screen Mirroring: opens the real Control Center on its list of displays.
 - Dark Mode, Night Shift, and Screenshot (opens the Screenshot toolbar).
+- More: opens the real Control Center for everything else.
 
 Below the tiles are sliders for the built-in display and keyboard brightness, then the paired Bluetooth devices with their battery, filled in while connected. Click a device to connect or disconnect it.
 
 Under **Menu Bar Items** the dropdown lists the other apps' items in the covered menu bar, in the native left-to-right order, each with its app's icon and name. Clicking one closes the dropdown and opens that app's own menu. Apple's items and AeroSpace's are left out, because the bar shows them. The section is hidden when no other app has an item, or without Accessibility. The list refreshes when an app launches or quits and each time the dropdown opens.
 
-**Control Center…** opens the real Control Center for everything else. A control this Mac lacks reads Unavailable, and its tile opens the matching settings pane instead.
+A control this Mac lacks stays unfilled, and its tile opens the matching settings pane instead.
 
 Most of these controls have no public API, so the dropdown uses the private frameworks macOS itself uses: DisplayServices for display brightness, CoreBrightness for the keyboard backlight and Night Shift, SkyLight for Dark Mode (no Automation prompt), and `IOBluetoothPreferenceSetControllerPowerState` for Bluetooth power. The bar loads them at runtime, so a missing one costs a tile, never a crash. Focus has neither an API nor a store the bar can read without Full Disk Access. The Focus tile reads Focus from its menu bar item and switches it by pressing through the real Control Center over Accessibility, which opens Control Center behind the dropdown for about three seconds.
 
@@ -54,7 +55,7 @@ Most of these controls have no public API, so the dropdown uses the private fram
 
 The bar works without any permission. Each grant adds features, and macOS asks for it the first time the bar needs it.
 
-- **Accessibility** lets the bar show the front app's menus, open other apps' menu bar items, Screen Mirroring, and the real Control Center, read and switch Focus, and press the "Switch to Desktop N" shortcuts. Without it, clicking the focused workspace or Control Center… explains what is missing and offers to open the Privacy pane.
+- **Accessibility** lets the bar show the front app's menus, open other apps' menu bar items, Screen Mirroring, and the real Control Center, read and switch Focus, and press the "Switch to Desktop N" shortcuts. Without it, clicking the focused workspace or More in Control Center explains what is missing and offers to open the Privacy pane.
 - **Bluetooth** lets the Control Center dropdown list paired devices, connect them, and switch Bluetooth. macOS asks the first time the dropdown opens.
 - **Automation** for Spotify or Music lets the bar ask a running player what is playing at launch, and send play, pause, and skip. Track changes arrive without it. Restart…, Shut Down…, and Log Out… in the Apple menu ask `loginwindow` to show its usual confirmation dialog, which can also trigger an Automation prompt.
 

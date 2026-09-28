@@ -1,21 +1,18 @@
 import LiquidBarCore
 import Testing
 
-@Test func tileStatusLines() {
-    let state = ControlState(bluetooth: true, focus: false, airDrop: .contactsOnly)
-    #expect(ControlTile.allCases.map { $0.status(state) } == ["On", "Contacts Only", "Off", nil, "Unavailable", "Unavailable", nil])
-    #expect(ControlTile.allCases.map { $0.status(ControlState()) } == ["Unavailable", "Unavailable", "Unavailable", nil, "Unavailable", "Unavailable", nil])
+@Test func tileLabels() {
+    #expect(ControlTile.allCases.map { $0.label(ControlState(airDrop: .contactsOnly)) }
+        == ["Bluetooth", "Contacts", "Focus", "Mirroring", "Dark Mode", "Night Shift", "Screenshot"])
+    #expect(ControlTile.airDrop.label(ControlState(airDrop: .everyone)) == "Everyone")
+    #expect(ControlTile.airDrop.label(ControlState(airDrop: .off)) == "AirDrop")
+    #expect(ControlTile.airDrop.label(ControlState()) == "AirDrop")
 }
 
 @Test func tilesAreOnOnlyWhenTheirControlIs() {
     let state = ControlState(bluetooth: true, focus: nil, airDrop: .off, darkMode: true, nightShift: false)
     #expect(ControlTile.allCases.filter { $0.isOn(state) } == [.bluetooth, .darkMode])
     #expect(ControlTile.airDrop.isOn(ControlState(airDrop: .everyone)))
-}
-
-@Test func wideTilesFillWholeRows() {
-    // The grid lays wide tiles out two per row and would drop an odd one.
-    #expect(ControlTile.allCases.filter(\.isWide).count.isMultiple(of: 2))
 }
 
 @Test func airDropModeFromSharingd() {

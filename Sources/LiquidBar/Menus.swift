@@ -52,6 +52,7 @@ struct LevelSlider: View {
     let level: Int
     let muted: Bool
     let symbol: String
+    var height: CGFloat = 22
     let set: (Int) -> Void
 
     var body: some View {
@@ -71,7 +72,7 @@ struct LevelSlider: View {
             .contentShape(Capsule())
             .gesture(DragGesture(minimumDistance: 0).onChanged { set(VolumeState.level(at: $0.location.x - knob / 2, width: travel)) })
         }
-        .frame(height: 22)
+        .frame(height: height)
     }
 }
 
@@ -79,11 +80,12 @@ struct LevelSlider: View {
 struct DeviceIcon: View {
     let symbol: String
     let selected: Bool
+    var size: CGFloat = 24
 
     var body: some View {
         Image(systemName: symbol)
-            .font(.system(size: 11, weight: .medium))
-            .iconCircle(on: selected, size: 24)
+            .font(.system(size: size * 0.46, weight: .medium))
+            .iconCircle(on: selected, size: size)
             .padding(.vertical, 2)
     }
 }

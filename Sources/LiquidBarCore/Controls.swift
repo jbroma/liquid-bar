@@ -35,28 +35,9 @@ public enum AirDropMode: String, Sendable {
     case everyone = "Everyone"
 }
 
-/// The Control Center tiles: wide ones with a status line, laid out two per row, then round ones.
+/// The Control Center tiles, in grid order.
 public enum ControlTile: CaseIterable, Sendable {
     case bluetooth, airDrop, focus, screenMirroring, darkMode, nightShift, screenshot
-
-    public var isWide: Bool {
-        switch self {
-        case .bluetooth, .airDrop, .focus, .screenMirroring: true
-        case .darkMode, .nightShift, .screenshot: false
-        }
-    }
-
-    public var title: String {
-        switch self {
-        case .bluetooth: "Bluetooth"
-        case .airDrop: "AirDrop"
-        case .focus: "Focus"
-        case .screenMirroring: "Screen Mirroring"
-        case .darkMode: "Dark Mode"
-        case .nightShift: "Night Shift"
-        case .screenshot: "Screenshot"
-        }
-    }
 
     /// Whether the tile shows as switched on. Tiles that only open something are never on.
     public func isOn(_ state: ControlState) -> Bool {
@@ -70,16 +51,21 @@ public enum ControlTile: CaseIterable, Sendable {
         }
     }
 
-    /// The wide tiles' status line: "On", "Contacts Only", "Unavailable", or nil for a tile that only opens something.
-    public func status(_ state: ControlState) -> String? {
-        func onOff(_ value: Bool?) -> String { value.map { $0 ? "On" : "Off" } ?? "Unavailable" }
-        return switch self {
-        case .bluetooth: onOff(state.bluetooth)
-        case .airDrop: state.airDrop?.rawValue ?? "Unavailable"
-        case .focus: onOff(state.focus)
-        case .darkMode: onOff(state.darkMode)
-        case .nightShift: onOff(state.nightShift)
-        case .screenMirroring, .screenshot: nil
+    /// The line under the tile's circle. AirDrop names who can see this Mac while it is on; the circle's fill tells
+    /// the rest.
+    public func label(_ state: ControlState) -> String {
+        switch self {
+        case .bluetooth: "Bluetooth"
+        case .airDrop: switch state.airDrop {
+            case .everyone: "Everyone"
+            case .contactsOnly: "Contacts"
+            case .off, nil: "AirDrop"
+            }
+        case .focus: "Focus"
+        case .screenMirroring: "Mirroring"
+        case .darkMode: "Dark Mode"
+        case .nightShift: "Night Shift"
+        case .screenshot: "Screenshot"
         }
     }
 }

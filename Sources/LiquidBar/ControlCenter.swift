@@ -101,9 +101,9 @@ func openSettings(_ pane: String) {
     shell("open 'x-apple.systempreferences:\(pane)'")
 }
 
-/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: a row of the connectivity
-/// controls with their status, a row of the smaller toggles, the brightness sliders, the paired Bluetooth devices, the
-/// other apps' status items the bar covers, and a way into the real one.
+/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: a grid of the controls with a
+/// way into the real one in its spare slot, the brightness sliders, the paired Bluetooth devices, and the other apps'
+/// status items the bar covers.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
@@ -112,35 +112,41 @@ struct ControlCenterMenu: View {
         let controls = model.controls
         let state = controls.state
         MenuBody {
-            MenuTitle(title: "Control Center")
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(ControlTile.allCases.filter(\.isWide), id: \.self) { tile in
-                    CircleTile(tile: tile, on: tile.isOn(state), size: 34, status: tile.status(state)) { controls.press(tile, dismiss: slot.dismiss) }
+            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    ForEach(ControlTile.allCases.prefix(4), id: \.self) { tile in
+                        CircleTile(tile: tile, label: tile.label(state), on: tile.isOn(state)) { controls.press(tile, dismiss: slot.dismiss) }
+                    }
+                }
+                GridRow {
+                    ForEach(ControlTile.allCases.dropFirst(4), id: \.self) { tile in
+                        CircleTile(tile: tile, label: tile.label(state), on: tile.isOn(state)) { controls.press(tile, dismiss: slot.dismiss) }
+                    }
+                    CircleTile(tile: nil, label: "More", on: false) {
+                        slot.dismiss()
+                        if let item = SystemControlCenter.extras()[SystemControlCenter.controlCenter] {
+                            AX.pressLater(item)
+                        } else {
+                            AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
+                        }
+                    }
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             .background(RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.1)))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            HStack(spacing: 0) {
-                ForEach(ControlTile.allCases.filter { !$0.isWide }, id: \.self) { tile in
-                    CircleTile(tile: tile, on: tile.isOn(state), size: 28, status: nil) { controls.press(tile, dismiss: slot.dismiss) }
-                }
+            .padding(.horizontal, 6)
+            .padding(.top, 2)
+            VStack(spacing: 4) {
+                if let brightness = state.brightness { LevelSlider(level: percent(brightness), muted: false, symbol: "sun.max.fill", height: 18, set: controls.setBrightness) }
+                if let keyboard = state.keyboard { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", height: 18, set: controls.setKeyboard) }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            VStack(spacing: 6) {
-                if let brightness = state.brightness { LevelSlider(level: percent(brightness), muted: false, symbol: "sun.max.fill", set: controls.setBrightness) }
-                if let keyboard = state.keyboard { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", set: controls.setKeyboard) }
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(6)
             if !state.devices.isEmpty {
                 MenuSeparator()
                 MenuSection(title: "Bluetooth Devices")
                 ForEach(state.devices) { device in
                     MenuButton { controls.toggle(device) } content: {
-                        DeviceIcon(symbol: device.symbol, selected: device.connected)
+                        DeviceIcon(symbol: device.symbol, selected: device.connected, size: 20)
                         Text(device.name).lineLimit(1)
                         Spacer(minLength: 8)
                         if let battery = device.battery { Text("\(battery)%").foregroundStyle(secondary).monospacedDigit() }
@@ -148,17 +154,6 @@ struct ControlCenterMenu: View {
                 }
             }
             MenuExtrasSection(extras: model.menuExtras)
-            MenuSeparator()
-            MenuButton {
-                slot.dismiss()
-                if let item = SystemControlCenter.extras()[SystemControlCenter.controlCenter] {
-                    AX.pressLater(item)
-                } else {
-                    AppMenus.explainAccess("open Control Center", at: NSEvent.mouseLocation)
-                }
-            } content: {
-                Text("Control Center…").foregroundStyle(secondary)
-            }
         }
         .task {
             MenuExtras.refresh(model)
@@ -174,15 +169,17 @@ private func percent(_ fraction: Double) -> Int {
     Int((fraction * 100).rounded())
 }
 
-/// A tile's symbol in a circle, filled white while the control is on, like the output devices in the Sound menu.
+/// A tile's symbol in a circle, filled white while the control is on, like the output devices in the Sound menu. No
+/// tile is the one that opens the real Control Center.
 private struct TileIcon: View {
-    let tile: ControlTile
+    let tile: ControlTile?
     let on: Bool
-    var size: CGFloat = 28
+    let size: CGFloat
 
     var body: some View {
         Group {
             switch tile {
+            case nil: Image(systemName: "ellipsis")
             // SF Symbols has no Bluetooth rune.
             case .bluetooth: BluetoothRune().stroke(style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round)).frame(width: size * 0.3, height: size * 0.5)
             case .airDrop: Image(systemName: "dot.radiowaves.up.forward")
@@ -208,24 +205,21 @@ private struct BluetoothRune: Shape {
     }
 }
 
-/// A control's circle over its title and optional status line. Its rounded area lightens under the pointer.
+/// A control's circle over its label. Its rounded area lightens under the pointer.
 private struct CircleTile: View {
-    let tile: ControlTile
+    let tile: ControlTile?
+    let label: String
     let on: Bool
-    let size: CGFloat
-    let status: String?
     let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 3) {
-                TileIcon(tile: tile, on: on, size: size)
-                Text(tile == .screenMirroring ? "Mirroring" : tile.title).font(.system(size: 10, weight: .medium))
-                if let status { Text(status).font(.system(size: 9)).foregroundStyle(secondary) }
+            VStack(spacing: 2) {
+                TileIcon(tile: tile, on: on, size: 32)
+                Text(label).font(.system(size: 10, weight: .medium)).lineLimit(1)
             }
-            .lineLimit(1)
-            .padding(.vertical, 5)
+            .padding(.vertical, 4)
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(TileStyle(hovering: hovering))

@@ -13,7 +13,7 @@ nonisolated enum Dropdown: Hashable, Sendable {
 
     var width: CGFloat {
         switch self {
-        case .controlCenter: 280
+        case .controlCenter: 260
         case .clock: 276
         case .nowPlaying: 280
         case .workspace: 220
