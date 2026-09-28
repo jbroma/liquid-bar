@@ -15,7 +15,7 @@ enum AppleMenu {
         menu.addItem(.separator())
         menu.addItem(actionItem("Lock Screen") { lockScreen() })
         menu.addItem(actionItem("Log Out \(NSFullUserName())…") { shell(#"osascript -e 'tell application "loginwindow" to «event aevtlogo»'"#) })
-        menu.popUp(positioning: nil, at: screenPoint, in: nil)
+        menu.popUp(below: screenPoint)
     }
 
     /// The system Force Quit window can only be opened by synthesizing ⌥⌘⎋, which needs Accessibility access.

@@ -244,8 +244,7 @@ struct BarMetrics {
     /// A workspace, drawn straight on the bar.
     var item: CGFloat { pill - 3 }
 
-    /// Where a menu under `rect`, a global frame in the bar, opens: its left edge, at the bar's bottom. AppKit keeps a
-    /// menu below the menu bar's strip and scrolls it instead, hiding its first item, so any higher and it is lost.
+    /// Where a menu under `rect`, a global frame in the bar, opens: its left edge, at the bar's bottom.
     func menuOrigin(under rect: CGRect) -> NSPoint {
         column(under: rect).origin
     }

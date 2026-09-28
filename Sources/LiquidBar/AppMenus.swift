@@ -3,6 +3,15 @@ import ApplicationServices
 import LiquidBarCore
 import SwiftUI
 
+extension NSMenu {
+    /// Shows the menu with its top edge at `point` until it closes. `popUp(positioning: nil, at:)` puts the first item
+    /// at the point, and the menu draws 4.5pt of padding above it. Any part above the screen's visible frame, whose
+    /// top is the bar's bottom, makes AppKit scroll the menu and hide its first item.
+    func popUp(below point: NSPoint) {
+        popUp(positioning: nil, at: NSPoint(x: point.x, y: point.y - 5), in: nil)
+    }
+}
+
 /// One top-level menu of the front app (File, Edit, …), read through the Accessibility API.
 struct AppMenuTitle: Identifiable {
     let id: Int
@@ -46,7 +55,7 @@ enum AppMenus {
         // A tracking menu hides the pointer from SwiftUI's hover, so poll it in the menu's run loop mode instead.
         let poll = Timer(timeInterval: 1.0 / 60, target: switcher, selector: #selector(TitleSwitch.poll), userInfo: nil, repeats: true)
         RunLoop.main.add(poll, forMode: .eventTracking)
-        menu.popUp(positioning: nil, at: screenPoint, in: nil)
+        menu.popUp(below: screenPoint)
         poll.invalidate()
         return switcher.next
     }
@@ -61,7 +70,7 @@ enum AppMenus {
             _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
             shell("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'")
         })
-        menu.popUp(positioning: nil, at: screenPoint, in: nil)
+        menu.popUp(below: screenPoint)
     }
 
     /// NSMenu holds its delegate weakly; the fillers of the open menu tree live here until it closes.
