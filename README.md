@@ -19,7 +19,8 @@ make install
 Other targets:
 
 - `make app` builds `build/LiquidBar.app` only.
-- `make run` builds the app and opens it. A newly started bar quits any running one, so repeated runs never stack two bars.
+- `make run` stops the launch agent, builds the app and opens it. A newly started bar quits any running one, so repeated runs never stack two bars.
+- `make restore` hands the bar back to the launch agent after `make run`.
 - `make test` runs the unit tests.
 
 `make app` signs with the first Apple Development or Developer ID identity in your keychain, so macOS keeps the Accessibility and Automation grants across rebuilds. Without one it signs ad hoc, and every rebuild asks for the grants again. Set `SIGN=` to pick an identity, for example `make app SIGN=-` for ad hoc.
