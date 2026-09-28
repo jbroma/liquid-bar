@@ -70,9 +70,7 @@ struct BarView: View {
         let edgeReach = leading ? EdgeInsets(top: 0, leading: reach, bottom: 0, trailing: 0) : EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: reach)
         return GlassEffectContainer(spacing: 4) {
             HStack(spacing: 0) {
-                ForEach(pinned, id: \.bundleID) { extra in
-                    PinnedPill(extra: extra).transition(.scale(0.6).combined(with: .opacity))
-                }
+                if !pinned.isEmpty { PinnedGroup(extras: pinned).transition(.scale(0.6).combined(with: .opacity)) }
                 ForEach(shown, id: \.self) { widget in
                     WidgetView(model: model, widget: widget)
                         .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
@@ -437,7 +435,7 @@ struct IconStack: View {
 }
 
 /// Under the pointer, the Apple glyph and the workspaces show a fill half as strong as the focused workspace's.
-private func hoverFill(_ on: Bool) -> some View {
+func hoverFill(_ on: Bool) -> some View {
     Capsule()
         .fill(.white.opacity(on ? 0.07 : 0))
         .animation(.easeOut(duration: 0.15), value: on)

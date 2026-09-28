@@ -129,26 +129,37 @@ struct MenuExtraMenu: View {
     }
 }
 
-/// The pill of a pinned status item on the bar: the app's icon and the item's title. Its dropdown is the menu; an item
-/// without one presses the status item on a click instead.
-struct PinnedPill: View {
-    let extra: MenuExtra<AXUIElement>
+/// All pinned status items in one glass pill: each one's app icon and title is its own hover target, opening its menu
+/// as the dropdown under it. An item without a menu presses the status item on a click instead.
+struct PinnedGroup: View {
+    let extras: [MenuExtra<AXUIElement>]
     @Environment(ExpansionSlot.self) private var slot
+    @Environment(\.bar) private var bar
 
     var body: some View {
-        MenuPill(id: .menuExtra(extra.bundleID), pulse: 0, padding: 8) {
-            HStack(spacing: 5) {
-                Image(nsImage: AppIcons.icon(extra.bundleID))
-                    .resizable()
-                    .frame(width: 16, height: 16)
-                if let title = extra.title { Text(title) }
+        HStack(spacing: 0) {
+            ForEach(extras, id: \.bundleID) { extra in
+                LivePill(id: .menuExtra(extra.bundleID), pulse: 0, gap: 0) { open in
+                    HStack(spacing: 5) {
+                        Image(nsImage: AppIcons.icon(extra.bundleID))
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                        if let title = extra.title { Text(title) }
+                    }
+                    .fixedSize()
+                    .padding(.horizontal, 6)
+                    .frame(minHeight: bar.item)
+                    .background { hoverFill(open) }
+                }
+                .onTapGesture {
+                    guard !extra.hasMenu else { return }
+                    slot.dismiss()
+                    AX.pressLater(extra.handle)
+                }
             }
         }
-        .onTapGesture {
-            guard !extra.hasMenu else { return }
-            slot.dismiss()
-            AX.pressLater(extra.handle)
-        }
+        .pill(height: bar.pill, padding: 4)
+        .padding(.horizontal, itemGap / 2)
     }
 }
 
