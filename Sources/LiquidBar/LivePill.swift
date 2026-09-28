@@ -11,6 +11,8 @@ let spring = Animation.spring(response: 0.38, dampingFraction: 0.8)
 @Observable
 final class ExpansionSlot {
     private(set) var owner: Dropdown?
+    /// The pill showing its change inline, widened, instead of opening its dropdown.
+    private(set) var inline: Dropdown?
     /// Pill frames in the bar window, top-left origin, so the dropdown can sit under its item.
     var frames: [Dropdown: CGRect] = [:]
     @ObservationIgnored private var inputs = ExpansionInputs<Dropdown>(quietUntil: Date() + 2)
@@ -68,8 +70,18 @@ final class ExpansionSlot {
         if inputs.startPulse(id, now: Date(), current: owner) { update() }
     }
 
+    func showInline(_ id: Dropdown, _ value: String) {
+        trace("inline \(id) \(value)")
+        guard NSMouseInRect(NSEvent.mouseLocation, screen, false) else { return }
+        if inputs.startInline(id, now: Date(), current: owner) { update() }
+    }
+
     private func update() {
-        let (next, recheck) = inputs.owner(now: Date(), current: owner)
+        let now = Date()
+        let (next, ownerRecheck) = inputs.owner(now: now, current: owner)
+        let (nextInline, inlineRecheck) = inputs.inlined(now: now, current: next)
+        let recheck = [ownerRecheck, inlineRecheck].compactMap { $0 }.min()
+        if nextInline != inline { withAnimation(spring) { inline = nextInline } }
         if next != owner {
             trace("owner \(owner.map { "\($0)" } ?? "-") -> \(next.map { "\($0)" } ?? "-")")
             withAnimation(spring) { owner = next }

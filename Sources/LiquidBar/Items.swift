@@ -55,14 +55,23 @@ struct BatteryGlyph: View {
     }
 }
 
-/// Artwork and a live equalizer. A click opens the player.
+/// Artwork and a live equalizer, with the title and artist between them while a new track shows. A click opens the
+/// player.
 struct NowPlayingLabel: View {
     let nowPlaying: NowPlaying
     let artwork: NSImage?
+    var showsTitle = false
 
     var body: some View {
         HStack(spacing: 6) {
             Artwork(image: artwork, size: 18, radius: 4)
+            if showsTitle {
+                Text([nowPlaying.title, nowPlaying.artist].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 220)
+                    .transition(.blurReplace)
+            }
             Equalizer(playing: nowPlaying.playing)
                 .frame(width: 14, height: 14)
         }

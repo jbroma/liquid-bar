@@ -121,6 +121,7 @@ struct WidgetView: View {
     let model: BarModel
     let widget: LiquidBarCore.Widget
     @Environment(MenuMode.self) private var menuMode
+    @Environment(ExpansionSlot.self) private var slot
     @Environment(\.bar) private var bar
 
     var body: some View {
@@ -149,9 +150,12 @@ struct WidgetView: View {
             .barHitArea()
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
-                MenuPill(id: .nowPlaying, pulse: nowPlaying.trackID, padding: 4) {
-                    NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork)
+                // A new track shows in the pill itself rather than opening the dropdown.
+                MenuPill(id: .nowPlaying, pulse: 0, padding: 4) {
+                    NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork, showsTitle: slot.inline == .nowPlaying)
                 }
+                .onChange(of: nowPlaying.trackID) { slot.showInline(.nowPlaying, nowPlaying.trackID) }
+                .animation(spring, value: nowPlaying.trackID)
                 .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
