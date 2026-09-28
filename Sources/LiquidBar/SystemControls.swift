@@ -253,7 +253,7 @@ enum NightShift {
 enum SystemControlCenter {
     nonisolated static let controlCenter = "com.apple.menuextra.controlcenter"
     /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
-    static let focus = "com.apple.menuextra.focusmode"
+    nonisolated static let focus = "com.apple.menuextra.focusmode"
 
     private nonisolated static var pid: pid_t? {
         NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
@@ -272,11 +272,13 @@ enum SystemControlCenter {
         return items.isEmpty ? nil : items[focus] != nil
     }
 
-    /// Turns the active Focus off, or Do Not Disturb on, by pressing through Control Center's Focus module; nothing
-    /// else can switch Focus. Control Center opens for a moment. It blocks until Control Center has closed again, and
-    /// returns whether a Focus is on now, or nil when Control Center did not show its Focus module.
+    /// Turns the active Focus off, or Do Not Disturb on, by pressing in Control Center; donotdisturbd rejects clients
+    /// without Apple's entitlement, so nothing else can switch Focus. While a Focus is on, its own status item opens a
+    /// small panel of modes. Otherwise there is no such item and the full Control Center opens, then its Focus module.
+    /// It blocks until the panel has closed again, and returns whether a Focus is on now, or nil when no Focus modes
+    /// showed.
     nonisolated static func toggleFocus() -> Bool? {
-        guard let (app, item) = openPanel() else { return nil }
+        guard let (app, item) = openPanel(extras()[focus] != nil ? focus : controlCenter) else { return nil }
         defer { close(app, item) }
         func isMode(_ element: AXUIElement) -> Bool { AX.string(element, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
         if let module = waitFor(app, { isMode($0) || AX.string($0, "AXIdentifier") == "controlcenter-focus-modes" }).first, !isMode(module) {
@@ -304,10 +306,10 @@ enum SystemControlCenter {
         openPanel() != nil
     }
 
-    /// Opens Control Center's panel on its main view, and returns Control Center and its status item. Nil without
-    /// Accessibility access.
-    private nonisolated static func openPanel() -> (app: AXUIElement, item: AXUIElement)? {
-        guard let item = extras()[controlCenter], let pid else { return nil }
+    /// Opens the panel of Control Center's status item `id` (its main view by default), and returns Control Center and
+    /// the item. Nil without Accessibility access.
+    private nonisolated static func openPanel(_ id: String = controlCenter) -> (app: AXUIElement, item: AXUIElement)? {
+        guard let item = extras()[id], let pid else { return nil }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
         close(app, item)
