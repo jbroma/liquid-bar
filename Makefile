@@ -4,8 +4,10 @@ SIGN ?= $(or $(shell security find-identity -p codesigning -v | awk -F'"' '/Appl
 AGENT := $(HOME)/Library/LaunchAgents/dev.liquidbar.plist
 DOMAIN := gui/$(shell id -u)
 SERVICE := $(DOMAIN)/dev.liquidbar
+VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Support/Info.plist)
+ZIP := build/LiquidBar-$(VERSION).zip
 
-.PHONY: app run test install uninstall restore clean
+.PHONY: app run test install uninstall restore release clean
 
 app:
 	swift build -c release
@@ -39,6 +41,16 @@ uninstall:
 	-launchctl bootout $(SERVICE)
 	rm -f $(AGENT)
 	rm -rf /Applications/LiquidBar.app
+
+# Bump the version in Support/Info.plist first. Tags the committed tree as v$(VERSION) and publishes the signed app as
+# that GitHub release. The printed sha256 is what a Nix package pins.
+release: app
+	test -z "$$(git status --porcelain)"
+	ditto -c -k --keepParent $(APP) $(ZIP)
+	git tag -s v$(VERSION) -m "v$(VERSION)"
+	git push origin v$(VERSION)
+	gh release create v$(VERSION) $(ZIP) --verify-tag --title "v$(VERSION)" --generate-notes
+	shasum -a 256 $(ZIP)
 
 clean:
 	rm -rf .build build

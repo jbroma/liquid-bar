@@ -6,9 +6,27 @@ The pills sit on a Liquid Glass bar that runs the full width of the screen. On a
 
 Left of the notch, drawn straight on the glass: the Apple logo and the AeroSpace workspaces, each showing a card stack of its apps' icons, the most recently used on top. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills: now playing, volume, Wi-Fi, battery, Control Center, and the clock. Control Center's dropdown also lists the other apps' menu bar items.
 
-Requirements: macOS 26, Xcode 26 (Swift 6.2 or later), and [AeroSpace](https://github.com/nikitabobko/AeroSpace) for workspaces.
+## Requirements
+
+- macOS 26 or later.
+- Menu bar auto-hide off: in System Settings, set "Automatically hide and show the menu bar" to Never, or `defaults write NSGlobalDomain _HIHideMenuBar -bool false`. macOS then keeps windows, notification banners and Notification Center below the menu bar strip, and the bar is exactly as tall as it. The bar makes the native menu bar invisible while it runs (see Behavior), so it never shows through the glass, and it comes back if the bar quits. With auto-hide on the bar still works, but windows and banners can slide under it.
+- [AeroSpace](https://github.com/nikitabobko/AeroSpace) for the workspaces. Without it the workspace strip stays empty.
+- Accessibility access for the front app's menus and other apps' menu bar items (see Permissions).
+- Building from source needs Xcode 26 (Swift 6.2 or later).
+
+The bar relies on private macOS frameworks (SkyLight, DisplayServices, CoreBrightness) for things with no public API. A macOS update can break one of those features; each is loaded at runtime, so a missing one costs that feature, never a crash.
 
 ## Install
+
+From a release: download `LiquidBar-<version>.zip` from [Releases](https://github.com/jbroma/liquid-bar/releases), unzip it, and move `LiquidBar.app` to `/Applications`. The app is signed but not notarized, so a copy downloaded in a browser is blocked the first time. Allow it once with:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/LiquidBar.app
+```
+
+To start it at login, copy `Support/dev.liquidbar.plist` to `~/Library/LaunchAgents/` and run `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.liquidbar.plist`.
+
+From source:
 
 ```sh
 make install
@@ -22,6 +40,7 @@ Other targets:
 - `make run` stops the launch agent, builds the app and opens it. A newly started bar quits any running one, so repeated runs never stack two bars.
 - `make restore` hands the bar back to the launch agent after `make run`.
 - `make test` runs the unit tests.
+- `make release` publishes the signed app as the GitHub release for the version in `Support/Info.plist`.
 
 `make app` signs with the first Apple Development or Developer ID identity in your keychain, so macOS keeps the Accessibility and Automation grants across rebuilds. Without one it signs ad hoc, and every rebuild asks for the grants again. Set `SIGN=` to pick an identity, for example `make app SIGN=-` for ad hoc.
 
@@ -42,7 +61,7 @@ Other targets:
 
 	liquid-bar subscribes to AeroSpace itself and retries until AeroSpace is running, so it needs no startup hook.
 
-3. Keep the native menu bar visible (System Settings > Control Center > Automatically hide and show the menu bar: Never, or `defaults write NSGlobalDomain _HIHideMenuBar -bool false`). liquid-bar covers it exactly, and it shows again if liquid-bar ever stops. Click the focused workspace to see the front app's menus.
+3. Turn menu bar auto-hide off (see Requirements). Click the focused workspace to see the front app's menus.
 
 4. Run `make install`.
 
@@ -116,7 +135,8 @@ A script object is the SketchyBar-style escape hatch:
 
 - One dropdown per bar is open at a time. Hovering a pill opens its dropdown after 40 ms, so a fast sweep across the bar does not open every one, and the pill widens by a few points. Once a dropdown is open, moving to another item opens that one at once, like the native menu bar. Each item reacts across the full bar height and up to halfway to its neighbours, and the outermost ones out to the screen edge, so a pointer thrown at the top edge, into a corner, or between two pills still lands on one. The dropdown stays open while the pointer is on the pill or in the dropdown and closes 0.5 s after it leaves both. Moving to another pill morphs the dropdown over to it. A change the bar did not cause, like the volume keys, a new track, plugging in the charger, or a network drop, opens the dropdown for 2.2 s. A dropdown never crosses the notch and stays on screen; one taller than the screen below the bar scrolls.
 - The front app's menus: clicking the focused workspace turns the workspace strip into the front app's menu titles, the app's own menu first and in bold, like the native menu bar. The titles are read through Accessibility. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking one runs it in the app. Esc, switching apps, clicking the focused workspace again, or moving the pointer out of the bar brings the workspaces back.
-- Height: each screen's bar is exactly as tall as the native menu bar under it, 33 points on a notched screen and 24 on most others. Pills are 8 points shorter. macOS keeps notification banners, Notification Center and windows below the menu bar, so nothing slides under the bar.
+- The native menu bar: while the bar runs it sets the native menu bar's opacity to 0 through SkyLight, as yabai's `menubar_opacity` does, so it never shows through the glass and ignores the mouse. While a fullscreen window hides the bar, the native menu bar is visible again so that app's menus stay reachable. If the bar quits or crashes, macOS restores the native menu bar.
+- Height: each screen's bar is exactly as tall as the native menu bar under it, 34 points on a notched screen and 24 on most others. Pills are 8 points shorter. macOS keeps notification banners, Notification Center and windows below the menu bar, so nothing slides under the bar.
 - Screens: every screen gets its own bar. Nothing is drawn beside the notch that does not fit there.
 
 Control Center has no public API for most of its controls, so the dropdown uses the private frameworks macOS itself uses, loaded at runtime so a missing one costs a tile, never a crash: DisplayServices for display brightness, CoreBrightness for the keyboard backlight and Night Shift, SkyLight for Dark Mode (no Automation prompt), and `IOBluetoothPreferenceSetControllerPowerState` for Bluetooth power. Focus has neither an API nor a readable store without Full Disk Access, so the Focus tile reads Focus from its menu bar item and switches it by pressing through the real Control Center over Accessibility, which opens Control Center behind the dropdown for about three seconds.
