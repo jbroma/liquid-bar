@@ -68,18 +68,21 @@ final class MenuExtrasSource {
 }
 
 /// The status items the bar covers, as a section of Control Center's dropdown. A click on one with a menu lists its
-/// entries inline, one item at a time; on one without, it presses the item, so its window or popover opens.
+/// entries inline, one item at a time; on one without, it presses the item, so its window or popover opens. The pin
+/// button at a row's end moves the item onto the bar.
 struct MenuExtrasSection: View {
-    let extras: [MenuExtra<AXUIElement>]
+    let model: BarModel
     @State private var expanded: AXUIElement?
+    @State private var hovered: AXUIElement?
     @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
-        if !extras.isEmpty {
+        if !model.menuExtras.isEmpty {
             MenuSeparator()
             MenuSection(title: "Menu Bar Items")
-            ForEach(Array(extras.enumerated()), id: \.offset) { _, extra in
+            ForEach(Array(model.menuExtras.enumerated()), id: \.offset) { _, extra in
                 let open = expanded == extra.handle
+                let pinned = model.config.pinned.contains(extra.bundleID)
                 MenuButton {
                     guard extra.hasMenu else {
                         slot.dismiss()
@@ -94,18 +97,68 @@ struct MenuExtrasSection: View {
                     Spacer(minLength: 8)
                     if let label = extra.label { Text(label).foregroundStyle(secondary).lineLimit(1) }
                     if extra.hasMenu { Disclosure(open: open) }
+                    // A process without a bundle id has nothing to pin by.
+                    if !extra.bundleID.isEmpty {
+                        Image(systemName: pinned ? "pin.fill" : "pin")
+                            .font(.system(size: 11))
+                            .foregroundStyle(secondary)
+                            .frame(width: 22, height: 22)
+                            .contentShape(Rectangle())
+                            .opacity(pinned || hovered == extra.handle ? 1 : 0)
+                            .onTapGesture { Setting.pinned(extra.bundleID, !pinned).save() }
+                    }
                 }
+                .onHover { if $0 { hovered = extra.handle } else if hovered == extra.handle { hovered = nil } }
                 if open { MenuEntries(item: extra.handle, path: []) }
             }
         }
     }
 }
 
+/// A pinned status item's dropdown: its menu, listed like the rows of Control Center's section.
+struct MenuExtraMenu: View {
+    let extra: MenuExtra<AXUIElement>?
+
+    var body: some View {
+        MenuBody {
+            if let extra {
+                MenuTitle(title: extra.appName)
+                MenuEntries(item: extra.handle, path: [], inset: 0)
+            }
+        }
+    }
+}
+
+/// The pill of a pinned status item on the bar: the app's icon and the item's title. Its dropdown is the menu; an item
+/// without one presses the status item on a click instead.
+struct PinnedPill: View {
+    let extra: MenuExtra<AXUIElement>
+    @Environment(ExpansionSlot.self) private var slot
+
+    var body: some View {
+        MenuPill(id: .menuExtra(extra.bundleID), pulse: 0, padding: 8) {
+            HStack(spacing: 5) {
+                Image(nsImage: AppIcons.icon(extra.bundleID))
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                if let title = extra.title { Text(title) }
+            }
+        }
+        .onTapGesture {
+            guard !extra.hasMenu else { return }
+            slot.dismiss()
+            AX.pressLater(extra.handle)
+        }
+    }
+}
+
 /// The entries of `item`'s menu at `path`, the titles of the submenus leading there, read when shown. A submenu
 /// expands the same way one level deeper; any other entry is pressed in its app, and the dropdown closes.
-private struct MenuEntries: View {
+struct MenuEntries: View {
     let item: AXUIElement
     let path: [String]
+    /// Where the top level's titles start; Control Center lines them up with its app names.
+    var inset: CGFloat = 26
     @State private var entries: [MenuEntry<AXUIElement>?] = []
     @State private var expanded: String?
     @Environment(ExpansionSlot.self) private var slot
@@ -130,7 +183,7 @@ private struct MenuEntries: View {
                     .foregroundStyle(entry.enabled ? Color.barWhite : secondary)
                     .allowsHitTesting(entry.enabled)
                     .padding(.leading, indent)
-                    if open { MenuEntries(item: item, path: path + [entry.title]) }
+                    if open { MenuEntries(item: item, path: path + [entry.title], inset: inset) }
                 } else {
                     MenuSeparator().padding(.leading, indent)
                 }
@@ -142,8 +195,8 @@ private struct MenuEntries: View {
         }
     }
 
-    /// Titles line up with the app names above, and each submenu level steps in further.
-    private var indent: CGFloat { 26 + 14 * CGFloat(path.count) }
+    /// Each submenu level steps in further.
+    private var indent: CGFloat { inset + 14 * CGFloat(path.count) }
 }
 
 /// A chevron that turns down while its row is expanded.

@@ -53,15 +53,7 @@ enum AppleMenu {
     }
 
     private static func settingItem(_ title: String, checked: Bool, _ setting: Setting) -> NSMenuItem {
-        let item = actionItem(title) {
-            do {
-                let data = try setting.applied(to: try? Data(contentsOf: configURL))
-                try FileManager.default.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try data.write(to: configURL, options: .atomic)
-            } catch {
-                log.error("cannot change \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
-            }
-        }
+        let item = actionItem(title) { setting.save() }
         item.state = checked ? .on : .off
         return item
     }
@@ -114,4 +106,17 @@ func actionItem(_ title: String, handler: @escaping () -> Void) -> NSMenuItem {
 final class MenuTarget: NSObject {
     static let shared = MenuTarget()
     @objc func fire(_ sender: NSMenuItem) { (sender.representedObject as? () -> Void)?() }
+}
+
+extension Setting {
+    /// Edits the config file, which the bar reloads like any other edit.
+    func save() {
+        do {
+            let data = try applied(to: try? Data(contentsOf: configURL))
+            try FileManager.default.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: configURL, options: .atomic)
+        } catch {
+            log.error("cannot change \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
+        }
+    }
 }

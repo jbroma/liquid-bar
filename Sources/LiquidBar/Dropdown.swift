@@ -6,6 +6,8 @@ import SwiftUI
 nonisolated enum Dropdown: Hashable, Sendable {
     case nowPlaying, volume, wifi, battery, controlCenter, clock
     case workspace(String)
+    /// A pinned app's status item, by bundle id.
+    case menuExtra(String)
 
     var isLeft: Bool {
         if case .workspace = self { true } else { false }
@@ -90,9 +92,13 @@ struct DropdownView: View {
         .onChange(of: pill) { if open != nil { anchor = pill } }
     }
 
-    /// A workspace with one app or none has nothing to list.
+    /// A workspace with one app or none has nothing to list, and neither has a status item without a menu.
     private func hasContent(_ dropdown: Dropdown) -> Bool {
-        if case .workspace(let id) = dropdown { model.workspaces.apps(on: id).count > 1 } else { true }
+        switch dropdown {
+        case .workspace(let id): model.workspaces.apps(on: id).count > 1
+        case .menuExtra(let id): model.pinnedExtras.first { $0.bundleID == id }?.hasMenu == true
+        default: true
+        }
     }
 
     private func geometry(_ open: Dropdown?, pill: CGRect, panel: CGSize) -> Geometry {
@@ -110,6 +116,7 @@ struct DropdownView: View {
         case .controlCenter: ControlCenterMenu(model: model)
         case .clock: ClockMenu(now: model.now)
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
+        case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
         }
     }

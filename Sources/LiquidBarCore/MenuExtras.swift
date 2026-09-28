@@ -4,6 +4,8 @@ import Foundation
 public struct MenuExtra<Handle> {
     public var bundleID: String
     public var appName: String
+    /// The item's own title, when it sets a non-empty one. The pinned pill shows it beside the icon.
+    public var title: String?
     /// The item's own title or description, when it sets a non-empty one.
     public var label: String?
     /// Its left edge in the native menu bar.
@@ -15,6 +17,7 @@ public struct MenuExtra<Handle> {
     public init(bundleID: String, appName: String, title: String?, description: String?, x: Double, hasMenu: Bool, handle: Handle) {
         self.bundleID = bundleID
         self.appName = appName
+        self.title = title.flatMap { $0.isEmpty ? nil : $0 }
         self.label = [title, description].compactMap { $0 }.first { !$0.isEmpty }
         self.x = x
         self.hasMenu = hasMenu

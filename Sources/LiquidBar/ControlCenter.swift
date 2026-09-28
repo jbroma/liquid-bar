@@ -167,7 +167,7 @@ struct ControlCenterMenu: View {
                     }
                 }
             }
-            MenuExtrasSection(extras: model.menuExtras)
+            MenuExtrasSection(model: model)
         }
         .task {
             MenuExtras.refresh(model)

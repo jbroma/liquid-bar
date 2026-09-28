@@ -26,6 +26,8 @@ final class BarModel {
     var frontApp: FrontApp?
     /// Other apps' status items, listed in Control Center's dropdown.
     var menuExtras: [MenuExtra<AXUIElement>] = []
+    /// The pinned apps' status items that exist now, in the order pinned.
+    var pinnedExtras: [MenuExtra<AXUIElement>] { pinnedItems(menuExtras, pinned: config.pinned) }
     let controls = Controls()
 
     func focus(_ workspace: String) {

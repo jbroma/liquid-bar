@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import LiquidBarCore
 import SwiftUI
 
@@ -31,7 +32,7 @@ struct BarView: View {
         HStack(spacing: 0) {
             island(config.left, alignment: .leading, width: bar.left)
             Spacer(minLength: 0)
-            island(config.right, alignment: .trailing, width: bar.right)
+            island(config.right, pinned: model.pinnedExtras, alignment: .trailing, width: bar.right)
         }
         .font(.system(size: 12, weight: .semibold))
         .monospacedDigit()
@@ -60,7 +61,7 @@ struct BarView: View {
         }
     }
 
-    private func island(_ widgets: [LiquidBarCore.Widget], alignment: Alignment, width: CGFloat?) -> some View {
+    private func island(_ widgets: [LiquidBarCore.Widget], pinned: [MenuExtra<AXUIElement>] = [], alignment: Alignment, width: CGFloat?) -> some View {
         let leading = alignment == .leading
         let shown = widgets.filter(isShown)
         // The outermost item's hit area runs on to the screen edge, so a pointer thrown into the corner lands on it.
@@ -69,12 +70,16 @@ struct BarView: View {
         let edgeReach = leading ? EdgeInsets(top: 0, leading: reach, bottom: 0, trailing: 0) : EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: reach)
         return GlassEffectContainer(spacing: 4) {
             HStack(spacing: 0) {
+                ForEach(pinned, id: \.bundleID) { extra in
+                    PinnedPill(extra: extra).transition(.scale(0.6).combined(with: .opacity))
+                }
                 ForEach(shown, id: \.self) { widget in
                     WidgetView(model: model, widget: widget)
                         .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
                 }
             }
             .animation(spring, value: model.nowPlaying == nil)
+            .animation(spring, value: pinned.map(\.bundleID))
         }
         // Islands get a finite width beside the notch. Each item's hit area already reaches half a gap past it.
         .padding(leading ? .trailing : .leading, 8 - itemGap / 2)
