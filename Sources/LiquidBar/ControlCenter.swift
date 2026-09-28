@@ -3,20 +3,27 @@ import LiquidBarCore
 import SwiftUI
 
 /// The Control Center dropdown's state and actions. It reads the system when the dropdown opens and after each
-/// change, and does nothing while the dropdown is closed.
+/// change, and apart from following Focus, does nothing while the dropdown is closed.
 @Observable
 final class Controls {
     private(set) var state = ControlState()
     @ObservationIgnored private var readingBluetooth: Task<Void, Never>?
-    /// What the last toggle set Focus to. Its status item leaves the menu bar about 5s after Focus ends, so for a
-    /// while this wins over it.
-    @ObservationIgnored private var focusSet: (on: Bool, time: Date)?
     @ObservationIgnored private var togglingFocus = false
 
+    /// Focus is read once, then followed through the notifications macOS still posts under Do Not Disturb's old name.
+    /// They arrive as Focus switches, while its status item leaves the menu bar only about 5s after Focus ends.
+    init() {
+        state.focus = SystemControlCenter.focusIsOn()
+        for (name, on) in [("_NSDoNotDisturbEnabledNotification", true), ("_NSDoNotDisturbDisabledNotification", false)] {
+            DistributedNotificationCenter.default().addObserver(forName: .init(name), object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.state.focus = on }
+            }
+        }
+    }
+
     func refresh() {
-        let focus = focusSet.flatMap { $0.time.timeIntervalSinceNow > -8 ? $0.on : nil } ?? SystemControlCenter.focusIsOn()
         let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), bluetooth: state.bluetooth,
-                                devices: state.devices, focus: focus, airDrop: AirDrop.mode(), darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
+                                devices: state.devices, focus: state.focus, airDrop: AirDrop.mode(), darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
         if next != state { state = next }
         // Until it lands, the tile shows what the last read found.
         guard readingBluetooth == nil else { return }
@@ -74,9 +81,8 @@ final class Controls {
             togglingFocus = true
             state.focus = !on
             Task {
-                if let now = await blocking({ SystemControlCenter.toggleFocus() }) { focusSet = (now, Date()) }
+                if await blocking({ SystemControlCenter.toggleFocus() }) == nil { state.focus = on }
                 togglingFocus = false
-                refresh()
             }
         }
     }

@@ -43,7 +43,7 @@ A widget is one of these names, or a script object.
 | `volume` | Speaker symbol. Scroll over it to change the volume in steps of 2. | A slider, Mute, the output devices with the current one filled in (click one to switch), AirPlay… (opens the real Control Center on its Sound outputs), and Sound Settings…. |
 | `wifi` | Network symbol. | Network name (or the signal, when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol and percentage. The symbol is green on power, yellow at 40% or less, and red at 20% or less. | Level meter, power source with the adapter's wattage, time left or to full, condition, maximum capacity, cycle count, and Battery Settings…. |
-| `controlCenter` | Control Center symbol. | Control Center without Wi-Fi, Sound, and Now Playing, which have their own pills. See [Control Center](details.md#control-center). |
+| `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | Control Center without Wi-Fi, Sound, and Now Playing, which have their own pills. See [Control Center](details.md#control-center). |
 | `clock` | Time. | The full date over a month grid with week numbers and today marked. Scroll or click the chevrons to change the month. |
 
 ## Script widgets

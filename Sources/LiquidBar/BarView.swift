@@ -177,7 +177,14 @@ struct WidgetView: View {
                 MenuPill(id: .battery, pulse: battery.onAC) { BatteryLabel(battery: battery, percent: model.config.batteryPercent) }
             }
         case .controlCenter:
-            MenuPill(id: .controlCenter, pulse: 0) { Image(systemName: "switch.2").frame(width: 16) }
+            // A moon while a Focus is on. The native menu bar shows the Focus's own symbol, but which Focus is on needs Full Disk Access to read.
+            MenuPill(id: .controlCenter, pulse: 0) {
+                HStack(spacing: 8) {
+                    if model.controls.state.focus == true { Image(systemName: "moon.fill").transition(.scale.combined(with: .opacity)) }
+                    Image(systemName: "switch.2").frame(width: 16)
+                }
+            }
+            .animation(spring, value: model.controls.state.focus)
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             // While macOS shows its privacy dot, the pill makes room for it, so the dot sits inside the pill after the time.
