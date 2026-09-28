@@ -46,19 +46,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            // Mirroring and resolution changes post several of these while the geometry settles; build once at the end.
-            MainActor.assumeIsolated {
-                self?.pendingRebuild?.cancel()
-                self?.pendingRebuild = Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    guard !Task.isCancelled else { return }
-                    self?.rebuildPanels()
-                }
-            }
+            MainActor.assumeIsolated { self?.scheduleRebuild() }
+        }
+        // Switching menu bar auto-hide changes the strip macOS reserves, and so the bar's height.
+        center.addObserver(forName: .init("AppleInterfaceMenuBarHidingChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.scheduleRebuild() }
         }
         // Polled: no notification fires when a covering window closes or a fullscreen animation settles.
         fullscreenPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.hideUnderFullscreenWindows() }
+        }
+    }
+
+    /// Mirroring and resolution changes post several notifications while the geometry settles; build once at the end.
+    func scheduleRebuild() {
+        pendingRebuild?.cancel()
+        pendingRebuild = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            rebuildPanels()
         }
     }
 
