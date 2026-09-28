@@ -107,43 +107,49 @@ func openSettings(_ pane: String) {
     shell("open 'x-apple.systempreferences:\(pane)'")
 }
 
-/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items: a grid of the controls with a
-/// way into the real one in its spare slot, the brightness sliders, the paired Bluetooth devices, and the other apps'
+/// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items. The switches with a state
+/// worth reading (Bluetooth, AirDrop, Focus) are rows in one module beside tall brightness sliders; the rest are a strip
+/// of circles ending in the way into the real Control Center. Then the paired Bluetooth devices, and the other apps'
 /// status items the bar covers.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
 
+    private static let rows: [ControlTile] = [.bluetooth, .airDrop, .focus]
+    /// Nil is More, which opens the real Control Center.
+    private static let strip: [ControlTile?] = [.darkMode, .nightShift, .screenMirroring, .screenshot, nil]
+
     var body: some View {
         let controls = model.controls
         let state = controls.state
         MenuBody {
-            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
-                GridRow {
-                    ForEach(ControlTile.allCases.prefix(4), id: \.self) { tile in
-                        CircleTile(tile: tile, label: tile.label(state), on: tile.isOn(state)) { controls.press(tile, dismiss: slot.dismiss) }
+            HStack(spacing: 8) {
+                VStack(spacing: 0) {
+                    ForEach(Self.rows, id: \.self) { tile in
+                        ControlRow(tile: tile, state: state) { controls.press(tile, dismiss: slot.dismiss) }
                     }
                 }
-                GridRow {
-                    ForEach(ControlTile.allCases.dropFirst(4), id: \.self) { tile in
-                        CircleTile(tile: tile, label: tile.label(state), on: tile.isOn(state)) { controls.press(tile, dismiss: slot.dismiss) }
-                    }
-                    CircleTile(tile: nil, label: "More", on: false) {
-                        slot.dismiss()
-                        let point = NSEvent.mouseLocation
-                        Task {
-                            if await !blocking({ SystemControlCenter.show() }) { AppMenus.explainAccess("open Control Center", at: point) }
-                        }
-                    }
+                .padding(2)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.1)))
+                if let brightness = state.brightness {
+                    TallSlider(level: percent(brightness), symbol: "sun.max.fill", name: "Display Brightness", set: controls.setBrightness)
+                }
+                if let keyboard = state.keyboard {
+                    TallSlider(level: percent(keyboard), symbol: "light.max", name: "Keyboard Brightness", set: controls.setKeyboard)
                 }
             }
-            .padding(.vertical, 2)
-            .background(RoundedRectangle(cornerRadius: 16).fill(.white.opacity(0.1)))
+            // The sliders have no height of their own; this sizes them to the rows.
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 6)
             .padding(.top, 2)
-            VStack(spacing: 4) {
-                if let brightness = state.brightness { LevelSlider(level: percent(brightness), muted: false, symbol: "sun.max.fill", height: 18, set: controls.setBrightness) }
-                if let keyboard = state.keyboard { LevelSlider(level: percent(keyboard), muted: false, symbol: "light.max", height: 18, set: controls.setKeyboard) }
+            HStack(spacing: 0) {
+                ForEach(Self.strip, id: \.self) { tile in
+                    ControlButton(name: tile?.name ?? "More", radius: 12) { tile.map { controls.press($0, dismiss: slot.dismiss) } ?? more() } label: {
+                        TileIcon(tile: tile, on: tile?.isOn(state) ?? false, size: 32)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 3)
+                    }
+                }
             }
             .padding(6)
             if !state.devices.isEmpty {
@@ -168,14 +174,74 @@ struct ControlCenterMenu: View {
             }
         }
     }
+
+    private func more() {
+        slot.dismiss()
+        let point = NSEvent.mouseLocation
+        Task {
+            if await !blocking({ SystemControlCenter.show() }) { AppMenus.explainAccess("open Control Center", at: point) }
+        }
+    }
 }
 
 private func percent(_ fraction: Double) -> Int {
     Int((fraction * 100).rounded())
 }
 
-/// A tile's symbol in a circle, filled white while the control is on, like the output devices in the Sound menu. No
-/// tile is the one that opens the real Control Center.
+/// A switch as a row: its circle, filled white while on, then its name over its state.
+private struct ControlRow: View {
+    let tile: ControlTile
+    let state: ControlState
+    let action: () -> Void
+
+    var body: some View {
+        ControlButton(name: tile.name, radius: 14, action: action) {
+            HStack(spacing: 8) {
+                TileIcon(tile: tile, on: tile.isOn(state), size: 28)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(tile.name).font(.system(size: 12, weight: .semibold))
+                    if let detail = tile.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
+                }
+                .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(5)
+        }
+    }
+}
+
+/// A brightness slider standing upright, filled from the bottom. Click or drag anywhere sets the level.
+private struct TallSlider: View {
+    let level: Int
+    let symbol: String
+    let name: String
+    let set: (Int) -> Void
+
+    var body: some View {
+        GeometryReader { proxy in
+            let knob = proxy.size.width
+            let travel = proxy.size.height - knob
+            let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+            ZStack(alignment: .bottom) {
+                shape.fill(.white.opacity(0.14))
+                shape.fill(.white).frame(height: knob + travel * CGFloat(level) / 100)
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.black.opacity(0.6))
+                    .frame(height: knob)
+            }
+            .contentShape(shape)
+            .gesture(DragGesture(minimumDistance: 0).onChanged { set(VolumeState.level(at: proxy.size.height - $0.location.y - knob / 2, width: travel)) })
+        }
+        .frame(width: 44)
+        .help(name)
+        .accessibilityLabel(name)
+        .accessibilityValue("\(level)%")
+    }
+}
+
+/// A control's symbol in a circle, filled white while the control is on, like the output devices in the Sound menu. No
+/// tile is More.
 private struct TileIcon: View {
     let tile: ControlTile?
     let on: Bool
@@ -210,32 +276,29 @@ private struct BluetoothRune: Shape {
     }
 }
 
-/// A control's circle, named by its tooltip. Its rounded area lightens under the pointer.
-private struct CircleTile: View {
-    let tile: ControlTile?
-    let label: String
-    let on: Bool
+/// A control's click target, named by its tooltip. Its rounded area lightens under the pointer and dims while pressed.
+private struct ControlButton<Label: View>: View {
+    let name: String
+    let radius: CGFloat
     let action: () -> Void
+    @ViewBuilder var label: () -> Label
     @State private var hovering = false
 
     var body: some View {
-        Button(action: action) {
-            TileIcon(tile: tile, on: on, size: 36)
-                .padding(.vertical, 5)
-                .frame(maxWidth: .infinity)
-        }
-        .help(label)
-        .accessibilityLabel(label)
-        .buttonStyle(TileStyle(hovering: hovering))
-        .onHover { hovering = $0 }
+        Button(action: action, label: label)
+            .help(name)
+            .accessibilityLabel(name)
+            .buttonStyle(ControlStyle(radius: radius, hovering: hovering))
+            .onHover { hovering = $0 }
     }
 }
 
-private struct TileStyle: ButtonStyle {
+private struct ControlStyle: ButtonStyle {
+    let radius: CGFloat
     let hovering: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 12)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         configuration.label
             .contentShape(shape)
             .background(shape.fill(.white.opacity(configuration.isPressed ? 0.12 : hovering ? 0.06 : 0)))

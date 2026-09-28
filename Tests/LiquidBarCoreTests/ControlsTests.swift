@@ -1,12 +1,12 @@
 import LiquidBarCore
 import Testing
 
-@Test func tileLabels() {
-    #expect(ControlTile.allCases.map { $0.label(ControlState(airDrop: .contactsOnly)) }
-        == ["Bluetooth", "Contacts", "Focus", "Mirroring", "Dark Mode", "Night Shift", "Screenshot"])
-    #expect(ControlTile.airDrop.label(ControlState(airDrop: .everyone)) == "Everyone")
-    #expect(ControlTile.airDrop.label(ControlState(airDrop: .off)) == "AirDrop")
-    #expect(ControlTile.airDrop.label(ControlState()) == "AirDrop")
+@Test func tileNamesAndStateLines() {
+    #expect(ControlTile.allCases.map(\.name) == ["Bluetooth", "AirDrop", "Focus", "Mirroring", "Dark Mode", "Night Shift", "Screenshot"])
+    let state = ControlState(bluetooth: true, focus: false, airDrop: .contactsOnly, darkMode: true)
+    #expect(ControlTile.allCases.map { $0.detail(state) } == ["On", "Contacts Only", "Off", nil, nil, nil, nil])
+    #expect(ControlTile.airDrop.detail(ControlState(airDrop: .off)) == "Off")
+    #expect(ControlTile.bluetooth.detail(ControlState()) == nil)
 }
 
 @Test func tilesAreOnOnlyWhenTheirControlIs() {

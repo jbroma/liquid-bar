@@ -35,11 +35,11 @@ public enum AirDropMode: String, Sendable {
     case everyone = "Everyone"
 }
 
-/// The Control Center tiles, in grid order.
+/// The Control Center controls.
 public enum ControlTile: CaseIterable, Sendable {
     case bluetooth, airDrop, focus, screenMirroring, darkMode, nightShift, screenshot
 
-    /// Whether the tile shows as switched on. Tiles that only open something are never on.
+    /// Whether the control shows as switched on. Controls that only open something are never on.
     public func isOn(_ state: ControlState) -> Bool {
         switch self {
         case .bluetooth: state.bluetooth == true
@@ -51,21 +51,26 @@ public enum ControlTile: CaseIterable, Sendable {
         }
     }
 
-    /// The line under the tile's circle. AirDrop names who can see this Mac while it is on; the circle's fill tells
-    /// the rest.
-    public func label(_ state: ControlState) -> String {
+    public var name: String {
         switch self {
         case .bluetooth: "Bluetooth"
-        case .airDrop: switch state.airDrop {
-            case .everyone: "Everyone"
-            case .contactsOnly: "Contacts"
-            case .off, nil: "AirDrop"
-            }
+        case .airDrop: "AirDrop"
         case .focus: "Focus"
         case .screenMirroring: "Mirroring"
         case .darkMode: "Dark Mode"
         case .nightShift: "Night Shift"
         case .screenshot: "Screenshot"
+        }
+    }
+
+    /// The state line under the name, for the controls whose circle alone cannot say it: AirDrop has three modes.
+    /// Nil when the control has none or its state could not be read.
+    public func detail(_ state: ControlState) -> String? {
+        switch self {
+        case .bluetooth: state.bluetooth.map { $0 ? "On" : "Off" }
+        case .airDrop: state.airDrop?.rawValue
+        case .focus: state.focus.map { $0 ? "On" : "Off" }
+        case .screenMirroring, .darkMode, .nightShift, .screenshot: nil
         }
     }
 }
