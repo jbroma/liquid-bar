@@ -122,12 +122,19 @@ enum AX {
         AXUIElementPerformAction(element, kAXPressAction as CFString) == .success
     }
 
+    /// The entries of the menu `menu`, nil marking a separator.
+    nonisolated static func entries(_ menu: AXUIElement) -> [MenuEntry<AXUIElement>?] {
+        menuEntries(of: menu, attribute: { attribute($0, $1) }, children: { children($0) })
+    }
+
     /// Presses without waiting: a press returns only once the menu or dialog it opens closes.
     static func pressLater(_ element: AXUIElement) {
-        nonisolated(unsafe) let element = element
         DispatchQueue.global().async { press(element) }
     }
 }
+
+/// An element is an immutable reference to another app's UI, which the Accessibility API takes from any thread.
+extension AXUIElement: @retroactive @unchecked Sendable {}
 
 /// Fills an NSMenu from an AX menu only when it opens, so deep menus cost nothing until shown.
 private final class MenuFiller: NSObject, NSMenuDelegate {
@@ -139,29 +146,26 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        for child in AX.children(element) {
-            let title = AX.string(child, kAXTitleAttribute) ?? ""
-            let submenu = AX.children(child).first
-            guard !title.isEmpty || submenu != nil else {
+        for entry in AX.entries(element) {
+            guard let entry else {
                 menu.addItem(.separator())
                 continue
             }
-            let item = actionItem(title) { AX.pressLater(child) }
-            item.isEnabled = AX.attribute(child, kAXEnabledAttribute) as? Bool ?? true
-            if AX.string(child, kAXMenuItemMarkCharAttribute)?.isEmpty == false { item.state = .on }
-            if let key = AX.string(child, kAXMenuItemCmdCharAttribute), !key.isEmpty {
-                item.keyEquivalent = key.lowercased()
-                let modifiers = ShortcutModifiers(axMask: AX.attribute(child, kAXMenuItemCmdModifiersAttribute) as? Int ?? 0)
+            let item = actionItem(entry.title) { AX.pressLater(entry.handle) }
+            item.isEnabled = entry.enabled
+            if entry.checked { item.state = .on }
+            if let shortcut = entry.shortcut {
+                item.keyEquivalent = shortcut.key
                 item.keyEquivalentModifierMask = [
-                    modifiers.contains(.command) ? .command : [],
-                    modifiers.contains(.shift) ? .shift : [],
-                    modifiers.contains(.option) ? .option : [],
-                    modifiers.contains(.control) ? .control : [],
+                    shortcut.modifiers.contains(.command) ? .command : [],
+                    shortcut.modifiers.contains(.shift) ? .shift : [],
+                    shortcut.modifiers.contains(.option) ? .option : [],
+                    shortcut.modifiers.contains(.control) ? .control : [],
                 ]
             }
-            if let submenu {
+            if let submenu = entry.submenu {
                 item.action = nil
-                item.submenu = AppMenus.mirror(submenu, title: title)
+                item.submenu = AppMenus.mirror(submenu, title: entry.title)
             }
             menu.addItem(item)
         }
