@@ -52,9 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         center.addObserver(forName: .init("AppleInterfaceMenuBarHidingChangedNotification"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.scheduleRebuild() }
         }
-        // Polled: no notification fires when a covering window closes or a fullscreen animation settles.
+        // Polled: no notification fires when a covering window closes, a fullscreen animation settles, or the privacy
+        // dot comes and goes.
         fullscreenPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.hideUnderFullscreenWindows() }
+            MainActor.assumeIsolated { self?.followWindowList() }
         }
     }
 
@@ -74,9 +75,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Hides a screen's bar while a normal window covers that whole screen: native fullscreen on a screen without a
-    /// notch, a game, a slideshow. A notched screen keeps fullscreen windows below the camera, so its bar stays.
-    func hideUnderFullscreenWindows() {
+    /// Follows the on-screen windows. Hides a screen's bar while a normal window covers that whole screen: native
+    /// fullscreen on a screen without a notch, a game, a slideshow. A notched screen keeps fullscreen windows below the
+    /// camera, so its bar stays.
+    func followWindowList() {
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
         let covering = windows.compactMap { window -> CGRect? in
             guard window[kCGWindowLayer as String] as? Int == 0, let bounds = window[kCGWindowBounds as String] else { return nil }
@@ -90,6 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let covered = covering.contains { $0.contains(frame) }
             if covered == bar.isVisible { covered ? bar.orderOut(nil) : bar.orderFrontRegardless() }
         }
+        // The privacy dot is a small WindowServer window at the top right, on screen only while the dot shows.
+        let dot = windows.contains { window in
+            guard window[kCGWindowOwnerName as String] as? String == "Window Server", (window[kCGWindowLayer as String] as? Int ?? 0) > 1000,
+                  let bounds = window[kCGWindowBounds as String], let rect = CGRect(dictionaryRepresentation: bounds as! CFDictionary) else { return false }
+            return rect.minY < 10 && rect.width < 40 && rect.height < 40
+        }
+        if model.privacyDot != dot { model.privacyDot = dot }
         // While a fullscreen window hides a bar, the native menu bar is the way to that app's menus. Reapplied every
         // tick, as yabai reapplies it on Space changes.
         NativeMenuBar.setAlpha(panels.contains { $0.parent == nil && !$0.isVisible } ? 1 : 0)

@@ -18,6 +18,8 @@ final class BarModel {
     var volume = VolumeState(level: 0, muted: false)
     var network = NetworkState(kind: .offline)
     var now = Date()
+    /// macOS shows its camera, microphone or screen recording dot at the right end of the menu bar.
+    var privacyDot = false
     var scriptLabels: [String: String] = [:]
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
