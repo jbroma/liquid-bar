@@ -18,6 +18,8 @@ final class ExpansionSlot {
     /// The bar's screen; only the screen the user is looking at, the pointer's, pulses.
     @ObservationIgnored private let screen: CGRect
     @ObservationIgnored private var wake: NSObjectProtocol?
+    /// Esc closes the open item; the monitor exists only while one is open.
+    @ObservationIgnored private var escape: Any?
 
     init(screen: CGRect) {
         self.screen = screen
@@ -28,6 +30,7 @@ final class ExpansionSlot {
 
     isolated deinit {
         wake.map(NSWorkspace.shared.notificationCenter.removeObserver)
+        escape.map(NSEvent.removeMonitor)
     }
 
     func hover(_ id: Dropdown, _ inside: Bool) {
@@ -70,6 +73,15 @@ final class ExpansionSlot {
         if next != owner {
             trace("owner \(owner.map { "\($0)" } ?? "-") -> \(next.map { "\($0)" } ?? "-")")
             withAnimation(spring) { owner = next }
+            if next == nil {
+                escape.map(NSEvent.removeMonitor)
+                escape = nil
+            } else if escape == nil {
+                escape = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                    guard event.keyCode == 53 else { return }
+                    MainActor.assumeIsolated { self?.dismiss() }
+                }
+            }
         }
         timer?.cancel()
         guard let recheck else { return }
