@@ -1,5 +1,6 @@
 import AppKit
 import LiquidBarCore
+import OSLog
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
+        if !AXIsProcessTrusted() { log.notice("no Accessibility access: app menus, status items and Focus are unavailable") }
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         aerospace = AeroSpaceSource(model: model)
@@ -133,6 +135,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 /// Above the native menu bar (24), which stays under the bar as a fallback.
 let barLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 2)
+
+/// Read with `log show --predicate 'subsystem == "dev.liquidbar"'`; launchd discards stderr.
+let log = Logger(subsystem: "dev.liquidbar", category: "bar")
 
 let quitNotification = Notification.Name("dev.liquidbar.quit")
 

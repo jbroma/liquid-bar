@@ -57,6 +57,7 @@ final class AeroSpaceSource {
                 if model.workspaces.apply(event) { refreshWindows() }
             }
         } catch {}
+        log.info("AeroSpace subscription ended")
         subscriber = nil
     }
 
@@ -330,7 +331,7 @@ final class ConfigWatcher {
         } catch CocoaError.fileReadNoSuchFile {
             onChange(Config())
         } catch {
-            FileHandle.standardError.write(Data("liquid-bar: ignoring \(configURL.path): \(error)\n".utf8))
+            log.error("ignoring \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
         }
     }
 
