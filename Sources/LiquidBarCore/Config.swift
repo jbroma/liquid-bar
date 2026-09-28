@@ -66,3 +66,44 @@ extension Config {
     }
 }
 
+/// A change made from the Apple menu's LiquidBar submenu.
+public enum Setting: Equatable, Sendable {
+    case workspaceSource(WorkspaceSource)
+    case clock24Hour(Bool)
+    case clockSeconds(Bool)
+    case batteryPercent(Bool)
+    case nowPlaying(Bool)
+
+    /// The config file's contents (nil when missing) with this change applied. Every other key stays as written.
+    public func applied(to data: Data?) throws -> Data {
+        var json: [String: Any] = [:]
+        if let data {
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                throw ConfigError(description: "the config must be a JSON object")
+            }
+            json = object
+        }
+        switch self {
+        case .workspaceSource(let source): json["workspaceSource"] = source.rawValue
+        case .clock24Hour(let on): json["clock24Hour"] = on
+        case .clockSeconds(let on): json["clockSeconds"] = on
+        case .batteryPercent(let on): json["batteryPercent"] = on
+        case .nowPlaying(let on):
+            let name = Widget.nowPlaying.name
+            var right: [Any] = json["right"] as? [Any] ?? Config().right.map(\.name)
+            let shown = right.contains { $0 as? String == name }
+            // First, where the default list has it.
+            if on && !shown { right.insert(name, at: 0) }
+            if !on { right.removeAll { $0 as? String == name } }
+            json["right"] = right
+        }
+        return try JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+    }
+}
+
+/// Creates the config file as `{}` when missing, so there is a file to open.
+public func createConfigFile(at url: URL) throws {
+    guard !FileManager.default.fileExists(atPath: url.path) else { return }
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data("{}\n".utf8).write(to: url)
+}

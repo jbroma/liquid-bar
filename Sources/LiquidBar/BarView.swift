@@ -281,7 +281,7 @@ struct AppleButton: View {
                 if let command = model.config.clicks["apple"] {
                     shell(command)
                 } else {
-                    AppleMenu.popUp(at: bar.menuOrigin(under: frame))
+                    AppleMenu.popUp(at: bar.menuOrigin(under: frame), config: model.config)
                 }
             }
     }

@@ -46,3 +46,81 @@ private func decode(_ json: String) throws -> Config {
     #expect(throws: (any Error).self) { try decode(#"{"workspaceSource": "desktops"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"clockSeconds": "yes"}"#) }
 }
+
+private func apply(_ setting: Setting, to json: String?) throws -> String {
+    String(decoding: try setting.applied(to: json.map { Data($0.utf8) }), as: UTF8.self)
+}
+
+@Test func settingsEditTheConfigKeepingOtherKeys() throws {
+    #expect(try apply(.clockSeconds(true), to: nil) == """
+        {
+          "clockSeconds" : true
+        }
+        """)
+    #expect(try apply(.workspaceSource(.apps), to: #"{"margin": 4, "workspaceSource": "auto", "x": [1]}"#) == """
+        {
+          "margin" : 4,
+          "workspaceSource" : "apps",
+          "x" : [
+            1
+          ]
+        }
+        """)
+    #expect(try apply(.batteryPercent(false), to: "{}") == """
+        {
+          "batteryPercent" : false
+        }
+        """)
+    #expect(try apply(.clock24Hour(false), to: #"{"clock24Hour": true}"#) == """
+        {
+          "clock24Hour" : false
+        }
+        """)
+    #expect(throws: (any Error).self) { try apply(.clockSeconds(true), to: "[]") }
+    #expect(throws: (any Error).self) { try apply(.clockSeconds(true), to: #"{"margin": "#) }
+}
+
+@Test func nowPlayingTogglesInTheRightList() throws {
+    let hidden = try apply(.nowPlaying(false), to: nil)
+    #expect(hidden == """
+        {
+          "right" : [
+            "volume",
+            "wifi",
+            "battery",
+            "controlCenter",
+            "clock"
+          ]
+        }
+        """)
+    #expect(try decode(try apply(.nowPlaying(true), to: hidden)).right == Config().right)
+    #expect(try apply(.nowPlaying(true), to: #"{"right": ["clock", {"script": "date"}]}"#) == """
+        {
+          "right" : [
+            "nowPlaying",
+            "clock",
+            {
+              "script" : "date"
+            }
+          ]
+        }
+        """)
+    #expect(try apply(.nowPlaying(true), to: #"{"right": ["clock", "nowPlaying"]}"#) == """
+        {
+          "right" : [
+            "clock",
+            "nowPlaying"
+          ]
+        }
+        """)
+}
+
+@Test func createsAMissingConfigFileOnly() throws {
+    let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString).appending(path: "liquid-bar/config.json")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent().deletingLastPathComponent()) }
+    try createConfigFile(at: url)
+    #expect(String(decoding: try Data(contentsOf: url), as: UTF8.self) == "{}\n")
+    try Data(#"{"margin": 4}"#.utf8).write(to: url)
+    try createConfigFile(at: url)
+    #expect(String(decoding: try Data(contentsOf: url), as: UTF8.self) == #"{"margin": 4}"#)
+}

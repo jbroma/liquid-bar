@@ -91,6 +91,8 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A missing key keeps the default, and a missing file means all defaults. The bar reloads the file when it changes. If the new file is invalid, the bar logs the error to stderr and keeps the previous config.
 
+The LiquidBar submenu in the Apple menu edits the same file. It switches the workspace source, the clock's 12- or 24-hour format and seconds, and whether now playing and the battery percentage show. Each change rewrites the file with sorted keys and keeps every other key. The submenu also opens the file (creating it as `{}` when missing), reloads it, and quits the bar.
+
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `margin` | number | `10` | Space between the screen edge and the outer pills. |

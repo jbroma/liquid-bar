@@ -28,12 +28,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clock = ClockSource(model: model)
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
-        // launchd stops us with SIGTERM; take the subscriber down too so it is not left orphaned inside AeroSpace.
+        // launchd stops us with SIGTERM.
         signal(SIGTERM, SIG_IGN)
         sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         sigterm?.setEventHandler { [weak self] in
-            MainActor.assumeIsolated { self?.workspaces?.feed?.stop() }
-            exit(0)
+            MainActor.assumeIsolated { self?.quit() }
         }
         sigterm?.resume()
         // A new instance (launchd restart, `make run`) replaces any running one instead of stacking a second bar on top.
@@ -41,8 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let center = DistributedNotificationCenter.default()
         center.addObserver(forName: quitNotification, object: nil, queue: .main) { [weak self] note in
             guard note.object as? String != pid else { return }
-            MainActor.assumeIsolated { self?.workspaces?.feed?.stop() }
-            exit(0)
+            MainActor.assumeIsolated { self?.quit() }
         }
         center.postNotificationName(quitNotification, object: pid, userInfo: nil, deliverImmediately: true)
         NotificationCenter.default.addObserver(
@@ -58,6 +56,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fullscreenPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.hideUnderFullscreenWindows() }
         }
+    }
+
+    /// Takes the AeroSpace subscriber down too so it is not left orphaned inside AeroSpace.
+    func quit() {
+        workspaces?.feed?.stop()
+        exit(0)
     }
 
     /// Mirroring and resolution changes post several notifications while the geometry settles; build once at the end.

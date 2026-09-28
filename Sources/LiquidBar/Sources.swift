@@ -459,7 +459,7 @@ final class ConfigWatcher {
         reload()
     }
 
-    private func reload() {
+    func reload() {
         watches.forEach { $0.cancel() }
         let dir = configURL.deletingLastPathComponent()
         // Watch the directory for atomic saves, the file for in-place writes, and ~/.config until the directory exists.
