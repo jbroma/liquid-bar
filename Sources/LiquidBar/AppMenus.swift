@@ -22,11 +22,19 @@ enum AppMenus {
         }
     }
 
-    /// Opens a native dropdown mirroring the menu bar item's menu; picking an item presses it in the app.
-    static func popUp(_ title: AppMenuTitle, at screenPoint: NSPoint) {
-        guard let menu = AX.children(title.element).first else { return }
+    /// Opens a native dropdown mirroring the menu bar item's menu; picking an item presses it in the app. Returns the
+    /// title from `titleUnder` that the pointer slid onto, which closed the menu, if any.
+    static func popUp(_ title: AppMenuTitle, at screenPoint: NSPoint, titleUnder: @escaping (NSPoint) -> AppMenuTitle?) -> AppMenuTitle? {
+        guard let element = AX.children(title.element).first else { return nil }
         fillers = []
-        mirror(menu, title: title.title).popUp(positioning: nil, at: screenPoint, in: nil)
+        let menu = mirror(element, title: title.title)
+        let switcher = TitleSwitch(menu: menu, titleUnder: titleUnder)
+        // A tracking menu hides the pointer from SwiftUI's hover, so poll it in the menu's run loop mode instead.
+        let poll = Timer(timeInterval: 1.0 / 60, target: switcher, selector: #selector(TitleSwitch.poll), userInfo: nil, repeats: true)
+        RunLoop.main.add(poll, forMode: .eventTracking)
+        menu.popUp(positioning: nil, at: screenPoint, in: nil)
+        poll.invalidate()
+        return switcher.next
     }
 
     /// Explains the missing permission instead of doing `purpose`, and offers the Privacy pane.
@@ -52,6 +60,24 @@ enum AppMenus {
         fillers.append(filler)
         menu.delegate = filler
         return menu
+    }
+}
+
+/// Closes an open menu once the pointer is over another title, remembering that title.
+private final class TitleSwitch: NSObject {
+    let menu: NSMenu
+    let titleUnder: (NSPoint) -> AppMenuTitle?
+    var next: AppMenuTitle?
+
+    init(menu: NSMenu, titleUnder: @escaping (NSPoint) -> AppMenuTitle?) {
+        self.menu = menu
+        self.titleUnder = titleUnder
+    }
+
+    @objc func poll() {
+        guard next == nil, let title = titleUnder(NSEvent.mouseLocation) else { return }
+        next = title
+        menu.cancelTracking()
     }
 }
 
@@ -126,6 +152,8 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
 @Observable
 final class MenuMode {
     private(set) var titles: [AppMenuTitle]?
+    /// The title whose menu is open, highlighted in place of the pointer's, which SwiftUI stops following meanwhile.
+    private(set) var openTitle: Int?
     @ObservationIgnored private var leave: Task<Void, Never>?
     @ObservationIgnored private var escape: Any?
     @ObservationIgnored private var dropdownOpen = false
@@ -158,9 +186,19 @@ final class MenuMode {
         return true
     }
 
-    func open(_ title: AppMenuTitle, at screenPoint: NSPoint) {
+    /// Opens `title`'s menu. Sliding onto another title while it is open switches to that title's menu, as in the
+    /// native menu bar. `columns` are the titles' full-height strips of the bar, in screen coordinates.
+    func open(_ title: AppMenuTitle, columns: [(title: AppMenuTitle, rect: CGRect)]) {
         dropdownOpen = true
-        AppMenus.popUp(title, at: screenPoint)
+        var next: AppMenuTitle? = title
+        while let current = next, let rect = columns.first(where: { $0.title.id == current.id })?.rect {
+            openTitle = current.id
+            next = AppMenus.popUp(current, at: rect.origin) { point in
+                // NSMouseInRect counts the top edge as inside, where the pointer rests when pushed against it.
+                columns.first { $0.title.id != current.id && NSMouseInRect(point, $0.rect, false) }?.title
+            }
+        }
+        openTitle = nil
         dropdownOpen = false
         if !pointerInside { hover(false) }
     }

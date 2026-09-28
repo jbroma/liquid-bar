@@ -137,7 +137,7 @@ struct WidgetView: View {
         case .workspaces:
             Group {
                 if let titles = menuMode.titles {
-                    MenuStrip(titles: titles) { menuMode.open($0, at: bar.menuOrigin(under: $1)) }
+                    MenuStrip(titles: titles, openTitle: menuMode.openTitle) { menuMode.open($0, columns: $1) }
                         .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
                 } else {
                     WorkspaceStrip(model: model) { frame in
@@ -244,7 +244,12 @@ struct BarMetrics {
     /// Where a menu under `rect`, a global frame in the bar, opens: its left edge, at the bar's bottom. AppKit keeps a
     /// menu below the menu bar's strip and scrolls it instead, hiding its first item, so any higher and it is lost.
     func menuOrigin(under rect: CGRect) -> NSPoint {
-        NSPoint(x: screen.minX + rect.minX, y: screen.maxY - height)
+        column(under: rect).origin
+    }
+
+    /// The bar's full height under `rect`, a global frame in the bar, in screen coordinates.
+    func column(under rect: CGRect) -> CGRect {
+        CGRect(x: screen.minX + rect.minX, y: screen.maxY - height, width: rect.width, height: height)
     }
 }
 

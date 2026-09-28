@@ -142,30 +142,31 @@ struct Equalizer: NSViewRepresentable {
 /// dropdown of that menu.
 struct MenuStrip: View {
     let titles: [AppMenuTitle]
-    let open: (AppMenuTitle, CGRect) -> Void
+    let openTitle: Int?
+    let open: (AppMenuTitle, _ columns: [(title: AppMenuTitle, rect: CGRect)]) -> Void
+    @Environment(\.bar) private var bar
+    @State private var frames: [Int: CGRect] = [:]
+    @State private var hovered: Int?
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(titles) { title in
-                MenuTitleButton(title: title, bold: title.id == titles.first?.id) { open(title, $0) }
+                Text(title.title)
+                    .font(.system(size: 12, weight: title.id == titles.first?.id ? .bold : .medium))
+                    .fixedSize()
+                    .padding(.horizontal, 7)
+                    .frame(height: 18)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames[title.id] = $0 }
+                    .background { RoundedRectangle(cornerRadius: 9).fill(.white.opacity((openTitle ?? hovered) == title.id ? 0.12 : 0)) }
+                    .contentShape(RoundedRectangle(cornerRadius: 9))
+                    .onHover { inside in
+                        if inside { hovered = title.id } else if hovered == title.id { hovered = nil }
+                    }
+                    .onTapGesture {
+                        haptic()
+                        open(title, titles.compactMap { title in frames[title.id].map { (title, bar.column(under: $0)) } })
+                    }
             }
         }
-    }
-}
-
-private struct MenuTitleButton: View {
-    let title: AppMenuTitle
-    let bold: Bool
-    let open: (CGRect) -> Void
-    @State private var frame = CGRect.zero
-
-    var body: some View {
-        Text(title.title)
-            .font(.system(size: 12, weight: bold ? .bold : .medium))
-            .fixedSize()
-            .padding(.horizontal, 7)
-            .frame(height: 18)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-            .hoverButton(radius: 9) { open(frame) }
     }
 }
