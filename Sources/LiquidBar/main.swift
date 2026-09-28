@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var pendingRebuild: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // The bar is black in either system appearance, and so are its dropdowns and menus.
+        NSApp.appearance = NSAppearance(named: .darkAqua)
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
         if !AXIsProcessTrusted() { log.notice("no Accessibility access: app menus, status items and Focus are unavailable") }
@@ -122,7 +124,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isOpaque = background == .black
         panel.hasShadow = false
         panel.isReleasedWhenClosed = false
-        panel.appearance = NSAppearance(named: .darkAqua)
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         let host = NSHostingView(rootView: root)
         host.sizingOptions = []
