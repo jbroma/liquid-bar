@@ -1,5 +1,5 @@
 .build/
 .swiftpm/
 .scratch/
-*.app
+build/
 DerivedData/
