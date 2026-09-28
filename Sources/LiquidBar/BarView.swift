@@ -256,13 +256,16 @@ struct AppleButton: View {
     let model: BarModel
     @Environment(\.bar) private var bar
     @State private var frame = CGRect.zero
+    @State private var hovering = false
 
     var body: some View {
         Image(systemName: "apple.logo")
             .font(.system(size: 14, weight: .semibold))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
             .padding(.horizontal, 3)
+            .background { hoverFill(hovering).frame(width: bar.item, height: bar.item) }
             .barHitArea()
+            .onHover { hovering = $0 }
             .onTapGesture {
                 if let command = model.config.clicks["apple"] {
                     shell(command)
@@ -355,7 +358,7 @@ struct WorkspaceButton: View {
     let action: () -> Void
 
     var body: some View {
-        LivePill(id: .workspace(id), pulse: 0, gap: 0) { _ in
+        LivePill(id: .workspace(id), pulse: 0, gap: 0) { open in
             HStack(spacing: 4) {
                 Text(id)
                     .font(.system(size: 10, weight: .semibold))
@@ -369,9 +372,17 @@ struct WorkspaceButton: View {
             }
             .padding(.horizontal, apps.isEmpty ? 7 : 6)
             .frame(minWidth: height, minHeight: height)
+            .background { hoverFill(open && !focused) }
         }
         .onTapGesture(perform: action)
     }
+}
+
+/// Under the pointer, the Apple glyph and the workspaces show a fill half as strong as the focused workspace's.
+private func hoverFill(_ on: Bool) -> some View {
+    Capsule()
+        .fill(.white.opacity(on ? 0.07 : 0))
+        .animation(.easeOut(duration: 0.15), value: on)
 }
 
 /// The focus fill between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet.
