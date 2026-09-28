@@ -79,6 +79,38 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     #expect(launching.quietUntil == at(10))
 }
 
+@Test func aChangeShowsInlineOnlyWhenItIsNews() {
+    var inputs = Inputs(quietUntil: at(2))
+    #expect(inputs.startInline("nowPlaying", now: at(1), current: nil) == false)
+    #expect(inputs.startInline("nowPlaying", now: at(2), current: nil) == true)
+    #expect(inputs.inline == .init("nowPlaying", at(5)))
+    // A second track while the first shows restarts the time.
+    #expect(inputs.startInline("nowPlaying", now: at(4), current: nil) == true)
+    #expect(inputs.inline == .init("nowPlaying", at(7)))
+    // The open dropdown already shows the change, whether the pointer is on the pill or it lingers after leaving.
+    var open = Inputs(left: .init("nowPlaying", at(1)))
+    #expect(open.startInline("nowPlaying", now: at(1.2), current: "nowPlaying") == false)
+    var hovering = Inputs(inside: .init("nowPlaying", t0))
+    #expect(hovering.startInline("nowPlaying", now: at(1), current: nil) == false)
+    #expect(hovering.inline == nil)
+}
+
+@Test func anInlineChangeEndsAfterItsTimeUnlessThePointerIsOnIt() {
+    var inputs = Inputs(inline: .init("nowPlaying", at(3)))
+    #expect(inputs.inlined(now: at(1), current: nil) == ("nowPlaying", at(3)))
+    #expect(inputs.inlined(now: at(3), current: nil) == (nil, nil))
+    #expect(inputs.inline == nil)
+    // The pointer came to the pill and opened its dropdown: it stays wide until the dropdown closes.
+    var held = Inputs(inside: .init("nowPlaying", at(2)), inline: .init("nowPlaying", at(3)))
+    #expect(held.inlined(now: at(4), current: "nowPlaying") == ("nowPlaying", nil))
+    held.inside = nil
+    #expect(held.inlined(now: at(5), current: "nowPlaying") == ("nowPlaying", nil))
+    #expect(held.inlined(now: at(5.5), current: nil) == (nil, nil))
+    // Hovering it again later does not bring the change back.
+    held.inside = .init("nowPlaying", at(6))
+    #expect(held.inlined(now: at(6), current: nil) == (nil, nil))
+}
+
 @Test func theOpenDropdownHoldsItsItem() {
     // The pointer crossed from the pill into its dropdown: the pill's exit and the dropdown's entry arrive in either
     // order, and neither the linger nor a pulse elsewhere closes it.
