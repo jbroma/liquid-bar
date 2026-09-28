@@ -17,6 +17,9 @@ final class Controls {
         for (name, on) in [("_NSDoNotDisturbEnabledNotification", true), ("_NSDoNotDisturbDisabledNotification", false)] {
             DistributedNotificationCenter.default().addObserver(forName: .init(name), object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.state.focus = on }
+                guard let screen = NSScreen.screens.first else { return }
+                let (frame, barHeight) = (screen.frame, max(screen.frame.maxY - screen.visibleFrame.maxY, 24))
+                Task { await blocking { SystemControlCenter.moveFocusBanner(toTopRightOf: frame, below: barHeight) } }
             }
         }
     }

@@ -309,6 +309,28 @@ enum SystemControlCenter {
         NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
     }
 
+    /// Moves Control Center's Focus banner, which macOS places under the hidden native Control Center icon, to the
+    /// top right corner below the bar, where notification banners appear. It waits up to 1.5 s for the banner.
+    nonisolated static func moveFocusBanner(toTopRightOf screen: CGRect, below barHeight: CGFloat) {
+        guard AXIsProcessTrusted(), let pid else { return }
+        let app = AXUIElementCreateApplication(pid)
+        for _ in 0..<30 {
+            let banner = (AX.attribute(app, kAXWindowsAttribute) as? [AXUIElement] ?? []).first { window in
+                AX.string(window, kAXSubroleAttribute) == "AXSystemDialog"
+            }
+            var size = CGSize.zero
+            if let banner, let value = AX.attribute(banner, kAXSizeAttribute) {
+                AXValueGetValue(value as! AXValue, .cgSize, &size)
+                // The visible capsule sits inside a larger window, 67 points in from its right edge and 44 below its
+                // top (measured on macOS 26). Accessibility measures from the top left of the primary screen.
+                var origin = CGPoint(x: screen.maxX - 10 + 67 - size.width, y: barHeight + 6 - 44)
+                AXUIElementSetAttributeValue(banner, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &origin)!)
+                return
+            }
+            usleep(50_000)
+        }
+    }
+
     /// Control Center's status items by identifier, empty without Accessibility access.
     nonisolated static func extras() -> [String: AXUIElement] {
         guard AXIsProcessTrusted(), let pid else { return [:] }
