@@ -7,7 +7,6 @@ enum AppleMenu {
         let menu = NSMenu()
         menu.addItem(actionItem("About This Mac") { shell("open -a 'About This Mac'") })
         menu.addItem(actionItem("System Settings…") { shell("open -a 'System Settings'") })
-        menu.addItem(liquidBarItem(config))
         menu.addItem(forceQuitItem())
         menu.addItem(.separator())
         menu.addItem(actionItem("Sleep") { shell("pmset sleepnow") })
@@ -17,6 +16,8 @@ enum AppleMenu {
         menu.addItem(.separator())
         menu.addItem(actionItem("Lock Screen") { lockScreen() })
         menu.addItem(actionItem("Log Out \(NSFullUserName())…") { shell(#"osascript -e 'tell application "loginwindow" to «event aevtlogo»'"#) })
+        menu.addItem(.separator())
+        menu.addItem(liquidBarItem(config))
         menu.popUp(below: screenPoint)
     }
 
