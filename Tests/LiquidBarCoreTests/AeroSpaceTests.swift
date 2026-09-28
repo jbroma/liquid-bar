@@ -93,3 +93,10 @@ private let listing = """
     #expect(state.neighbor(1, in: order) == "4")
     #expect(state.neighbor(-1, in: order) == "2")
 }
+
+@Test func reconnectsWithinThreeSecondsAndStartsOverAfterALastingSubscription() {
+    var backoff = Backoff()
+    #expect([0.1, 0.1, 0.1, 0.1].map { backoff.next(after: $0) } == [1, 2, 3, 3])
+    #expect(backoff.next(after: 3600) == 1)
+    #expect(backoff.next(after: 0.1) == 2)
+}

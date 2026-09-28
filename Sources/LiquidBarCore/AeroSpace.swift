@@ -109,3 +109,18 @@ extension WorkspaceState {
         return candidates[min(max(index + steps, 0), candidates.count - 1)]
     }
 }
+
+/// Waits between attempts to reach AeroSpace, which may start after the bar or restart: doubling from 1s up to 3s, so
+/// the workspaces come back within seconds, and from 1s again after a subscription that lasted.
+public struct Backoff: Equatable, Sendable {
+    public private(set) var delay: TimeInterval = 1
+
+    public init() {}
+
+    /// The wait after a subscription that stayed up for `lasted` seconds.
+    public mutating func next(after lasted: TimeInterval) -> TimeInterval {
+        if lasted > 30 { delay = 1 }
+        defer { delay = min(delay * 2, 3) }
+        return delay
+    }
+}

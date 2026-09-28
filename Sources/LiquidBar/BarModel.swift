@@ -11,6 +11,8 @@ struct FrontApp: Equatable {
 final class BarModel {
     var config = Config()
     var workspaces = WorkspaceState()
+    /// False while AeroSpace is not answering; the workspaces shown are then the last ones known.
+    var aerospaceConnected = false
     var battery: BatteryState?
     var volume = VolumeState(level: 0, muted: false)
     var network = NetworkState(kind: .offline)

@@ -336,8 +336,10 @@ struct WorkspaceStrip: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { if right { trail = new.maxX } else { lead = new.minX } }
             withAnimation(.spring(response: 0.36, dampingFraction: 0.8).delay(0.08)) { if right { lead = new.minX } else { trail = new.maxX } }
         }
+        .opacity(model.aerospaceConnected ? 1 : 0.4)
         .animation(spring, value: model.workspaces.mode)
         .animation(spring, value: model.workspaces.windows)
+        .animation(spring, value: model.aerospaceConnected)
         // Wheel away or fingers up goes to the previous workspace, like scrolling up a list.
         .overlay { ScrollCatcher(step: 30) { model.scrollWorkspaces(-$0) } }
     }

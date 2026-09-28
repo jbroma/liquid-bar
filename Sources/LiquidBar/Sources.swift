@@ -16,27 +16,33 @@ final class AeroSpaceSource {
     let model: BarModel
     private(set) var subscriber: Process?
     private var refreshTask: Task<Void, Never>?
+    private var retry: Task<Void, Never>?
 
     init(model: BarModel) {
         self.model = model
         let center = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
-            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshWindows() }
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                let launched = name == NSWorkspace.didLaunchApplicationNotification
+                    && (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == "bobko.aerospace"
+                MainActor.assumeIsolated {
+                    if launched { self?.retry?.cancel() }
+                    self?.refreshWindows()
+                }
             }
         }
         Task { await subscribeForever() }
     }
 
-    /// AeroSpace may start after us or restart; resubscribe with backoff.
+    /// AeroSpace may start after us or restart; resubscribe with backoff, or at once when it launches.
     private func subscribeForever() async {
-        var delay = 1.0
+        var backoff = Backoff()
         while true {
             let started = Date()
             await subscribeOnce()
-            if Date().timeIntervalSince(started) > 30 { delay = 1 }
-            try? await Task.sleep(for: .seconds(delay))
-            delay = min(delay * 2, 30)
+            let wait = backoff.next(after: Date().timeIntervalSince(started))
+            retry = Task { try? await Task.sleep(for: .seconds(wait)) }
+            await retry?.value
         }
     }
 
@@ -47,7 +53,9 @@ final class AeroSpaceSource {
         do { try process.run() } catch { return }
         subscriber = process
         // Seed focus so the focused workspace's stack is right before the first focus event.
-        if let focused = await run(["aerospace", "list-windows", "--focused", "--format", windowFormat]).flatMap({ parseWindows($0).first }) {
+        let seed = await run(["aerospace", "list-windows", "--focused", "--format", windowFormat])
+        model.aerospaceConnected = seed != nil
+        if let focused = seed.flatMap({ parseWindows($0).first }) {
             _ = model.workspaces.apply(.focusChanged(workspace: focused.workspace, windowID: focused.id))
         }
         refreshWindows()
@@ -59,6 +67,7 @@ final class AeroSpaceSource {
         } catch {}
         log.info("AeroSpace subscription ended")
         subscriber = nil
+        model.aerospaceConnected = false
     }
 
     func refreshWindows() {
