@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var pendingRebuild: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // The bar is black in either system appearance, and so are its dropdowns and menus.
+        // The bar, its dropdowns and its menus are dark in either system appearance.
         NSApp.appearance = NSAppearance(named: .darkAqua)
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
@@ -93,13 +93,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {
         // Exactly as tall as the native menu bar under it, which macOS keeps banners, Notification Center and
-        // windows below. On a notched screen that is one point taller than the notch (33 vs 32), invisible on black.
+        // windows below. On a notched screen that is one point taller than the notch (33 vs 32).
         let height = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
         let frame = NSRect(x: screen.frame.minX, y: screen.frame.maxY - height, width: screen.frame.width, height: height)
-        // Pure black, like the bezel and the notch on a mini-LED panel.
         let (left, right) = (screen.auxiliaryTopLeftArea?.width, screen.auxiliaryTopRightArea?.width)
         let metrics = BarMetrics(screen: screen.frame, height: height, left: left, right: right)
-        let bar = panel(frame, background: .black, root: BarView(model: model).environment(slot).environment(\.bar, metrics))
+        let bar = panel(frame, root: BarView(model: model).environment(slot).environment(\.bar, metrics))
         // One dropdown window on each side of the notch, from the bar down to the bottom of the screen. Their clear
         // pixels let the pointer through, as long as `ignoresMouseEvents` is never set.
         let (leftWidth, rightWidth) = (left ?? screen.frame.width / 2, right ?? screen.frame.width / 2)
@@ -107,7 +106,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let height = screen.frame.height - frame.height
             let dropdown = panel(
                 NSRect(x: screen.frame.minX + originX, y: frame.minY - height, width: width, height: height),
-                background: .clear,
                 root: DropdownView(model: model, originX: originX, left: left).environment(slot)
             )
             dropdown.becomesKeyOnlyIfNeeded = true
@@ -117,11 +115,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return [bar] + dropdowns
     }
 
-    private func panel(_ frame: NSRect, background: NSColor, root: some View) -> NSPanel {
+    private func panel(_ frame: NSRect, root: some View) -> NSPanel {
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = barLevel
-        panel.backgroundColor = background
-        panel.isOpaque = background == .black
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
         panel.hasShadow = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]

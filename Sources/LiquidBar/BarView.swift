@@ -13,7 +13,8 @@ extension Color {
         )
     }
 
-    static let barWhite = Color(hex: 0xf7f1ff)
+    /// The system's primary label colour, white in the bar's dark appearance, so text adapts to the glass under it.
+    static let barWhite = Color.primary
     static let barGreen = Color(hex: 0x7bd88f)
     static let barYellow = Color(hex: 0xfce566)
     static let barRed = Color(hex: 0xfc618d)
@@ -39,6 +40,7 @@ struct BarView: View {
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
         .frame(height: bar.height)
+        .background { Color.clear.glassEffect(.regular, in: .rect) }
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {
@@ -109,7 +111,8 @@ struct Specular: View {
 extension Tint {
     var color: Color {
         switch self {
-        case .normal: .barWhite
+        // Solid white, unlike the translucent label colour, so the battery fill reads at rest.
+        case .normal: Color(hex: 0xf7f1ff)
         case .green: .barGreen
         case .red: .barRed
         }

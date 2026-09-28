@@ -22,9 +22,10 @@ nonisolated enum Dropdown: Hashable, Sendable {
     }
 }
 
-/// The black menu that flows down out of the bar under the open item: one shape with the bar, joined by concave
-/// fillets. Each side of the notch has its own transparent window below the bar, whose clear pixels pass the pointer
-/// through, and shows only its side's dropdowns. Moving to another item morphs it there; its content cross-fades.
+/// The glass menu floating just below the bar under the open item. It floats rather than joining the bar because each
+/// window's glass samples a different backdrop, so a joined shape shows a seam. Each side of the notch has its own
+/// transparent window below the bar, whose clear pixels pass the pointer through, and shows only its side's dropdowns.
+/// Moving to another item morphs it there; its content cross-fades.
 struct DropdownView: View {
     let model: BarModel
     /// This window's left edge in the bar window's coordinates.
@@ -36,7 +37,6 @@ struct DropdownView: View {
     /// The pill the dropdown last hung from, where it shrinks back into while closing.
     @State private var anchor = CGRect.zero
 
-    static let fillet: CGFloat = 10
     static let corner: CGFloat = 18
 
     private struct Geometry: Equatable {
@@ -50,10 +50,10 @@ struct DropdownView: View {
         let pill = open.flatMap { slot.frames[$0] } ?? anchor
         GeometryReader { proxy in
             let geometry = geometry(open, pill: pill, panel: proxy.size)
-            let shape = DropdownShape(fillet: Self.fillet, corner: Self.corner)
-            shape
-                .fill(.black)
-                .frame(width: geometry.width + 2 * Self.fillet, height: geometry.height)
+            let shape = RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
+            Color.clear
+                .glassEffect(.clear, in: shape)
+                .frame(width: geometry.width, height: geometry.height)
                 .overlay(alignment: .top) {
                     ZStack(alignment: .top) {
                         if let open {
@@ -77,7 +77,7 @@ struct DropdownView: View {
                 .onContinuousHover { phase in
                     if case .active = phase { slot.hold(true) } else { slot.hold(false) }
                 }
-                .offset(x: geometry.x - Self.fillet)
+                .offset(x: geometry.x, y: 6)
                 .animation(spring, value: geometry)
         }
         .font(.system(size: 13))
@@ -93,7 +93,7 @@ struct DropdownView: View {
     private func geometry(_ open: Dropdown?, pill: CGRect, panel: CGSize) -> Geometry {
         guard let open, let height = heights[open] else { return Geometry(x: pill.minX - originX, width: pill.width, height: 0) }
         // Clear of the notch, and a few points in from the screen edges.
-        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: Self.fillet + (left ? 4 : 0), upper: panel.width - Self.fillet - (left ? 0 : 4))
+        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: left ? 14 : 10, upper: panel.width - (left ? 10 : 14))
         return Geometry(x: x, width: open.width, height: min(height, panel.height - 8))
     }
 
@@ -107,30 +107,6 @@ struct DropdownView: View {
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
         }
-    }
-}
-
-/// A body `2 * fillet` narrower than its rect hanging from a full-width top edge, joined to it by concave quarter
-/// circles, with rounded bottom corners.
-struct DropdownShape: Shape {
-    let fillet: CGFloat
-    let corner: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        guard rect.height > 0.5 else { return Path() }
-        let f = min(fillet, rect.height / 2)
-        let left = rect.minX + fillet
-        let right = rect.maxX - fillet
-        let c = min(corner, rect.height - f, (right - left) / 2)
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + fillet - f, y: rect.minY))
-        path.addLine(to: CGPoint(x: right + f, y: rect.minY))
-        path.addArc(tangent1End: CGPoint(x: right, y: rect.minY), tangent2End: CGPoint(x: right, y: rect.minY + f), radius: f)
-        path.addArc(tangent1End: CGPoint(x: right, y: rect.maxY), tangent2End: CGPoint(x: left, y: rect.maxY), radius: c)
-        path.addArc(tangent1End: CGPoint(x: left, y: rect.maxY), tangent2End: CGPoint(x: left, y: rect.minY), radius: c)
-        path.addArc(tangent1End: CGPoint(x: left, y: rect.minY), tangent2End: CGPoint(x: left - f, y: rect.minY), radius: f)
-        path.closeSubpath()
-        return path
     }
 }
 
