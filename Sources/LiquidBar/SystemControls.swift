@@ -143,56 +143,6 @@ enum Appearance {
     }
 }
 
-/// Keeps Control Center's Focus banner out of sight. macOS shows it on every Focus change with no setting to turn it
-/// off, and reuses one window for it. An Accessibility observer moves that window off screen as Control Center moves
-/// it into view, before it is drawn. It only acts for 2 s after a Focus change, so other banners, like low battery or
-/// AirPods connecting, still show.
-final class FocusBanner {
-    static let shared = FocusBanner()
-    private var observer: AXObserver?
-    private var observedPid: pid_t = 0
-    private var armedUntil = Date.distantPast
-    /// A banner that came into view just before the Focus change was announced. Turning Focus off moves the banner in
-    /// about a millisecond before the notification arrives.
-    private var early: (window: AXUIElement, at: Date)?
-
-    /// Called as Focus changes; also makes sure the observer follows a restarted Control Center.
-    func arm() {
-        armedUntil = Date().addingTimeInterval(2)
-        if let early, Date().timeIntervalSince(early.at) < 0.2 { hide(early.window) }
-        early = nil
-        observe()
-    }
-
-    func observe() {
-        guard AXIsProcessTrusted(), let pid = SystemControlCenter.pid, pid != observedPid else { return }
-        observedPid = pid
-        var observer: AXObserver?
-        let callback: AXObserverCallback = { _, window, _, context in
-            let banner = Unmanaged<FocusBanner>.fromOpaque(context!).takeUnretainedValue()
-            MainActor.assumeIsolated { banner.hide(window) }
-        }
-        guard AXObserverCreate(pid, callback, &observer) == .success, let observer else { return }
-        let app = AXUIElementCreateApplication(pid)
-        let context = Unmanaged.passUnretained(self).toOpaque()
-        for name in [kAXWindowCreatedNotification, kAXWindowMovedNotification] {
-            AXObserverAddNotification(observer, app, name as CFString, context)
-        }
-        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        self.observer = observer
-    }
-
-    private func hide(_ window: AXUIElement) {
-        var position = CGPoint.zero
-        guard AX.string(window, kAXSubroleAttribute) == "AXSystemDialog" else { return }
-        guard Date() < armedUntil else { return early = (window, Date()) }
-        guard let value = AX.attribute(window, kAXPositionAttribute), AXValueGetValue(value as! AXValue, .cgPoint, &position),
-              position.x > -5_000 else { return }
-        var away = CGPoint(x: -10_000, y: -10_000)
-        AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, AXValueCreate(.cgPoint, &away)!)
-    }
-}
-
 /// The native menu bar's opacity, through SkyLight, as yabai's `menubar_opacity` sets it. At 0 it never shows through
 /// the glass when the pointer reaches the top edge, and ignores the mouse. It lasts only while this process runs, so
 /// the native bar comes back if the bar quits or crashes.
@@ -355,7 +305,7 @@ enum SystemControlCenter {
     /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
     nonisolated static let focus = "com.apple.menuextra.focusmode"
 
-    nonisolated static var pid: pid_t? {
+    private nonisolated static var pid: pid_t? {
         NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
     }
 

@@ -14,11 +14,9 @@ final class Controls {
     /// They arrive as Focus switches, while its status item leaves the menu bar only about 5s after Focus ends.
     init() {
         state.focus = SystemControlCenter.focusIsOn()
-        FocusBanner.shared.observe()
         for (name, on) in [("_NSDoNotDisturbEnabledNotification", true), ("_NSDoNotDisturbDisabledNotification", false)] {
             DistributedNotificationCenter.default().addObserver(forName: .init(name), object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.state.focus = on }
-                FocusBanner.shared.arm()
             }
         }
     }
@@ -46,7 +44,7 @@ final class Controls {
         KeyboardBrightness.write(Double(level) / 100)
     }
 
-    /// A tile's click. `dismiss` closes the dropdown first when the tile hands over to another window.
+    /// A tile's click. `dismiss` closes the dropdown first when the tile hands over to another window or a system banner.
     func press(_ tile: ControlTile, dismiss: () -> Void) {
         haptic()
         switch tile {
@@ -81,6 +79,8 @@ final class Controls {
             // Without the shortcut a toggle drives Control Center for about 3s; a second click would press into its panel.
             guard !togglingFocus else { return }
             togglingFocus = true
+            // macOS answers every Focus change with a banner right where the dropdown hangs.
+            dismiss()
             state.focus = !on
             Task {
                 if await !blocking({ SystemControlCenter.toggleFocus() }) { state.focus = on }
