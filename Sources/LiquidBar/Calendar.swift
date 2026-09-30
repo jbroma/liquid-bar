@@ -4,6 +4,7 @@ import SwiftUI
 /// The full date over a month grid with week numbers and today marked. Scroll or the chevrons change the month.
 struct ClockMenu: View {
     let now: Date
+    @Environment(ExpansionSlot.self) private var slot
     @State private var month = Date()
     private let calendar = Calendar.autoupdatingCurrent
 
@@ -51,6 +52,11 @@ struct ClockMenu: View {
             .monospacedDigit()
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
+            MenuSeparator()
+            MenuButton {
+                slot.dismiss()
+                shell("open -b com.apple.iCal")
+            } content: { Text("Open Calendar") }
         }
         .overlay { ScrollCatcher(step: 30) { shift($0 > 0 ? -1 : 1) } }
     }
@@ -61,8 +67,8 @@ struct ClockMenu: View {
         return Text("\(calendar.component(.day, from: day))")
             .fontWeight(today ? .bold : .medium)
             .frame(width: 30, height: 24)
-            .foregroundStyle(today ? Color.black : Color.barWhite.opacity(inMonth ? 1 : 0.3))
-            .background { if today { Circle().fill(Color.barWhite).frame(width: 24, height: 24) } }
+            .foregroundStyle(Color.barWhite.opacity(today || inMonth ? 1 : 0.3))
+            .background { if today { Circle().fill(Color.accentColor).frame(width: 24, height: 24) } }
     }
 
     private func shift(_ months: Int) {
