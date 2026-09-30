@@ -80,6 +80,15 @@ private struct SettingsView: View {
             }
             .scrollContentBackground(.hidden)
             .navigationTitle(section.title)
+            .toolbar(removing: .title)
+            // The toolbar title has no background, so scrolled content would show through it.
+            .overlay(alignment: .top) {
+                Text(section.title).font(.headline)
+                    .padding(.leading, 20)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .background(.bar)
+                    .ignoresSafeArea(edges: .top)
+            }
         }
         .background(OverlayGlass(corner: 26).ignoresSafeArea())
         .frame(minWidth: 640, minHeight: 440)
@@ -143,9 +152,9 @@ private struct AppearancePane: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("The glass of the dropdowns, the bar's pills, and LiquidBar's windows.")
+                    Text("The glass of the dropdowns, bar pills, and windows.")
                         .foregroundStyle(.secondary)
                     Spacer()
                     Picker("Preview", selection: $backdrop) {
@@ -153,7 +162,7 @@ private struct AppearancePane: View {
                     }
                     .fixedSize()
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 10)], spacing: 10) {
                     ForEach(GlassStyle.allCases, id: \.self) { style in
                         StyleCard(style: style, selected: !config.glassIsCustom && style == config.glassStyle)
                     }
@@ -222,7 +231,7 @@ private struct CustomizeGroup: View {
             StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
         }
-        .padding(.top, 8)
+        .padding(.top, 4)
     }
 }
 
@@ -270,12 +279,12 @@ private struct StyleSwatch: View {
                 case .dropdown:
                     Text("Sound")
                         .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 44, height: 28)
+                        .frame(width: 44, height: 24)
                         .background(OverlayGlass(corner: 8, style: style))
                 }
             }
             .foregroundStyle(Color.barWhite)
-            .frame(width: 64, height: 44)
+            .frame(width: 64, height: 34)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
             Text(style.title).font(.caption)
@@ -292,10 +301,10 @@ private struct StyleCard: View {
     let selected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             ZStack(alignment: .top) {
                 PreviewBackdrop(text: true)
-                VStack(alignment: .trailing, spacing: 6) {
+                VStack(alignment: .trailing, spacing: 4) {
                     Text("9:41")
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 8)
@@ -303,25 +312,25 @@ private struct StyleCard: View {
                         .background(PillFill(shape: Capsule(), style: style))
                         .padding(.horizontal, 6)
                         .frame(maxWidth: .infinity, alignment: .trailing)
-                        .frame(height: 24)
+                        .frame(height: 22)
                         .background { Color.clear.glassEffect(.regular, in: .rect) }
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("Sound").fontWeight(.semibold)
                         Text("Speakers").foregroundStyle(secondary)
                     }
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(10)
-                    .background(OverlayGlass(corner: 12, style: style))
-                    .padding([.horizontal, .bottom], 10)
+                    .padding(6)
+                    .background(OverlayGlass(corner: 10, style: style))
+                    .padding([.horizontal, .bottom], 6)
                 }
                 .foregroundStyle(Color.barWhite)
             }
-            .frame(height: 110)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .frame(height: 64)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             Text(style.title).fontWeight(.semibold)
-            Text(style.summary).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
+        .help(style.summary)
         .padding(8)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(selected ? 0.12 : 0.04)))
