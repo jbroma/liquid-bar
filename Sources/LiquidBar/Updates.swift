@@ -16,7 +16,8 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate {
 
     func check() {
         // Sparkle's "Checking for updates" and "You're up to date" windows would open behind the front app.
-        NSApp.activate()
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
         controller?.checkForUpdates(nil)
     }
 
