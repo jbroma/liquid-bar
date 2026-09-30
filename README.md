@@ -7,18 +7,18 @@
 <p align="center">A macOS 26 menu bar replacement in Liquid Glass, with workspaces, Control Center, and a dropdown under every pill.</p>
 
 <p align="center">
-  <img src="docs/images/hero-v080.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and workspaces 1 to 9 on the left, pinned menu bar items, volume, Wi-Fi, battery, Control Center, and the clock on the right, and the Control Center dropdown open below it">
+  <img src="docs/images/hero-v080b.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and workspaces 1 to 9 on the left, pinned menu bar items, volume, Wi-Fi, battery, Control Center, and the clock on the right, and the top of the Control Center dropdown open below it">
 </p>
 
 ## What you get
 
-<img src="docs/images/workspaces-v080.webp" width="100%" alt="Banner: Workspaces and app menus. Workspace 2's dropdown lists Google Chrome, 1Password, and Xcode under its icon stack, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the Edit menu open">
+<img src="docs/images/workspaces-v080b.webp" width="100%" alt="Banner: Workspaces and app menus. Workspace 2's dropdown lists Google Chrome, 1Password, and Xcode, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the Edit menu open">
 
-<img src="docs/images/control-center-v080.webp" width="100%" alt="Banner: Control Center. Two Control Center dropdowns, one with the Menu Bar Items section unfolded and pins on 1Password, Raycast, and NordVPN, the other with the AirDrop section unfolded to Contacts Only and Everyone, above the display and keyboard brightness sliders and the Dark Mode, Night Shift, and Screenshot tiles">
+<img src="docs/images/control-center-v080b.webp" width="100%" alt="Banner: Control Center. Two Control Center dropdowns, one at rest and one with the AirDrop section unfolded to Contacts Only and Everyone, each with Bluetooth, AirDrop, and Focus above the display and keyboard brightness sliders">
 
-<img src="docs/images/styles-v080.webp" width="100%" alt="Banner: Seven glass styles. The battery dropdown in four styles side by side, Liquid, Crystal, Mist, and Obsidian">
+<img src="docs/images/styles-v080b.webp" width="100%" alt="Banner: Seven glass styles. The battery dropdown in four styles side by side, Liquid, Crystal, Mist, and Obsidian">
 
-<img src="docs/images/clock-battery-v080.webp" width="100%" alt="Banner: Clock, battery, and Wi-Fi. The clock dropdown with the full date and a month calendar, and the battery dropdown with power source, status, condition, cycle count, and a Show Percentage switch">
+<img src="docs/images/clock-battery-v080b.webp" width="100%" alt="Banner: Clock, battery, and Wi-Fi. The clock dropdown with the full date and a month calendar, and the battery dropdown with power source, status, condition, cycle count, and a Show Percentage switch">
 
 Also in the bar:
 
