@@ -159,8 +159,8 @@ struct ControlCenterMenu: View {
     @ViewBuilder private func switches(_ controls: Controls, _ state: ControlState) -> some View {
         HStack(spacing: 8) {
             VStack(spacing: 0) {
-                row(.bluetooth, state)
-                row(.airDrop, state)
+                row(.bluetooth, controls, state)
+                row(.airDrop, controls, state)
             }
             .frame(maxWidth: .infinity)
             .module()
@@ -186,9 +186,11 @@ struct ControlCenterMenu: View {
         }
     }
 
-    private func row(_ tile: ControlTile, _ state: ControlState) -> some View {
+    private func row(_ tile: ControlTile, _ controls: Controls, _ state: ControlState) -> some View {
         ControlRow(tile: tile, state: state, open: expanded == tile) {
             withAnimation(spring) { expanded = expanded == tile ? nil : tile }
+        } toggle: {
+            controls.press(tile, dismiss: slot.dismiss)
         }
     }
 
@@ -279,17 +281,19 @@ private func percent(_ fraction: Double) -> Int {
 }
 
 /// A control with choices as one row: its circle, filled with the accent colour while on, its name over its state, and
-/// a chevron. A click unfolds its list, whose header holds the switch; the row stays lit while its list is open.
+/// a chevron. The circle switches the control, as in Control Center; a click anywhere else unfolds its list. The row
+/// lights up as one piece under the pointer and stays lit while its list is open.
 private struct ControlRow: View {
     let tile: ControlTile
     let state: ControlState
     let open: Bool
     let expand: () -> Void
+    let toggle: () -> Void
 
     var body: some View {
         ControlButton(name: tile.name, radius: 14, selected: open, action: expand) {
             HStack(spacing: 0) {
-                TileIcon(tile: tile, on: tile.isOn(state), size: 28)
+                CircleToggle(tile: tile, on: tile.isOn(state), action: toggle)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(tile.name).font(.system(size: 12, weight: .semibold))
                     if let detail = tile.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
@@ -303,6 +307,24 @@ private struct ControlRow: View {
             .padding(.trailing, 2)
         }
         .accessibilityValue(tile.detail(state) ?? "")
+    }
+}
+
+/// A row's circle as its own button, which grows a little under the pointer to show it does something else than the row.
+private struct CircleToggle: View {
+    let tile: ControlTile
+    let on: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) { TileIcon(tile: tile, on: on, size: 28) }
+            .buttonStyle(.plain)
+            .scaleEffect(hovering ? 1.1 : 1)
+            .brightness(hovering ? 0.08 : 0)
+            .animation(.easeOut(duration: 0.12), value: hovering)
+            .onHover { hovering = $0 }
+            .accessibilityLabel(on ? "Turn \(tile.name) Off" : "Turn \(tile.name) On")
     }
 }
 
