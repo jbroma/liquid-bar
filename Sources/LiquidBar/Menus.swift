@@ -92,10 +92,13 @@ struct DeviceIcon: View {
     }
 }
 
-/// Like the Wi-Fi menu extra: the network, its address and live throughput. Throughput is sampled once a second only
-/// while the menu is open.
+/// Like the Wi-Fi menu extra: the Wi-Fi switch, the network, its address and live throughput. Throughput is sampled
+/// once a second only while the menu is open.
 struct NetworkMenu: View {
     let network: NetworkState
+    @State private var power: Bool?
+    /// Why CoreWLAN refused to switch Wi-Fi, shown beside the disabled switch.
+    @State private var failure: String?
     @State private var name: String?
     @State private var bars: Int?
     @State private var address: String?
@@ -103,8 +106,12 @@ struct NetworkMenu: View {
 
     var body: some View {
         MenuBody {
-            MenuTitle(title: network.kind == .wired ? "Ethernet" : "Wi-Fi", accessory: network.interface ?? "Not Connected")
-            if network.kind != .offline {
+            HeaderRow(title: "Wi-Fi") {
+                if let failure { Text(failure).font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1).help(failure) }
+                GlassSwitch(on: failure == nil ? power : nil, set: setPower)
+            }
+            if network.kind == .wired || (network.kind != .offline && power != false) {
+                MenuSeparator()
                 MenuRow {
                     DeviceIcon(symbol: network.symbol, selected: true)
                     // The SSID needs Location access; without it CoreWLAN returns nil and the signal stands in.
@@ -123,7 +130,23 @@ struct NetworkMenu: View {
         .task(id: network) { await sample() }
     }
 
+    private func setPower(_ on: Bool) {
+        power = on
+        Task {
+            failure = await blocking { () -> String? in
+                do {
+                    try CWWiFiClient.shared().interface()?.setPower(on)
+                    return nil
+                } catch {
+                    return error.localizedDescription
+                }
+            }
+            power = CWWiFiClient.shared().interface()?.powerOn()
+        }
+    }
+
     private func sample() async {
+        power = CWWiFiClient.shared().interface()?.powerOn()
         let wifi = network.kind == .wifi ? CWWiFiClient.shared().interface() : nil
         name = wifi?.ssid()
         bars = wifi.map { signalBars(rssi: $0.rssiValue()) }
