@@ -24,7 +24,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `workspaceSource` | string | `"auto"` | Where the workspace strip's items come from: `"auto"`, `"aerospace"`, `"spaces"`, or `"apps"`. See [Workspaces](details.md#workspaces). |
 | `clock24Hour` | boolean | `true` | `false` shows the clock as 12-hour with AM or PM. |
 | `clockSeconds` | boolean | `false` | Shows seconds in the clock. |
-| `batteryPercent` | boolean | `true` | `false` shows the battery symbol without the percentage. |
+| `batteryPercent` | boolean | `false` | `true` shows the percentage next to the battery symbol. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |

@@ -137,7 +137,7 @@ public struct Config: Equatable, Sendable {
     public var workspaceSource = WorkspaceSource.auto
     public var clock24Hour = true
     public var clockSeconds = false
-    public var batteryPercent = true
+    public var batteryPercent = false
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]

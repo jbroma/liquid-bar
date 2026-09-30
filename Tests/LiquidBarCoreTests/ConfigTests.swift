@@ -9,7 +9,7 @@ private func decode(_ json: String) throws -> Config {
 @Test func emptyConfigIsTheDefault() throws {
     let config = try decode("{}")
     #expect(config == Config())
-    #expect([config.clock24Hour, config.clockSeconds, config.batteryPercent] == [true, false, true])
+    #expect([config.clock24Hour, config.clockSeconds, config.batteryPercent] == [true, false, false])
 }
 
 @Test func overridesOnlyTheKeysGiven() throws {
