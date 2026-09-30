@@ -115,8 +115,8 @@ struct DropdownView: View {
 
     private func geometry(_ open: Dropdown?, pill: CGRect, panel: CGSize) -> Geometry {
         guard let open, let height = heights[open] else { return Geometry(x: pill.minX - originX, width: pill.width, height: 0) }
-        // Clear of the notch, and a few points in from the screen edges.
-        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: left ? 14 : 10, upper: panel.width - (left ? 10 : 14))
+        // Clear of the notch, and as far in from the screen edges as the panel hangs below the bar.
+        let x = dropdownX(center: pill.midX - originX, width: open.width, lower: left ? 6 : 10, upper: panel.width - (left ? 10 : 6))
         return Geometry(x: x, width: open.width, height: min(height, panel.height - 8))
     }
 
