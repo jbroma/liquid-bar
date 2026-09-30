@@ -14,13 +14,15 @@ final class Controls {
     /// Focus is read once, then followed through the notifications macOS still posts under Do Not Disturb's old name.
     /// They arrive as Focus switches, while its status item leaves the menu bar only about 5s after Focus ends.
     init() {
-        state.focus = SystemControlCenter.focusIsOn()
+        readFocus()
         for (name, on) in [("_NSDoNotDisturbEnabledNotification", true), ("_NSDoNotDisturbDisabledNotification", false)] {
             DistributedNotificationCenter.default().addObserver(forName: .init(name), object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.state.focus = on }
             }
         }
     }
+
+    func readFocus() { state.focus = SystemControlCenter.focusIsOn() }
 
     func refresh() {
         let airDrop = AirDrop.mode()

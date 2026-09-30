@@ -15,13 +15,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var sigterm: DispatchSourceSignal?
     var fullscreenPoll: Timer?
     var pendingRebuild: Task<Void, Never>?
+    /// Without a relaunch, what read Accessibility at launch or earlier and came up empty reads it again.
+    lazy var access = AccessWindow { [model] in
+        MenuExtras.refresh(model)
+        model.controls.readFocus()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The bar, its dropdowns and its menus are dark in either system appearance.
         NSApp.appearance = NSAppearance(named: .darkAqua)
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
-        if !AXIsProcessTrusted() { log.notice("no Accessibility access: app menus, status items and Focus are unavailable") }
+        if !AXIsProcessTrusted() {
+            log.notice("no Accessibility access: app menus, status items and Focus are unavailable")
+            access.show()
+        }
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         workspaces = WorkspacesSource(model: model)

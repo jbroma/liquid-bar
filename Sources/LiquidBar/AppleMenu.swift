@@ -47,6 +47,7 @@ enum AppleMenu {
                 }
             },
             actionItem("Reload Config") { delegate.configWatcher?.reload() },
+            actionItem("Permissions…") { delegate.access.show() },
             .separator(),
             actionItem("Quit LiquidBar") { delegate.quit() },
         ])

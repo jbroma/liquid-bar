@@ -45,7 +45,7 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 - macOS 26 or later.
 - Menu bar auto-hide off (System Settings, "Automatically hide and show the menu bar", Never). With auto-hide on, windows and notification banners can slide under the bar.
-- Accessibility access, for the front app's menus, other apps' menu bar items, and a few Control Center tiles. The bar runs without it. [Permissions](docs/details.md#permissions) lists every grant.
+- Accessibility access, for the front app's menus, other apps' menu bar items, and a few Control Center tiles. The bar runs without it. On launch without the grant, the bar shows a window that opens the right Settings pane and notices the grant; Apple menu, LiquidBar, Permissions… reopens it. [Permissions](docs/details.md#permissions) lists every grant.
 - [AeroSpace](https://github.com/nikitabobko/AeroSpace) is optional.
 
 ## Settings
