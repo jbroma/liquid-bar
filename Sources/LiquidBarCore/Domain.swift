@@ -155,13 +155,14 @@ public struct Config: Equatable, Sendable {
 
 /// The glass of the dropdowns, the bar's pills, and LiquidBar's windows.
 public enum GlassStyle: String, CaseIterable, Sendable {
-    case liquid, crystal, frost, mist, obsidian
+    case liquid, dew, crystal, frost, mist, obsidian
 
     public var title: String { rawValue.capitalized }
 
     public var summary: String {
         switch self {
         case .liquid: "Glass with a bright lit rim, like the volume overlay"
+        case .dew: "Liquid's lit rim over clearer glass"
         case .crystal: "The clearest glass, showing the most of what is behind"
         case .frost: "Heavy frosted glass that blurs the most"
         case .mist: "Soft, light glass with gentle contrast"

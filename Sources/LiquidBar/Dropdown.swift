@@ -348,6 +348,9 @@ struct PillFill<S: Shape>: View {
     var body: some View {
         switch style ?? delegate.model.config.glassStyle {
         case .liquid: shape.fill(Color.barFill)
+        case .dew:
+            shape.fill(.white.opacity(0.09))
+            shape.stroke(.white.opacity(0.14), lineWidth: 1)
         case .crystal:
             shape.fill(.white.opacity(0.05))
             shape.stroke(.white.opacity(0.3), lineWidth: 1)
@@ -365,6 +368,7 @@ private struct StyledGlass: NSViewRepresentable {
     let preview: Bool
 
     /// Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it.
+    /// Dew is the same rim around clear glass.
     /// Mist is the private light variant 6 with its scrim. Without the private setters both fall back to regular.
     /// Frost is the classic popover material, whose blur is far heavier than any Liquid Glass.
     func makeNSView(context: Context) -> NSView {
@@ -383,7 +387,8 @@ private struct StyledGlass: NSViewRepresentable {
         glass.cornerRadius = corner
         let privateKeys = glass.responds(to: Selector(("set_variant:"))) && glass.responds(to: Selector(("set_scrimState:")))
         switch style {
-        case .liquid where privateKeys:
+        case .liquid where privateKeys, .dew where privateKeys:
+            if style == .dew { glass.style = .clear }
             let rim = NSGlassEffectView()
             rim.cornerRadius = corner
             rim.setValue(11, forKey: "_variant")

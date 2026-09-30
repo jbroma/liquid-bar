@@ -166,8 +166,9 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
 @Test func decodesTheGlassStyle() throws {
     #expect(try decode("{}").glassStyle == .liquid)
     #expect(try decode(#"{"glassStyle": "obsidian"}"#).glassStyle == .obsidian)
-    #expect(GlassStyle.allCases.map(\.rawValue) == ["liquid", "crystal", "frost", "mist", "obsidian"])
-    #expect(GlassStyle.allCases.map(\.title) == ["Liquid", "Crystal", "Frost", "Mist", "Obsidian"])
+    #expect(try decode(#"{"glassStyle": "dew"}"#).glassStyle == .dew)
+    #expect(GlassStyle.allCases.map(\.rawValue) == ["liquid", "dew", "crystal", "frost", "mist", "obsidian"])
+    #expect(GlassStyle.allCases.map(\.title) == ["Liquid", "Dew", "Crystal", "Frost", "Mist", "Obsidian"])
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "Obsidian"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "volume"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": 1}"#) }
