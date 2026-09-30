@@ -120,7 +120,7 @@ struct NetworkMenu: View {
                     if let bars { Image(systemName: "wifi", variableValue: Double(bars) / 3).foregroundStyle(secondary) }
                 }
                 MenuSeparator()
-                MenuValue(title: "IP Address", value: address ?? "None")
+                if let address { CopyableValue(title: "IP Address", value: address) } else { MenuValue(title: "IP Address", value: "None") }
                 MenuValue(title: "Download", value: throughputText(rates?.down ?? 0))
                 MenuValue(title: "Upload", value: throughputText(rates?.up ?? 0))
             }
@@ -161,6 +161,27 @@ struct NetworkMenu: View {
             last = now
             lastTime = Date()
         }
+    }
+}
+
+/// A value row that copies its value on click and reads "Copied" for a second.
+struct CopyableValue: View {
+    let title: String
+    let value: String
+    @State private var copied = false
+
+    var body: some View {
+        MenuValue(title: title, value: copied ? "Copied" : value)
+            .hoverButton {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(value, forType: .string)
+                copied = true
+            }
+            .task(id: copied) {
+                guard copied else { return }
+                try? await Task.sleep(for: .seconds(1))
+                copied = false
+            }
     }
 }
 
