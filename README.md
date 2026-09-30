@@ -7,29 +7,25 @@
 <p align="center">A macOS 26 menu bar replacement in Liquid Glass, with workspaces, Control Center, and a dropdown under every pill.</p>
 
 <p align="center">
-  <img src="docs/images/hero-v071.webp" width="100%" alt="The bar over a violet and blue wallpaper: the Apple logo and workspaces 1 to 9 with app icons on the left, the volume, Wi-Fi, battery, Control Center, and clock pills on the right, and the Control Center dropdown open with Bluetooth, AirDrop, Focus, display and keyboard brightness sliders, Dark Mode, Night Shift, Screenshot, and Menu Bar Items">
+  <img src="docs/images/hero-v080.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and workspaces 1 to 9 on the left, pinned menu bar items, volume, Wi-Fi, battery, Control Center, and the clock on the right, and the Control Center dropdown open below it">
 </p>
 
 ## What you get
 
-- A glass bar with glass pills. Hover a pill and its dropdown floats below it.
-- Workspaces with their apps' icons, from AeroSpace, the macOS desktops, or the running apps.
-- The front app's menus when you click the focused workspace, or while you hold Shift with the pointer on the bar.
-- Control Center, with the other apps' menu bar items listed inside it. Pin one and it moves onto the bar as its own pill, with the item's menu as its dropdown.
-- Now playing for Spotify and Music. On a new track the pill slides out to show the title.
-- The native menu bar stays hidden while the bar runs.
-- The Apple logo opens a dropdown on hover with the Apple menu's items.
-- A right-click on the bar opens LiquidBar's menu: Settings, About, and Quit.
-- Seven glass styles for the dropdowns and pills: Liquid, Dew, Pearl, Crystal, Frost, Mist, and Obsidian.
+<img src="docs/images/workspaces-v080.webp" width="100%" alt="Banner: Workspaces and app menus. Workspace 2's dropdown lists Google Chrome, 1Password, and Xcode under its icon stack, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the Edit menu open">
 
-<p align="center">
-  <img src="docs/images/clock-v071.webp" height="280" alt="Clock dropdown: the full date over a month calendar with week numbers, today marked in the accent colour, and Open Calendar">
-  <img src="docs/images/battery-v071.webp" height="280" alt="Battery dropdown: level, power source, status, condition, maximum capacity, cycle count, a Show Percentage switch, and Battery Settings">
-  <img src="docs/images/about-v071.webp" height="280" alt="About LiquidBar window: the app icon, version 0.7.0, the GitHub link, and a Close button">
-</p>
-<p align="center">
-  <img src="docs/images/workspace-v071.webp" height="188" alt="Workspace 9 dropdown listing its apps, Calculator and Dictionary">
-</p>
+<img src="docs/images/control-center-v080.webp" width="100%" alt="Banner: Control Center. Two Control Center dropdowns, one with the Menu Bar Items section unfolded and pins on 1Password, Raycast, and NordVPN, the other with the AirDrop section unfolded to Contacts Only and Everyone, above the display and keyboard brightness sliders and the Dark Mode, Night Shift, and Screenshot tiles">
+
+<img src="docs/images/styles-v080.webp" width="100%" alt="Banner: Seven glass styles. The battery dropdown in four styles side by side, Liquid, Crystal, Mist, and Obsidian">
+
+<img src="docs/images/clock-battery-v080.webp" width="100%" alt="Banner: Clock, battery, and Wi-Fi. The clock dropdown with the full date and a month calendar, and the battery dropdown with power source, status, condition, cycle count, and a Show Percentage switch">
+
+Also in the bar:
+
+- Now playing for Spotify and Music. On a new track the pill slides out to show the title.
+- The Apple logo opens a dropdown with the Apple menu's items.
+- A right-click on the bar opens LiquidBar's menu: Settings, About, and Quit.
+- The native menu bar stays hidden while the bar runs.
 
 ## Install
 
@@ -54,7 +50,9 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has five sections. General holds the workspace source, now playing, the battery percentage, the clock format, and the Accessibility status. Appearance picks the glass style from seven cards with a live preview, and Customize sets the bar's style and the dropdowns' style apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag. Advanced opens and reloads the config file. About shows the version and license.
 
-<!-- Screenshot placeholder: the Settings window on its Appearance section, the seven glass style cards with Liquid selected. -->
+<p align="center">
+  <img src="docs/images/settings-v080.webp" width="640" alt="The Settings window on its Appearance section: seven glass style cards over a busy preview backdrop, and under Customize, separate style swatches for the bar and the dropdowns">
+</p>
 
 Everything else, like widget order, click commands, and script widgets, lives in `~/.config/liquid-bar/config.json`. See [Configuration](docs/configuration.md).
 
