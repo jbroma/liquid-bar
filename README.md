@@ -20,7 +20,7 @@
 - The native menu bar stays hidden while the bar runs.
 - The Apple logo opens a dropdown on hover with the Apple menu's items.
 - A right-click on the bar opens LiquidBar's menu: Settings, About, and Quit.
-- Six glass styles for the dropdowns and pills: Liquid, Dew, Crystal, Frost, Mist, and Obsidian.
+- Seven glass styles for the dropdowns and pills: Liquid, Dew, Pearl, Crystal, Frost, Mist, and Obsidian.
 
 <p align="center">
   <img src="docs/images/clock-v071.webp" height="280" alt="Clock dropdown: the full date over a month calendar with week numbers, today marked in the accent colour, and Open Calendar">

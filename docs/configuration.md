@@ -7,7 +7,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu below the pointer, in the dropdown glass: **LiquidBar Settings…** and **Quit LiquidBar**. A click outside it or Esc closes it. Opening LiquidBar again while it runs (from Finder, or `open -a LiquidBar`) also opens the Settings window. Every control in it edits the config file, and an edit to the file shows in the window right away. Its sections:
 
 - **General**: Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`). Whether LiquidBar has Accessibility access, with a button that opens the Accessibility window, and whether a launch agent started it.
-- **Appearance**: the five glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one.
+- **Appearance**: the seven glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one.
 - **Menu Bar Items**: the pinned apps in bar order (`pinned`). Drag a row to reorder, and the pin button unpins. Below them, the other apps' menu bar items, each with a pin button.
 - **Advanced**: the config file's path, **Open Config File…**, which creates the file as `{}` first when it is missing, and **Reload Config**.
 - **About**: the version, a link to the GitHub repository, and the license.
@@ -23,7 +23,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `clock24Hour` | boolean | `true` | `false` shows the clock as 12-hour with AM or PM. |
 | `clockSeconds` | boolean | `false` | Shows seconds in the clock. |
 | `batteryPercent` | boolean | `false` | `true` shows the percentage next to the battery symbol. |
-| `glassStyle` | string | `"liquid"` | The glass of the dropdowns, the pills, and LiquidBar's windows: `"liquid"`, `"dew"`, `"crystal"`, `"frost"`, `"mist"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
+| `glassStyle` | string | `"liquid"` | The glass of the dropdowns, the pills, and LiquidBar's windows: `"liquid"`, `"dew"`, `"pearl"`, `"crystal"`, `"frost"`, `"mist"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
@@ -37,13 +37,14 @@ The default clicks open the Sound, Network, and Battery settings panes for `volu
 | Style | Dropdowns and windows | Pills and the focused workspace |
 | --- | --- | --- |
 | `liquid` | Glass with a bright lit rim, like macOS's volume overlay. | A flat 14% white fill. |
-| `dew` | The lit rim of `liquid` around clearer glass, so more of what is behind shows. | A 9% white fill with a faint outline. |
-| `crystal` | The clearest glass, showing the most of what is behind. | A faint fill with a thin white outline. |
+| `dew` | A third of the way from `liquid` to `crystal`: `liquid` at 67% opacity over `crystal`. | An 11% white fill with a 10% white outline. |
+| `pearl` | Two thirds of the way: `liquid` at 33% opacity over `crystal`. | An 8% white fill with a 20% white outline. |
+| `crystal` | The clearest glass, showing the most of what is behind. | A 5% white fill with a 30% white outline. |
 | `frost` | Heavy frosted glass that blurs away what is behind. | Liquid Glass. |
 | `mist` | Soft, light glass with gentle contrast. | A brighter 26% white fill. |
 | `obsidian` | Dark tinted glass. | A dark fill. |
 
-`liquid`, `dew`, and `mist` use private variants of macOS's glass. If a later macOS drops them, those two fall back to plain Liquid Glass.
+`liquid`, `dew`, `pearl`, and `mist` use private parts of macOS's glass. If a later macOS drops them, they fall back to plain Liquid Glass.
 
 ## Widgets
 

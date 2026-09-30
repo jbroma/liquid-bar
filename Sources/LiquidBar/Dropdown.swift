@@ -346,17 +346,16 @@ struct PillFill<S: Shape>: View {
     var style: GlassStyle?
 
     var body: some View {
-        switch style ?? delegate.model.config.glassStyle {
-        case .liquid: shape.fill(Color.barFill)
-        case .dew:
-            shape.fill(.white.opacity(0.09))
-            shape.stroke(.white.opacity(0.14), lineWidth: 1)
-        case .crystal:
-            shape.fill(.white.opacity(0.05))
-            shape.stroke(.white.opacity(0.3), lineWidth: 1)
-        case .frost: Color.clear.glassEffect(.regular, in: shape)
-        case .mist: shape.fill(.white.opacity(0.26))
-        case .obsidian: shape.fill(.black.opacity(0.32))
+        let style = style ?? delegate.model.config.glassStyle
+        if let blend = style.blend {
+            shape.fill(.white.opacity(blend.pillFill))
+            shape.stroke(.white.opacity(blend.pillOutline), lineWidth: 1)
+        } else {
+            switch style {
+            case .frost: Color.clear.glassEffect(.regular, in: shape)
+            case .mist: shape.fill(.white.opacity(0.26))
+            default: shape.fill(.black.opacity(0.32))
+            }
         }
     }
 }
@@ -367,9 +366,9 @@ private struct StyledGlass: NSViewRepresentable {
     /// A preview blurs what its own window draws under it rather than what lies behind the window.
     let preview: Bool
 
-    /// Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it.
-    /// Dew is the same rim around clear glass.
-    /// Mist is the private light variant 6 with its scrim. Without the private setters both fall back to regular.
+    /// Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it, and
+    /// Crystal is clear glass. Dew and Pearl fade Liquid over Crystal. Mist is the private light variant 6 with its
+    /// scrim. Without the private setters, all but Crystal fall back to regular.
     /// Frost is the classic popover material, whose blur is far heavier than any Liquid Glass.
     func makeNSView(context: Context) -> NSView {
         if style == .frost {
@@ -385,15 +384,30 @@ private struct StyledGlass: NSViewRepresentable {
         }
         let glass = NSGlassEffectView()
         glass.cornerRadius = corner
-        let privateKeys = glass.responds(to: Selector(("set_variant:"))) && glass.responds(to: Selector(("set_scrimState:")))
-        switch style {
-        case .liquid where privateKeys, .dew where privateKeys:
-            if style == .dew { glass.style = .clear }
+        let privateKeys = ["set_variant:", "set_scrimState:", "set_backdropGroupName:"].allSatisfy { glass.responds(to: Selector($0)) }
+        if let blend = style.blend, privateKeys {
+            let crystal = NSGlassEffectView()
+            crystal.cornerRadius = corner
+            crystal.style = .clear
+            if blend.liquid == 0 { return crystal }
             let rim = NSGlassEffectView()
             rim.cornerRadius = corner
             rim.setValue(11, forKey: "_variant")
             rim.contentView = glass
-            return rim
+            if blend.liquid == 1 { return rim }
+            // In one backdrop group the upper glass samples what is behind the window, not the glass under it, so
+            // its opacity crossfades the two looks evenly.
+            let group = UUID().uuidString
+            for view in [crystal, glass, rim] { view.setValue(group, forKey: "_backdropGroupName") }
+            rim.alphaValue = blend.liquid
+            let stack = NSView()
+            for view in [crystal, rim] {
+                view.autoresizingMask = [.width, .height]
+                stack.addSubview(view)
+            }
+            return stack
+        }
+        switch style {
         case .mist where privateKeys:
             glass.setValue(6, forKey: "_variant")
             glass.setValue(1, forKey: "_scrimState")

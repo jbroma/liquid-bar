@@ -167,11 +167,22 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     #expect(try decode("{}").glassStyle == .liquid)
     #expect(try decode(#"{"glassStyle": "obsidian"}"#).glassStyle == .obsidian)
     #expect(try decode(#"{"glassStyle": "dew"}"#).glassStyle == .dew)
-    #expect(GlassStyle.allCases.map(\.rawValue) == ["liquid", "dew", "crystal", "frost", "mist", "obsidian"])
-    #expect(GlassStyle.allCases.map(\.title) == ["Liquid", "Dew", "Crystal", "Frost", "Mist", "Obsidian"])
+    #expect(try decode(#"{"glassStyle": "pearl"}"#).glassStyle == .pearl)
+    #expect(GlassStyle.allCases.map(\.rawValue) == ["liquid", "dew", "pearl", "crystal", "frost", "mist", "obsidian"])
+    #expect(GlassStyle.allCases.map(\.title) == ["Liquid", "Dew", "Pearl", "Crystal", "Frost", "Mist", "Obsidian"])
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "Obsidian"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "volume"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": 1}"#) }
+}
+
+@Test func dewAndPearlAreEvenStepsFromLiquidToCrystal() {
+    let percents = GlassStyle.allCases.compactMap(\.blend).map { blend in
+        [blend.liquid, blend.pillFill, blend.pillOutline].map { ($0 * 100).rounded() }
+    }
+    #expect(percents == [[100, 14, 0], [67, 11, 10], [33, 8, 20], [0, 5, 30]])
+    #expect([GlassStyle.liquid.blend?.pillFill, GlassStyle.liquid.blend?.pillOutline] == [0.14, 0])
+    #expect([GlassStyle.crystal.blend?.pillFill, GlassStyle.crystal.blend?.pillOutline] == [0.05, 0.3])
+    #expect(GlassStyle.frost.blend == nil)
 }
 
 @Test func glassStyleEditsTheConfig() throws {

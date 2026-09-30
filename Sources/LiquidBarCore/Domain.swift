@@ -155,19 +155,45 @@ public struct Config: Equatable, Sendable {
 
 /// The glass of the dropdowns, the bar's pills, and LiquidBar's windows.
 public enum GlassStyle: String, CaseIterable, Sendable {
-    case liquid, dew, crystal, frost, mist, obsidian
+    case liquid, dew, pearl, crystal, frost, mist, obsidian
 
     public var title: String { rawValue.capitalized }
+
+    /// Dew and Pearl sit a third and two thirds of the way from Liquid to Crystal. Off that line, nil.
+    public var blend: GlassBlend? {
+        switch self {
+        case .liquid: GlassBlend(t: 0)
+        case .dew: GlassBlend(t: 1.0 / 3)
+        case .pearl: GlassBlend(t: 2.0 / 3)
+        case .crystal: GlassBlend(t: 1)
+        default: nil
+        }
+    }
 
     public var summary: String {
         switch self {
         case .liquid: "Glass with a bright lit rim, like the volume overlay"
-        case .dew: "Liquid's lit rim over clearer glass"
+        case .dew: "A third of the way to Crystal: a softer rim, a little clearer"
+        case .pearl: "Two thirds of the way to Crystal: a faint rim, nearly clear"
         case .crystal: "The clearest glass, showing the most of what is behind"
         case .frost: "Heavy frosted glass that blurs the most"
         case .mist: "Soft, light glass with gentle contrast"
         case .obsidian: "Dark tinted glass, calm over busy windows"
         }
+    }
+}
+
+/// A point `t` from Liquid (0) to Crystal (1), every trait moving together.
+public struct GlassBlend: Equatable, Sendable {
+    /// The opacity of Liquid's glass over Crystal's.
+    public let liquid: Double
+    public let pillFill: Double
+    public let pillOutline: Double
+
+    public init(t: Double) {
+        liquid = 1 - t
+        pillFill = 0.14 * (1 - t) + 0.05 * t
+        pillOutline = 0.3 * t
     }
 }
 

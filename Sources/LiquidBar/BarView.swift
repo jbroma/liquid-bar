@@ -19,8 +19,6 @@ extension Color {
     static let barGreen = Color(hex: 0x7bd88f)
     static let barYellow = Color(hex: 0xfce566)
     static let barRed = Color(hex: 0xfc618d)
-    /// The pills' and the focused workspace's flat fill in the Liquid style.
-    static let barFill = Color.white.opacity(0.14)
 }
 
 /// One bar per screen.
