@@ -29,10 +29,10 @@ enum Permission: CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .accessibility: "hand.raised"
+        case .accessibility: "hand.raised.fill"
         case .bluetooth: "dot.radiowaves.left.and.right"
-        case .location: "location"
-        case .spotify, .music, .loginwindow: "gearshape.2"
+        case .location: "location.fill"
+        case .spotify, .music, .loginwindow: "gearshape.2.fill"
         }
     }
 

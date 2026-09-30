@@ -53,9 +53,17 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
-        case .general: "gearshape"
-        case .appearance: "paintpalette"
+        case .general: "gearshape.fill"
+        case .appearance: "circle.lefthalf.filled"
         case .menuBarItems: "menubar.rectangle"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .general: .gray
+        case .appearance: Color(white: 0.2)
+        case .menuBarItems: .gray
         }
     }
 }
@@ -70,7 +78,7 @@ private struct SettingsView: View {
         let section = window.section
         return NavigationSplitView {
             List(SettingsSection.allCases, selection: $window.section) { section in
-                Label(section.title, systemImage: section.symbol).tag(section)
+                Label { Text(section.title) } icon: { IconTile(symbol: section.symbol, tint: section.tint) }.tag(section)
             }
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(190)
@@ -129,10 +137,16 @@ private struct GeneralPane: View {
                 Text("LiquidBar asks for each one the first time you use what needs it.").foregroundStyle(.secondary)
             }
             Section {
-                LabeledContent("Config File") {
+                LabeledContent {
                     Text(configURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")).textSelection(.enabled)
+                } label: {
+                    Label { Text("Config File") } icon: { IconTile(symbol: "doc.text.fill", tint: .gray) }
                 }
-                LabeledContent("Started by", value: launcher)
+                LabeledContent {
+                    Text(launcher).foregroundStyle(.secondary)
+                } label: {
+                    Label { Text("Started by") } icon: { IconTile(symbol: "power", tint: .green) }
+                }
                 HStack {
                     Spacer()
                     Button("Open Config File…") {
@@ -165,34 +179,57 @@ private struct GeneralPane: View {
     }
 }
 
+/// A white SF Symbol on a rounded square with System Settings' top-to-bottom gradient.
+private struct IconTile: View {
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+        Image(systemName: symbol)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 22, height: 22)
+            .background(LinearGradient(colors: [tint.mix(with: .white, by: 0.18), tint], startPoint: .top, endPoint: .bottom), in: shape)
+            .overlay(shape.strokeBorder(.black.opacity(0.12), lineWidth: 0.5))
+    }
+}
+
 private struct PermissionRow: View {
     let permission: Permission
 
     var body: some View {
         let status = permission.status
         LabeledContent {
-            HStack(spacing: 10) {
-                Image(systemName: status.symbol)
-                    .foregroundStyle(status.color)
-                    .help(title(status))
-                    .accessibilityLabel(title(status))
-                if status != .unknown {
-                    let action = status == .notAsked ? "Grant…" : "Open Privacy & Security…"
+            HStack(spacing: 8) {
+                HStack(spacing: 5) {
+                    Circle().fill(status.color).frame(width: 7, height: 7)
+                    Text(status.label).foregroundStyle(.secondary)
+                }
+                .help(title(status))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(title(status))
+                if status == .notAsked {
+                    Button("Grant…") { permission.request() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityLabel("Grant…")
+                } else if status != .unknown {
                     Button { permission.request() } label: {
-                        Image(systemName: status == .notAsked ? "arrow.forward.circle" : "gear")
+                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
                     }
                     .buttonStyle(.borderless)
-                    .help(action)
-                    .accessibilityLabel(action)
+                    .foregroundStyle(.secondary)
+                    .help("Open Privacy & Security…")
+                    .accessibilityLabel("Open Privacy & Security…")
                 }
             }
-            .imageScale(.large)
         } label: {
             Label {
                 Text(permission.title)
                 Text(permission.use)
             } icon: {
-                Image(systemName: permission.symbol).foregroundStyle(.secondary).frame(width: 22)
+                IconTile(symbol: permission.symbol, tint: permission.tint)
             }
         }
     }
@@ -207,13 +244,23 @@ private struct PermissionRow: View {
     }
 }
 
-extension Permission.Status {
-    fileprivate var symbol: String {
+extension Permission {
+    /// System Settings' Privacy & Security colours: blue for the system services, gray for Automation.
+    fileprivate var tint: Color {
         switch self {
-        case .granted: "checkmark.circle.fill"
-        case .notAsked: "exclamationmark.circle.fill"
-        case .denied: "xmark.circle.fill"
-        case .unknown: "questionmark.circle"
+        case .accessibility, .bluetooth, .location: .blue
+        case .spotify, .music, .loginwindow: .gray
+        }
+    }
+}
+
+extension Permission.Status {
+    fileprivate var label: String {
+        switch self {
+        case .granted: "Allowed"
+        case .notAsked: "Not asked"
+        case .denied: "Not allowed"
+        case .unknown: "Not running"
         }
     }
 
