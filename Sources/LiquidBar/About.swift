@@ -44,7 +44,7 @@ private struct AboutView: View {
         }
         .padding(28)
         .frame(width: 340, height: 300)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(OverlayGlass(corner: DropdownView.corner))
         .font(.system(size: 13))
         .foregroundStyle(Color.barWhite)
     }

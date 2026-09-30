@@ -45,10 +45,7 @@ struct DropdownView: View {
     /// The pill the dropdown last hung from, where it shrinks back into while closing.
     @State private var anchor = CGRect.zero
 
-    static let corner: CGFloat = 22
-    /// The lit edge, brightest along the top.
-    static let rim = LinearGradient(stops: [.init(color: .white.opacity(0.35), location: 0), .init(color: .white.opacity(0.08), location: 0.5),
-                                            .init(color: .white.opacity(0.14), location: 1)], startPoint: .top, endPoint: .bottom)
+    static let corner: CGFloat = 18
 
     private struct Geometry: Equatable {
         var x: CGFloat
@@ -64,8 +61,7 @@ struct DropdownView: View {
             // In the bar's coordinates, reaching up over the gap to the bar so a pointer crossing it stays inside.
             let area = open.map { _ in CGRect(x: originX + geometry.x, y: bar.height, width: geometry.width, height: geometry.height + 6) }
             let shape = RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
-            Color.clear
-                .glassEffect(.regular, in: shape)
+            OverlayGlass(corner: Self.corner)
                 .frame(width: geometry.width, height: geometry.height)
                 .overlay(alignment: .top) {
                     ZStack(alignment: .top) {
@@ -84,8 +80,6 @@ struct DropdownView: View {
                     }
                 }
                 .clipShape(shape)
-                .overlay { shape.strokeBorder(Self.rim, lineWidth: 1).allowsHitTesting(false) }
-                .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
                 .contentShape(shape)
                 // SwiftUI can miss the exit when the dropdown closes under a still pointer, and then never reports
                 // the next entry; every move inside reports it again.
@@ -332,4 +326,23 @@ struct WorkspaceMenu: View {
             }
         }
     }
+}
+
+/// The glass of macOS's volume overlay: the lit, lensing rim of the private glass variant 11 around the regular frosted
+/// glass, which keeps text legible over busy windows. Without the private setter, the regular glass alone.
+struct OverlayGlass: NSViewRepresentable {
+    let corner: CGFloat
+
+    func makeNSView(context: Context) -> NSView {
+        let frost = NSGlassEffectView()
+        frost.cornerRadius = corner
+        guard frost.responds(to: Selector(("set_variant:"))) else { return frost }
+        let rim = NSGlassEffectView()
+        rim.cornerRadius = corner
+        rim.setValue(11, forKey: "_variant")
+        rim.contentView = frost
+        return rim
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
 }

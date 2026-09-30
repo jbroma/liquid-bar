@@ -114,7 +114,7 @@ private struct AccessView: View {
         }
         .padding(state.waiting ? 20 : 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(OverlayGlass(corner: DropdownView.corner))
         .font(.system(size: 13))
         .foregroundStyle(Color.barWhite)
         .animation(.easeOut(duration: 0.2), value: state.granted)
