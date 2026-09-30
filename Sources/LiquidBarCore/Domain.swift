@@ -156,7 +156,7 @@ public struct Config: Equatable, Sendable {
     public init() {}
 }
 
-/// The glass of the dropdowns, the bar's pills, and LiquidBar's windows.
+/// The glass of the dropdowns, the bar's pills, the bar's menu, and the Accessibility window.
 public enum GlassStyle: String, CaseIterable, Sendable {
     case liquid, dew, pearl, crystal, frost, mist, obsidian
 

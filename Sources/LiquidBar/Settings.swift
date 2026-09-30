@@ -2,7 +2,7 @@ import AppKit
 import LiquidBarCore
 import SwiftUI
 
-/// The LiquidBar Settings window: a standard titled window on the config's glass.
+/// The LiquidBar Settings window: a standard macOS settings window, whatever the glass style.
 @Observable
 final class SettingsWindow {
     var section = SettingsSection.general
@@ -13,19 +13,26 @@ final class SettingsWindow {
         if let section { self.section = section }
         if window == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+                contentRect: NSRect(x: 0, y: 0, width: 715, height: 500),
                 styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
             window.title = "LiquidBar Settings"
-            window.titlebarAppearsTransparent = true
-            window.isOpaque = false
-            window.backgroundColor = .clear
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: SettingsView(model: delegate.model, window: self))
             window.center()
             self.window = window
+            followSystemAppearance()
+            DistributedNotificationCenter.default().addObserver(forName: .init("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.followSystemAppearance() }
+            }
         }
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// The app is dark for the bar's sake; this window follows the system appearance like any settings window.
+    private func followSystemAppearance() {
+        let dark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        window?.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
     }
 }
 
@@ -67,6 +74,7 @@ private struct SettingsView: View {
             List(SettingsSection.allCases, selection: $window.section) { section in
                 Label(section.title, systemImage: section.symbol).tag(section)
             }
+            .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(190)
         } detail: {
             Group {
@@ -78,19 +86,8 @@ private struct SettingsView: View {
                 case .about: ScrollView { AboutInfo().padding(.top, 60) }.frame(maxWidth: .infinity)
                 }
             }
-            .scrollContentBackground(.hidden)
             .navigationTitle(section.title)
-            .toolbar(removing: .title)
-            // The toolbar title has no background, so scrolled content would show through it.
-            .overlay(alignment: .top) {
-                Text(section.title).font(.headline)
-                    .padding(.leading, 20)
-                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-                    .background(.bar)
-                    .ignoresSafeArea(edges: .top)
-            }
         }
-        .background(OverlayGlass(corner: 26).ignoresSafeArea())
         .frame(minWidth: 640, minHeight: 440)
     }
 }
@@ -151,26 +148,29 @@ private struct AppearancePane: View {
     @AppStorage("previewBackdrop") private var backdrop = PreviewBackdropKind.wallpaper
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+        Form {
+            Section {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 10)], spacing: 10) {
+                    ForEach(GlassStyle.allCases, id: \.self) { style in
+                        StyleCard(style: style, selected: !config.glassIsCustom && style == config.glassStyle)
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
                 HStack {
-                    Text("The glass of the dropdowns, bar pills, and windows.")
-                        .foregroundStyle(.secondary)
+                    Text("Glass Style")
                     Spacer()
                     Picker("Preview", selection: $backdrop) {
                         ForEach(PreviewBackdropKind.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .fixedSize()
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 10)], spacing: 10) {
-                    ForEach(GlassStyle.allCases, id: \.self) { style in
-                        StyleCard(style: style, selected: !config.glassIsCustom && style == config.glassStyle)
-                    }
-                }
-                CustomizeGroup(config: config)
+            } footer: {
+                Text("The glass of the dropdowns and the bar's pills.").foregroundStyle(.secondary)
             }
-            .padding(20)
+            CustomizeGroup(config: config)
         }
+        .formStyle(.grouped)
     }
 }
 
@@ -221,17 +221,17 @@ private struct CustomizeGroup: View {
     let config: Config
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Customize").font(.headline)
-                if config.glassIsCustom { Text("Custom").font(.caption).foregroundStyle(.secondary) }
-                Spacer()
-                if config.glassIsCustom { Button("Reset to preset") { Setting.glassStyle(config.glassStyle).save() } }
-            }
+        Section {
             StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
+        } header: {
+            HStack {
+                Text("Customize")
+                if config.glassIsCustom { Text("Custom").foregroundStyle(.secondary) }
+                Spacer()
+                if config.glassIsCustom { Button("Reset to Preset") { Setting.glassStyle(config.glassStyle).save() } }
+            }
         }
-        .padding(.top, 4)
     }
 }
 
@@ -284,6 +284,7 @@ private struct StyleSwatch: View {
                 }
             }
             .foregroundStyle(Color.barWhite)
+            .environment(\.colorScheme, .dark)
             .frame(width: 64, height: 34)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
@@ -326,6 +327,7 @@ private struct StyleCard: View {
                 }
                 .foregroundStyle(Color.barWhite)
             }
+            .environment(\.colorScheme, .dark)
             .frame(height: 64)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             Text(style.title).fontWeight(.semibold)
@@ -333,7 +335,7 @@ private struct StyleCard: View {
         .help(style.summary)
         .padding(8)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(selected ? 0.12 : 0.04)))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.primary.opacity(selected ? 0.12 : 0.04)))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
         .contentShape(RoundedRectangle(cornerRadius: 16))
         .onTapGesture { Setting.glassStyle(style).save() }
@@ -419,7 +421,7 @@ private struct AdvancedPane: View {
 }
 
 /// The app's icon, version, link and license.
-struct AboutInfo: View {
+private struct AboutInfo: View {
     private var version: String {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "?"
@@ -430,7 +432,7 @@ struct AboutInfo: View {
         VStack(spacing: 8) {
             Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
             Text("LiquidBar").font(.system(size: 20, weight: .semibold))
-            Text(version).foregroundStyle(secondary)
+            Text(version).foregroundStyle(.secondary)
             Text("A Liquid Glass menu bar for macOS")
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
@@ -438,7 +440,7 @@ struct AboutInfo: View {
             Link("github.com/jbroma/liquid-bar", destination: URL(string: "https://github.com/jbroma/liquid-bar")!)
                 .foregroundStyle(Color.accentColor)
                 .pointerStyle(.link)
-            Text("MIT License").foregroundStyle(secondary)
+            Text("MIT License").foregroundStyle(.secondary)
         }
     }
 }
