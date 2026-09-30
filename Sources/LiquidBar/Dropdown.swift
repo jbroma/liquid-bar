@@ -196,6 +196,50 @@ private struct HoverButton: ViewModifier {
     }
 }
 
+/// A title with a control at its end, as tall as a row in a Control Center module: the header of the Bluetooth and
+/// AirDrop lists with their switches, or a switch row like "Show Percentage".
+struct HeaderRow<Trailing: View>: View {
+    let title: String
+    var bold = true
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        MenuRow {
+            Text(title).fontWeight(bold ? .semibold : .regular).lineLimit(1)
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .frame(minHeight: 32)
+    }
+}
+
+/// Control Center's wide switch: an accent track with the knob at its end while on. It dims and ignores clicks while
+/// the setting cannot be read.
+struct GlassSwitch: View {
+    let on: Bool?
+    let set: (Bool) -> Void
+
+    var body: some View {
+        let isOn = on == true
+        Capsule()
+            .fill(isOn ? Color.accentColor : .white.opacity(0.2))
+            .frame(width: 50, height: 24)
+            .overlay(alignment: isOn ? .trailing : .leading) {
+                Capsule().fill(.white).frame(width: 30, height: 20).padding(2).shadow(color: .black.opacity(0.2), radius: 1, y: 0.5)
+            }
+            .contentShape(Capsule())
+            .onTapGesture {
+                haptic()
+                set(!isOn)
+            }
+            .animation(spring, value: isOn)
+            .opacity(on == nil ? 0.4 : 1)
+            .allowsHitTesting(on != nil)
+            .accessibilityAddTraits(.isToggle)
+            .accessibilityValue(isOn ? "On" : "Off")
+    }
+}
+
 /// "Title" on the left, a dimmed value on the right.
 struct MenuValue: View {
     let title: String

@@ -142,6 +142,8 @@ struct ControlCenterMenu: View {
             .padding(.bottom, 6)
             MenuExtrasSection(model: model)
         }
+        // SwiftUI can keep this view's state from one opening to the next; like Control Center, each opens collapsed.
+        .onChange(of: slot.owner == .controlCenter) { _, open in if !open { expanded = nil } }
         .task {
             MenuExtras.refresh(model)
             controls.refresh()
@@ -216,30 +218,60 @@ struct ControlCenterMenu: View {
         }
     }
 
+    /// Like the Bluetooth module of macOS's Control Center: its switch, the paired devices, dimmed while Bluetooth is
+    /// off, and its settings.
     @ViewBuilder private func bluetoothDevices(_ controls: Controls, _ state: ControlState) -> some View {
+        HeaderRow(title: "Bluetooth") {
+            GlassSwitch(on: Bluetooth.canSwitch ? state.bluetooth : nil) { _ in controls.press(.bluetooth, dismiss: slot.dismiss) }
+        }
+        MenuSeparator()
+        if state.devices.isEmpty {
+            MenuRow { Text("No Devices").foregroundStyle(secondary) }.frame(minHeight: 30)
+        }
         ForEach(state.devices) { device in
-            MenuButton { controls.toggle(device) } content: {
-                DeviceIcon(symbol: device.symbol, selected: device.connected, size: 20)
-                Text(device.name).lineLimit(1)
-                Spacer(minLength: 8)
-                if let battery = device.battery { Text("\(battery)%").foregroundStyle(secondary).monospacedDigit() }
+            ChoiceRow(symbol: device.symbol, title: device.name, selected: device.connected, detail: device.battery.map { "\($0)%" }) {
+                controls.toggle(device)
             }
             .accessibilityValue(device.connected ? "Connected" : "Not Connected")
         }
+        .opacity(state.bluetooth == true ? 1 : 0.45)
+        .allowsHitTesting(state.bluetooth == true)
         MenuSeparator()
         SettingsButton(title: "Bluetooth Settings…", pane: "com.apple.BluetoothSettings")
     }
 
+    /// Like the AirDrop module of macOS's Control Center: its switch, and who can see this Mac while it is on.
     @ViewBuilder private func airDropModes(_ controls: Controls, _ state: ControlState) -> some View {
-        ForEach(AirDropMode.allCases, id: \.self) { mode in
-            MenuButton { controls.setAirDrop(mode) } content: {
-                Text(mode.rawValue).lineLimit(1)
-                Spacer()
-                if state.airDrop == mode { Image(systemName: "checkmark").fontWeight(.semibold) }
+        HeaderRow(title: "AirDrop") {
+            GlassSwitch(on: state.airDrop.map { $0 != .off }) { _ in controls.press(.airDrop, dismiss: slot.dismiss) }
+        }
+        MenuSeparator()
+        ForEach([AirDropMode.contactsOnly, .everyone], id: \.self) { mode in
+            ChoiceRow(symbol: mode == .everyone ? "person.2.fill" : "person.crop.circle", title: mode.rawValue, selected: state.airDrop == mode) {
+                controls.setAirDrop(mode)
             }
+            .accessibilityAddTraits(state.airDrop == mode ? .isSelected : [])
         }
         MenuSeparator()
         SettingsButton(title: "AirDrop Settings…", pane: "com.apple.AirDrop-Handoff-Settings.extension")
+    }
+}
+
+/// One of a module's choices: its symbol's circle fills with the accent colour while it is the current one.
+private struct ChoiceRow: View {
+    let symbol: String
+    let title: String
+    let selected: Bool
+    var detail: String?
+    let action: () -> Void
+
+    var body: some View {
+        MenuButton(action: action) {
+            DeviceIcon(symbol: symbol, selected: selected, size: 26)
+            Text(title).lineLimit(1)
+            Spacer(minLength: 8)
+            if let detail { Text(detail).foregroundStyle(secondary).monospacedDigit() }
+        }
     }
 }
 
