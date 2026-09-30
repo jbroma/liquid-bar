@@ -84,6 +84,15 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .menuBarItems: .gray
         }
     }
+
+    /// The System Settings pane with the same icon.
+    var pane: String {
+        switch self {
+        case .general: "com.apple.systempreferences.GeneralSettings"
+        case .appearance: "com.apple.Appearance-Settings.extension"
+        case .menuBarItems: "com.apple.ControlCenter-Settings.extension"
+        }
+    }
 }
 
 /// Every control writes the config file through `Setting` and reads `model.config`, which the bar reloads from that
@@ -96,7 +105,7 @@ private struct SettingsView: View {
         let section = window.section
         return NavigationSplitView {
             List(SettingsSection.allCases, selection: $window.section) { section in
-                Label { Text(section.title) } icon: { IconTile(symbol: section.symbol, tint: section.tint) }.tag(section)
+                Label { Text(section.title) } icon: { IconTile(symbol: section.symbol, tint: section.tint, system: .bundle(section.pane)) }.tag(section)
             }
             .toolbar(removing: .sidebarToggle)
             .navigationSplitViewColumnWidth(232)
@@ -205,13 +214,24 @@ private struct GeneralPane: View {
     }
 }
 
-/// A white SF Symbol on a rounded square with System Settings' top-to-bottom gradient.
+/// System Settings' own icon when `system` names one, drawn by macOS; otherwise a white SF Symbol on a rounded
+/// square with System Settings' top-to-bottom gradient.
 struct IconTile: View {
     let symbol: String
     let tint: Color
     var size: CGFloat = 20
+    var system: SystemIcon?
 
     var body: some View {
+        if let image = system?.image(size: size * 1.18) {
+            // IconServices leaves a margin around the tile, which System Settings' lists draw outside the row's icon size.
+            Image(nsImage: image).resizable().frame(width: size * 1.18, height: size * 1.18).padding(-size * 0.09)
+        } else {
+            tile
+        }
+    }
+
+    private var tile: some View {
         Image(systemName: symbol)
             .font(.system(size: size * 0.55, weight: .medium))
             .foregroundStyle(.white)
@@ -255,7 +275,7 @@ private struct PermissionRow: View {
                 Text(permission.title)
                 Text(permission.use)
             } icon: {
-                IconTile(symbol: permission.symbol, tint: permission.tint)
+                IconTile(symbol: permission.symbol, tint: permission.tint, system: .type(permission.graphicIcon))
             }
         }
     }
@@ -270,7 +290,67 @@ private struct PermissionRow: View {
     }
 }
 
+/// An icon System Settings shows, which IconServices draws from a symbol and colour that the pane's Info.plist names:
+/// a pane by its bundle id, or a Privacy & Security row by its `com.apple.graphic-icon` type.
+enum SystemIcon: Hashable {
+    case bundle(String), type(String)
+
+    private static var cache: [Key: NSImage?] = [:]
+    private struct Key: Hashable { let icon: SystemIcon, size: CGFloat }
+
+    /// Nil if IconServices, a private framework, changes and no longer answers.
+    func image(size: CGFloat) -> NSImage? {
+        let key = Key(icon: self, size: size)
+        if let cached = Self.cache[key] { return cached }
+        let image = render(size: size)
+        Self.cache[key] = image
+        return image
+    }
+
+    private func render(size: CGFloat) -> NSImage? {
+        typealias Make = @convention(c) (AnyObject, Selector, NSString) -> AnyObject?
+        typealias Describe = @convention(c) (AnyObject, Selector, CGSize, CGFloat) -> AnyObject?
+        typealias Draw = @convention(c) (AnyObject, Selector, AnyObject) -> AnyObject?
+        typealias Bitmap = @convention(c) (AnyObject, Selector) -> Unmanaged<CGImage>?
+        func alloc(_ name: String) -> AnyObject? {
+            (NSClassFromString(name) as AnyObject?)?.perform(NSSelectorFromString("alloc"))?.takeUnretainedValue()
+        }
+        func method<F>(_ object: AnyObject, _ name: String, as: F.Type) -> (F, Selector)? {
+            let selector = NSSelectorFromString(name)
+            guard object.responds(to: selector), let imp = object.method(for: selector) else { return nil }
+            return (unsafeBitCast(imp, to: F.self), selector)
+        }
+        let (initializer, id) = switch self {
+        case .bundle(let id): ("initWithBundleIdentifier:", id)
+        case .type(let id): ("initWithType:", id)
+        }
+        guard dlopen("/System/Library/PrivateFrameworks/IconServices.framework/IconServices", RTLD_LAZY) != nil,
+              let newIcon = alloc("ISIcon"), let (make, makeSel) = method(newIcon, initializer, as: Make.self),
+              let icon = make(newIcon, makeSel, id as NSString),
+              let newDescriptor = alloc("ISImageDescriptor"),
+              let (describe, describeSel) = method(newDescriptor, "initWithSize:scale:", as: Describe.self),
+              let descriptor = describe(newDescriptor, describeSel, CGSize(width: size, height: size), NSScreen.main?.backingScaleFactor ?? 2),
+              // Waits for the drawing, where `imageForDescriptor:` would return a placeholder at first.
+              let (prepare, prepareSel) = method(icon, "prepareImageForDescriptor:", as: Draw.self),
+              let drawn = prepare(icon, prepareSel, descriptor),
+              let (bitmap, bitmapSel) = method(drawn, "CGImage", as: Bitmap.self),
+              let cgImage = bitmap(drawn, bitmapSel)?.takeUnretainedValue()
+        else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: size, height: size))
+    }
+}
+
 extension Permission {
+    /// Its row's icon in System Settings' Privacy & Security.
+    fileprivate var graphicIcon: String {
+        switch self {
+        case .accessibility: "com.apple.graphic-icon.accessibility"
+        case .bluetooth: "com.apple.graphic-icon.bluetooth"
+        case .location: "com.apple.graphic-icon.location"
+        case .spotify, .music, .loginwindow: "com.apple.graphic-icon.automation"
+        }
+    }
+
     /// System Settings' Privacy & Security colours: blue for the system services, gray for Automation.
     fileprivate var tint: Color {
         switch self {
