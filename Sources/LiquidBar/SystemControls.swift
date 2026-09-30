@@ -158,11 +158,14 @@ enum NativeMenuBar {
     private nonisolated static let register = systemFunction(framework, "SLSRegisterNotifyProc", as: (@convention(c) (NotifyProc, UInt32, UnsafeMutableRawPointer?) -> Int32).self)
     private nonisolated(unsafe) static var missionControlHandler: ((UnsafeMutableRawPointer, Bool) -> Void)?
 
-    /// Calls `handler` when Mission Control opens (WindowServer event 1327) or closes (1328).
+    /// Calls `handler` when Mission Control opens (WindowServer event 1327) or closes (1328). macOS 27 posts 1327 and
+    /// 1328 for screen captures instead, and 1325 and 1326 as Mission Control both opens and closes, so there every
+    /// event reads as a close, which raises the bar through the animation and lets it settle after.
     static func onMissionControl(context: UnsafeMutableRawPointer, _ handler: @escaping (UnsafeMutableRawPointer, Bool) -> Void) {
         guard let register else { return }
         missionControlHandler = handler
-        for event: UInt32 in [1327, 1328] {
+        let events: [UInt32] = ProcessInfo.processInfo.isOperatingSystemAtLeast(.init(majorVersion: 27, minorVersion: 0, patchVersion: 0)) ? [1325, 1326] : [1327, 1328]
+        for event in events {
             _ = register({ event, _, _, context in
                 DispatchQueue.main.async { NativeMenuBar.missionControlHandler?(context!, event == 1327) }
             }, event, context)

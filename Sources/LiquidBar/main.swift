@@ -84,10 +84,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         followWindowList()
         missionControlSettle?.cancel()
         guard !open else { return }
+        // macOS 27 posts the close only once Mission Control has finished closing and the native menu bar has shown
+        // again, so the bar also stays up while Mission Control's Dock window covers the screen.
         missionControlSettle = Task {
-            try? await Task.sleep(for: .seconds(1.5))
+            repeat { try? await Task.sleep(for: .seconds(1.5)) } while !Task.isCancelled && missionControlShown()
             guard !Task.isCancelled else { return }
             panels.forEach { $0.level = barLevel }
+        }
+    }
+
+    private func missionControlShown() -> Bool {
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+        return windows.contains { window in
+            guard window[kCGWindowOwnerName as String] as? String == "Dock", let bounds = window[kCGWindowBounds as String],
+                  let rect = CGRect(dictionaryRepresentation: bounds as! CFDictionary) else { return false }
+            return rect.contains(CGDisplayBounds(CGMainDisplayID()))
         }
     }
 
