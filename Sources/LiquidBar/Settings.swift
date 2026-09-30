@@ -72,7 +72,7 @@ private struct SettingsView: View {
             Group {
                 switch section {
                 case .general: GeneralPane(config: model.config)
-                case .appearance: AppearancePane(selected: model.config.glassStyle)
+                case .appearance: AppearancePane(config: model.config)
                 case .menuBarItems: MenuBarItemsPane(model: model)
                 case .advanced: AdvancedPane()
                 case .about: ScrollView { AboutInfo().padding(.top, 60) }.frame(maxWidth: .infinity)
@@ -138,21 +138,151 @@ private struct GeneralPane: View {
 }
 
 private struct AppearancePane: View {
-    let selected: GlassStyle
+    let config: Config
+    @AppStorage("previewBackdrop") private var backdrop = PreviewBackdropKind.wallpaper
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("The glass of the dropdowns, the bar's pills, and LiquidBar's windows.")
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("The glass of the dropdowns, the bar's pills, and LiquidBar's windows.")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("Preview", selection: $backdrop) {
+                        ForEach(PreviewBackdropKind.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .fixedSize()
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                     ForEach(GlassStyle.allCases, id: \.self) { style in
-                        StyleCard(style: style, selected: style == selected)
+                        StyleCard(style: style, selected: !config.glassIsCustom && style == config.glassStyle)
                     }
                 }
+                CustomizeGroup(config: config)
             }
             .padding(20)
         }
+    }
+}
+
+/// What the Appearance previews sit on. A UI preference in UserDefaults: it does not change the bar.
+private enum PreviewBackdropKind: String, CaseIterable {
+    case wallpaper, light, dark, busy
+
+    var title: String { rawValue.capitalized }
+}
+
+/// The main screen's desktop picture, read again only when its file changes.
+@MainActor private enum Wallpaper {
+    private static var cached: (url: URL, image: NSImage?)?
+
+    static var image: NSImage? {
+        guard let screen = NSScreen.main, let url = NSWorkspace.shared.desktopImageURL(for: screen) else { return nil }
+        if cached?.url != url { cached = (url, NSImage(contentsOf: url)) }
+        return cached?.image
+    }
+}
+
+private struct PreviewBackdrop: View {
+    /// The busy backdrop's sample text, which shows how legible a style's glass leaves what is behind it.
+    let text: Bool
+    @AppStorage("previewBackdrop") private var kind = PreviewBackdropKind.wallpaper
+
+    var body: some View {
+        switch kind {
+        case .wallpaper:
+            if let image = Wallpaper.image {
+                Color.clear.overlay { Image(nsImage: image).resizable().scaledToFill() }.clipped()
+            } else {
+                LinearGradient(colors: [Color(white: 0.16), Color(white: 0.3)], startPoint: .top, endPoint: .bottom)
+            }
+        case .light: LinearGradient(colors: [Color(white: 0.97), Color(white: 0.82)], startPoint: .top, endPoint: .bottom)
+        case .dark: LinearGradient(colors: [Color(white: 0.04), Color(white: 0.14)], startPoint: .top, endPoint: .bottom)
+        case .busy:
+            LinearGradient(colors: [.pink, .orange, .yellow, .green, .blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .overlay {
+                    if text { Text("Aa Bb Cc Dd\nEe Ff Gg Hh").font(.system(size: 20, weight: .heavy)).foregroundStyle(.white.opacity(0.5)) }
+                }
+        }
+    }
+}
+
+/// Bar and dropdown styles picked apart, from the same seven styles as the presets.
+private struct CustomizeGroup: View {
+    let config: Config
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Customize").font(.headline)
+                if config.glassIsCustom { Text("Custom").font(.caption).foregroundStyle(.secondary) }
+                Spacer()
+                if config.glassIsCustom { Button("Reset to preset") { Setting.glassStyle(config.glassStyle).save() } }
+            }
+            StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
+            StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
+        }
+        .padding(.top, 8)
+    }
+}
+
+private enum StylePart { case bar, dropdown }
+
+private struct StylePicker: View {
+    let title: String
+    let selected: GlassStyle
+    let part: StylePart
+    let pick: (GlassStyle) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).fontWeight(.semibold)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(GlassStyle.allCases, id: \.self) { style in
+                        StyleSwatch(style: style, part: part, selected: style == selected)
+                            .onTapGesture { pick(style) }
+                    }
+                }
+                .padding(2)
+            }
+        }
+    }
+}
+
+/// One style's pill or dropdown over the preset cards' backdrop.
+private struct StyleSwatch: View {
+    let style: GlassStyle
+    let part: StylePart
+    let selected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                PreviewBackdrop(text: false)
+                switch part {
+                case .bar:
+                    Text("9:41")
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .frame(height: 18)
+                        .background(PillFill(shape: Capsule(), style: style))
+                case .dropdown:
+                    Text("Sound")
+                        .font(.system(size: 11, weight: .semibold))
+                        .frame(width: 44, height: 28)
+                        .background(OverlayGlass(corner: 8, style: style))
+                }
+            }
+            .foregroundStyle(Color.barWhite)
+            .frame(width: 64, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
+            Text(style.title).font(.caption)
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -164,10 +294,7 @@ private struct StyleCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .top) {
-                LinearGradient(colors: [.pink, .orange, .yellow, .green, .blue, .purple], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    .overlay {
-                        Text("Aa Bb Cc Dd\nEe Ff Gg Hh").font(.system(size: 20, weight: .heavy)).foregroundStyle(.white.opacity(0.5))
-                    }
+                PreviewBackdrop(text: true)
                 VStack(alignment: .trailing, spacing: 6) {
                     Text("9:41")
                         .font(.system(size: 11, weight: .semibold))

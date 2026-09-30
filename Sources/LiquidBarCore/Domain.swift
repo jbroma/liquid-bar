@@ -138,7 +138,10 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour = true
     public var clockSeconds = false
     public var batteryPercent = false
+    /// The preset. `barStyle` and `dropdownStyle` override its half; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
+    public var barStyle: GlassStyle?
+    public var dropdownStyle: GlassStyle?
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
@@ -181,6 +184,24 @@ public enum GlassStyle: String, CaseIterable, Sendable {
         case .obsidian: "Dark tinted glass, calm over busy windows"
         }
     }
+}
+
+/// The effective style of each part: the bar's pills and the dropdowns' and windows' glass.
+public struct GlassPair: Equatable, Sendable {
+    public let bar: GlassStyle
+    public let dropdown: GlassStyle
+
+    public init(bar: GlassStyle, dropdown: GlassStyle) {
+        self.bar = bar
+        self.dropdown = dropdown
+    }
+}
+
+extension Config {
+    public var glass: GlassPair { GlassPair(bar: barStyle ?? glassStyle, dropdown: dropdownStyle ?? glassStyle) }
+
+    /// The overrides pick something other than the preset, so no preset card describes the look.
+    public var glassIsCustom: Bool { glass != GlassPair(bar: glassStyle, dropdown: glassStyle) }
 }
 
 /// A point `t` from Liquid (0) to Crystal (1), every trait moving together.

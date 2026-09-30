@@ -33,6 +33,8 @@ extension Config {
             var clockSeconds: Bool?
             var batteryPercent: Bool?
             var glassStyle: String?
+            var barStyle: String?
+            var dropdownStyle: String?
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
@@ -47,6 +49,8 @@ extension Config {
         }
         config.workspaceSource = try choice(WorkspaceSource.self, "workspaceSource", raw.workspaceSource) ?? config.workspaceSource
         config.glassStyle = try choice(GlassStyle.self, "glassStyle", raw.glassStyle) ?? config.glassStyle
+        config.barStyle = try choice(GlassStyle.self, "barStyle", raw.barStyle)
+        config.dropdownStyle = try choice(GlassStyle.self, "dropdownStyle", raw.dropdownStyle)
         config.clock24Hour = raw.clock24Hour ?? config.clock24Hour
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
@@ -87,7 +91,11 @@ public enum Setting: Equatable, Sendable {
     case pinned(String, Bool)
     /// The whole pinned list, in its new order.
     case pinnedOrder([String])
+    /// A preset: sets `glassStyle` and drops both overrides, so the preset applies whole.
     case glassStyle(GlassStyle)
+    /// nil removes the override, so the part follows `glassStyle` again.
+    case barStyle(GlassStyle?)
+    case dropdownStyle(GlassStyle?)
 
     /// The config file's contents (nil when missing) with this change applied. Every other key stays as written.
     public func applied(to data: Data?) throws -> Data {
@@ -103,7 +111,12 @@ public enum Setting: Equatable, Sendable {
         case .clock24Hour(let on): json["clock24Hour"] = on
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
-        case .glassStyle(let style): json["glassStyle"] = style.rawValue
+        case .glassStyle(let style):
+            json["glassStyle"] = style.rawValue
+            json["barStyle"] = nil
+            json["dropdownStyle"] = nil
+        case .barStyle(let style): json["barStyle"] = style?.rawValue
+        case .dropdownStyle(let style): json["dropdownStyle"] = style?.rawValue
         case .pinnedOrder(let pinned): json["pinned"] = pinned
         case .nowPlaying(let on):
             let name = Widget.nowPlaying.name

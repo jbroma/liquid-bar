@@ -52,9 +52,9 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 ## Settings
 
-Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has five sections. General holds the workspace source, now playing, the battery percentage, the clock format, and the Accessibility status. Appearance picks the glass style from five cards with a live preview. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag. Advanced opens and reloads the config file. About shows the version and license.
+Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has five sections. General holds the workspace source, now playing, the battery percentage, the clock format, and the Accessibility status. Appearance picks the glass style from seven cards with a live preview, and Customize sets the bar's style and the dropdowns' style apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag. Advanced opens and reloads the config file. About shows the version and license.
 
-<!-- Screenshot placeholder: the Settings window on its Appearance section, the five glass style cards with Liquid selected. -->
+<!-- Screenshot placeholder: the Settings window on its Appearance section, the seven glass style cards with Liquid selected. -->
 
 Everything else, like widget order, click commands, and script widgets, lives in `~/.config/liquid-bar/config.json`. See [Configuration](docs/configuration.md).
 

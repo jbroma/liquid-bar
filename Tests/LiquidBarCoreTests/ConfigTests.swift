@@ -204,3 +204,40 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
         }
         """)
 }
+
+@Test func barAndDropdownStylesOverrideThePreset() throws {
+    let none = try decode(#"{"glassStyle": "mist"}"#)
+    #expect(none.glass == GlassPair(bar: .mist, dropdown: .mist))
+    #expect(!none.glassIsCustom)
+    let bar = try decode(#"{"glassStyle": "mist", "barStyle": "crystal"}"#)
+    #expect(bar.glass == GlassPair(bar: .crystal, dropdown: .mist))
+    #expect(bar.glassIsCustom)
+    let both = try decode(#"{"barStyle": "frost", "dropdownStyle": "dew"}"#)
+    #expect(both.glass == GlassPair(bar: .frost, dropdown: .dew))
+    #expect(!(try decode(#"{"glassStyle": "dew", "dropdownStyle": "dew"}"#)).glassIsCustom)
+    #expect(throws: (any Error).self) { try decode(#"{"barStyle": "Crystal"}"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"dropdownStyle": "volume"}"#) }
+    #expect(throws: (any Error).self) { try decode(#"{"dropdownStyle": 1}"#) }
+}
+
+@Test func barAndDropdownStylesEditTheConfig() throws {
+    #expect(try apply(.barStyle(.crystal), to: #"{"glassStyle": "mist", "margin": 4}"#) == """
+        {
+          "barStyle" : "crystal",
+          "glassStyle" : "mist",
+          "margin" : 4
+        }
+        """)
+    #expect(try apply(.dropdownStyle(nil), to: #"{"barStyle": "crystal", "dropdownStyle": "dew", "margin": 4}"#) == """
+        {
+          "barStyle" : "crystal",
+          "margin" : 4
+        }
+        """)
+    #expect(try apply(.glassStyle(.pearl), to: #"{"barStyle": "crystal", "dropdownStyle": "dew", "margin": 4}"#) == """
+        {
+          "glassStyle" : "pearl",
+          "margin" : 4
+        }
+        """)
+}

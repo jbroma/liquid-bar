@@ -328,25 +328,25 @@ struct WorkspaceMenu: View {
     }
 }
 
-/// The dropdowns' and windows' glass in the config's style, or in `style` for a preview. It follows the config live.
+/// The dropdowns' and windows' glass in the config's dropdown style, or in `style` for a preview. It follows the config live.
 struct OverlayGlass: View {
     let corner: CGFloat
     var style: GlassStyle?
 
     var body: some View {
-        let shown = style ?? delegate.model.config.glassStyle
+        let shown = style ?? delegate.model.config.glass.dropdown
         StyledGlass(corner: corner, style: shown, preview: style != nil).id(shown)
     }
 }
 
-/// The fill of a bar pill or of the focused workspace, matching the style's dropdown glass. Liquid keeps the flat fill:
+/// The fill of a bar pill or of the focused workspace in the config's bar style. Liquid keeps the flat fill:
 /// pills in the volume overlay's glass drew heavy white rims at bar height.
 struct PillFill<S: Shape>: View {
     let shape: S
     var style: GlassStyle?
 
     var body: some View {
-        let style = style ?? delegate.model.config.glassStyle
+        let style = style ?? delegate.model.config.glass.bar
         if let blend = style.blend {
             shape.fill(.white.opacity(blend.pillFill))
             shape.stroke(.white.opacity(blend.pillOutline), lineWidth: 1)
