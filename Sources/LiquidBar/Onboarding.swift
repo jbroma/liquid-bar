@@ -7,6 +7,8 @@ final class AccessWindow {
     private(set) var granted = AXIsProcessTrusted()
     /// System Settings is open on the Accessibility list; the window steps aside into the corner while it waits.
     private(set) var waiting = false
+    /// macOS's own prompt is up, so the card points at its button rather than at the list.
+    private(set) var prompted = false
     @ObservationIgnored private var window: NSPanel?
     @ObservationIgnored private var poll: Timer?
     /// Runs once when the grant arrives while the window is open, to restart what needed it.
@@ -14,15 +16,22 @@ final class AccessWindow {
 
     init(onGranted: @escaping () -> Void) { self.onGranted = onGranted }
 
-    /// Adds the app to the Accessibility list, shows macOS's prompt, and opens the list.
-    static func requestAccess() {
+    /// Adds the app to the Accessibility list and shows macOS's prompt, whose button opens the list. Opening the list
+    /// as well would race the prompt, so the list opens here only when macOS shows no prompt, as after a Deny.
+    /// `prompted` tells whether the prompt is up.
+    static func requestAccess(prompted: @escaping (Bool) -> Void = { _ in }) {
         _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-        shell("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+            let shown = windows.contains { $0[kCGWindowOwnerName as String] as? String == "universalAccessAuthWarn" }
+            if !shown { shell("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'") }
+            prompted(shown)
+        }
     }
 
     /// Opens the list, then moves out of its way: a compact card in the top right corner, below the bar.
     func openSettings() {
-        Self.requestAccess()
+        Self.requestAccess { [weak self] shown in self?.prompted = shown }
         guard !granted, let window, let screen = NSScreen.screens.first else { return }
         waiting = true
         let size = NSSize(width: 300, height: 150)
@@ -144,9 +153,9 @@ private struct AccessView: View {
     @ViewBuilder private var waitingBody: some View {
         HStack(spacing: 10) {
             ProgressView().controlSize(.small)
-            Text("Switch on LiquidBar").font(.system(size: 15, weight: .semibold))
+            Text(state.prompted ? "Open System Settings" : "Switch on LiquidBar").font(.system(size: 15, weight: .semibold))
         }
-        Text("in the Accessibility list. This closes by itself once it is on.")
+        Text(state.prompted ? "in macOS's dialog, then switch on LiquidBar. This closes by itself once it is on." : "in the Accessibility list. This closes by itself once it is on.")
             .foregroundStyle(secondary)
             .multilineTextAlignment(.center)
             .fixedSize(horizontal: false, vertical: true)
