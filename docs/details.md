@@ -75,9 +75,9 @@ Building needs Xcode 26 (Swift 6.2 or later).
 - `make run` stops the launch agent, builds the app, and opens it. A newly started bar quits any running one, so repeated runs never stack two bars.
 - `make restore` hands the bar back to the launch agent after `make run`.
 - `make test` runs the unit tests.
-- `make release` publishes the signed app as the GitHub release for the version in `Support/Info.plist`.
+- `make release` notarizes the signed app and publishes it as the GitHub release for the version in `Support/Info.plist`. It needs notary credentials saved once with `xcrun notarytool store-credentials liquid-bar`.
 
-`make app` signs with the first Apple Development or Developer ID identity in your keychain, so macOS keeps the Accessibility and Automation grants across rebuilds. Without one it signs ad hoc, and every rebuild asks for the grants again. Set `SIGN=` to pick an identity, for example `make app SIGN=-` for ad hoc.
+`make app` signs with the Developer ID identity in your keychain, or else an Apple Development one, with the hardened runtime, so macOS keeps the Accessibility and Automation grants across rebuilds. Without one it signs ad hoc, and every rebuild asks for the grants again. Set `SIGN=` to pick an identity, for example `make app SIGN=-` for ad hoc.
 
 `Sources/LiquidBarCore` holds the pure logic: data types, config decoding, AeroSpace and player parsing, the expansion rules, and display formatting. `Tests/LiquidBarCoreTests` covers it. `Sources/LiquidBar` is the app: panels, SwiftUI views, the dropdown and its menus, the data sources, and the Apple dropdown and app menus.
 

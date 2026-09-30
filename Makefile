@@ -1,6 +1,11 @@
 APP := build/LiquidBar.app
-# A stable identity keeps the Accessibility and Automation grants across rebuilds; ad-hoc signing loses them.
-SIGN ?= $(or $(shell security find-identity -p codesigning -v | awk -F'"' '/Apple Development|Developer ID Application/ { print $$2; exit }'),-)
+# A stable identity keeps the Accessibility and Automation grants across rebuilds; ad-hoc signing loses them. Developer
+# ID comes first, so local builds share the grants of the notarized releases.
+IDENTITIES := $(shell security find-identity -p codesigning -v)
+SIGN ?= $(or $(shell echo '$(IDENTITIES)' | grep -o '"Developer ID Application[^"]*"' | head -1 | tr -d '"'),$(shell echo '$(IDENTITIES)' | grep -o '"Apple Development[^"]*"' | head -1 | tr -d '"'),-)
+TIMESTAMP := $(if $(filter -,$(SIGN)),--timestamp=none,--timestamp)
+# The keychain profile `xcrun notarytool store-credentials` saved the notary credentials under.
+NOTARY ?= liquid-bar
 AGENT := $(HOME)/Library/LaunchAgents/dev.liquidbar.plist
 DOMAIN := gui/$(shell id -u)
 SERVICE := $(DOMAIN)/dev.liquidbar
@@ -16,7 +21,7 @@ app:
 	cp .build/release/liquid-bar $(APP)/Contents/MacOS/
 	cp Support/Info.plist $(APP)/Contents/
 	cp Support/AppIcon.icns $(APP)/Contents/Resources/
-	codesign --force --sign "$(SIGN)" $(APP)
+	codesign --force --options runtime $(TIMESTAMP) --entitlements Support/LiquidBar.entitlements --sign "$(SIGN)" $(APP)
 
 # Regenerates Support/AppIcon.icns and docs/images/icon.png from Support/icon/render.swift.
 icon:
@@ -47,11 +52,14 @@ uninstall:
 	rm -f $(AGENT)
 	rm -rf /Applications/LiquidBar.app
 
-# Bump the version in Support/Info.plist first. Tags the committed tree as v$(VERSION) and publishes the signed app as
-# that GitHub release. The printed sha256 is what a Nix package pins. No resource forks or extended attributes: plain
-# `unzip` turns them into ._ files inside the bundle, which breaks its signature.
+# Bump the version in Support/Info.plist first. Notarizes and staples the app, tags the committed tree as v$(VERSION)
+# and publishes the app as that GitHub release. The printed sha256 is what a Nix package pins. No resource forks or
+# extended attributes: plain `unzip` turns them into ._ files inside the bundle, which breaks its signature.
 release: app
 	test -z "$$(git status --porcelain)"
+	ditto -c -k --keepParent $(APP) build/notarize.zip
+	xcrun notarytool submit build/notarize.zip --keychain-profile $(NOTARY) --wait
+	xcrun stapler staple $(APP)
 	ditto -c -k --keepParent --norsrc --noextattr --noacl $(APP) $(ZIP)
 	git tag -s v$(VERSION) -m "v$(VERSION)"
 	git push origin v$(VERSION)
