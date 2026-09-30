@@ -9,7 +9,24 @@
             <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[**Full Changelog**: https://github.com/jbroma/liquid-bar/compare/v0.9.0...v0.10.0
+            <description sparkle:format="markdown"><![CDATA[### New
+
+- Settings icons are white symbols on System Settings style tiles, with dot status and small buttons on permissions
+- Add an option to hide bar item backgrounds (thanks rudrankriyam)
+- Downloaded copies update themselves through Sparkle
+- The Accessibility request is a standard window with Apple's permission layout
+- Settings looks and behaves like System Settings
+- Settings shows System Settings' own icons, drawn by macOS
+
+### Fixes
+
+- The workspace strip follows windows moved without focus and stays on AeroSpace when another app quits
+- The Accessibility and update windows come forward when LiquidBar runs in the background
+- LiquidBar's windows follow a switch to Light or Dark while they are open
+- Check for Updates brings Sparkle's windows forward from the background too
+- A closed Settings window stops using CPU
+- Settings panes start right under the toolbar and use System Settings' sidebar icons
+- The Settings sidebar keeps its width when switching panes
 
 [LiquidBar 0.10.0 on GitHub](https://github.com/jbroma/liquid-bar/releases/tag/v0.10.0)
 ]]></description>
