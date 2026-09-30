@@ -162,7 +162,8 @@ struct WidgetView: View {
                 .transition(.scale(0.6).combined(with: .opacity))
             }
         case .volume:
-            MenuPill(id: .volume, pulse: model.volume) {
+            // macOS shows its own volume overlay, so a change does not open the dropdown.
+            MenuPill(id: .volume, pulse: 0) {
                 Image(systemName: model.volume.symbol)
                     .frame(width: 16)
                     .contentTransition(.symbolEffect(.replace))

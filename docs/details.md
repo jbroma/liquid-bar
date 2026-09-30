@@ -20,11 +20,11 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 ## Behavior
 
-**Dropdowns.** One dropdown per bar is open at a time. Hovering a pill opens its dropdown after 40 ms, so a fast sweep across the bar does not open every one, and the pill widens by a few points. Once a dropdown is open, moving to another item opens that one at once, like the native menu bar, and the dropdown morphs over to it. The dropdown stays open while the pointer is on the pill or in the dropdown, and closes 0.5 s after the pointer leaves both. A dropdown never crosses the notch and stays on screen. One taller than the screen below the bar scrolls.
+**Dropdowns.** One dropdown per bar is open at a time. Hovering a pill opens its dropdown after 40 ms, so a fast sweep across the bar does not open every one, and the pill widens by a few points. Once a dropdown is open, moving to another item opens that one at once, like the native menu bar, and the dropdown morphs over to it. The dropdown stays open while the pointer is on the pill or in the dropdown, and closes 0.15 s after the pointer leaves both. A dropdown never crosses the notch and stays on screen. One taller than the screen below the bar scrolls.
 
 **Hit areas.** Each item reacts across the full bar height and up to halfway to its neighbours, and the outermost items out to the screen edge. A pointer thrown at the top edge, into a corner, or between two pills still lands on one.
 
-**Changes you did not make.** A change the bar did not cause, like the volume keys, plugging in the charger, or a network drop, opens that dropdown for 2.2 s. A new track opens no dropdown. The now playing pill instead widens for 3 s to show the title and artist next to the new artwork, and stays wide while the pointer is on it.
+**Changes you did not make.** A change the bar did not cause, like plugging in the charger or a network drop, opens that dropdown for 2.2 s. A new track opens no dropdown. The now playing pill instead widens for 3 s to show the title and artist next to the new artwork, and stays wide while the pointer is on it.
 
 **The front app's menus.** Clicking the focused workspace turns the strip into the front app's menu titles, read through Accessibility, with the app's own menu first and in bold. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking an item runs it in the app. Press Esc, switch apps, click the focused workspace again, or move the pointer out of the bar to bring the workspaces back.
 
