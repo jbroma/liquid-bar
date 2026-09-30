@@ -138,6 +138,7 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour = true
     public var clockSeconds = false
     public var batteryPercent = false
+    public var glassStyle = GlassStyle.liquid
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
@@ -150,6 +151,23 @@ public struct Config: Equatable, Sendable {
     ]
 
     public init() {}
+}
+
+/// The glass of the dropdowns, the bar's pills, and LiquidBar's windows.
+public enum GlassStyle: String, CaseIterable, Sendable {
+    case liquid, crystal, frost, mist, obsidian
+
+    public var title: String { rawValue.capitalized }
+
+    public var summary: String {
+        switch self {
+        case .liquid: "Glass with a bright lit rim, like the volume overlay"
+        case .crystal: "The clearest glass, showing the most of what is behind"
+        case .frost: "Heavy frosted glass that blurs the most"
+        case .mist: "Soft, light glass with gentle contrast"
+        case .obsidian: "Dark tinted glass, calm over busy windows"
+        }
+    }
 }
 
 public enum Tint: Equatable, Sendable {

@@ -328,20 +328,79 @@ struct WorkspaceMenu: View {
     }
 }
 
-/// The glass of macOS's volume overlay: the lit, lensing rim of the private glass variant 11 around the regular frosted
-/// glass, which keeps text legible over busy windows. Without the private setter, the regular glass alone.
-struct OverlayGlass: NSViewRepresentable {
+/// The dropdowns' and windows' glass in the config's style, or in `style` for a preview. It follows the config live.
+struct OverlayGlass: View {
     let corner: CGFloat
+    var style: GlassStyle?
 
+    var body: some View {
+        let shown = style ?? delegate.model.config.glassStyle
+        StyledGlass(corner: corner, style: shown, preview: style != nil).id(shown)
+    }
+}
+
+/// The fill of a bar pill or of the focused workspace, matching the style's dropdown glass. Liquid keeps the flat fill:
+/// pills in the volume overlay's glass drew heavy white rims at bar height.
+struct PillFill<S: Shape>: View {
+    let shape: S
+    var style: GlassStyle?
+
+    var body: some View {
+        switch style ?? delegate.model.config.glassStyle {
+        case .liquid: shape.fill(Color.barFill)
+        case .crystal:
+            shape.fill(.white.opacity(0.05))
+            shape.stroke(.white.opacity(0.3), lineWidth: 1)
+        case .frost: Color.clear.glassEffect(.regular, in: shape)
+        case .mist: shape.fill(.white.opacity(0.26))
+        case .obsidian: shape.fill(.black.opacity(0.32))
+        }
+    }
+}
+
+private struct StyledGlass: NSViewRepresentable {
+    let corner: CGFloat
+    let style: GlassStyle
+    /// A preview blurs what its own window draws under it rather than what lies behind the window.
+    let preview: Bool
+
+    /// Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it.
+    /// Mist is the private light variant 6 with its scrim. Without the private setters both fall back to regular.
+    /// Frost is the classic popover material, whose blur is far heavier than any Liquid Glass.
     func makeNSView(context: Context) -> NSView {
-        let frost = NSGlassEffectView()
-        frost.cornerRadius = corner
-        guard frost.responds(to: Selector(("set_variant:"))) else { return frost }
-        let rim = NSGlassEffectView()
-        rim.cornerRadius = corner
-        rim.setValue(11, forKey: "_variant")
-        rim.contentView = frost
-        return rim
+        if style == .frost {
+            let frost = NSVisualEffectView()
+            frost.material = .popover
+            frost.blendingMode = preview ? .withinWindow : .behindWindow
+            frost.state = .active
+            frost.wantsLayer = true
+            frost.layer?.cornerRadius = corner
+            frost.layer?.cornerCurve = .continuous
+            frost.layer?.masksToBounds = true
+            return frost
+        }
+        let glass = NSGlassEffectView()
+        glass.cornerRadius = corner
+        let privateKeys = glass.responds(to: Selector(("set_variant:"))) && glass.responds(to: Selector(("set_scrimState:")))
+        switch style {
+        case .liquid where privateKeys:
+            let rim = NSGlassEffectView()
+            rim.cornerRadius = corner
+            rim.setValue(11, forKey: "_variant")
+            rim.contentView = glass
+            return rim
+        case .mist where privateKeys:
+            glass.setValue(6, forKey: "_variant")
+            glass.setValue(1, forKey: "_scrimState")
+        case .crystal:
+            glass.style = .clear
+        case .obsidian:
+            glass.style = .clear
+            glass.tintColor = .black.withAlphaComponent(0.55)
+        default:
+            break
+        }
+        return glass
     }
 
     func updateNSView(_ view: NSView, context: Context) {}

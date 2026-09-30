@@ -25,6 +25,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `clock24Hour` | boolean | `true` | `false` shows the clock as 12-hour with AM or PM. |
 | `clockSeconds` | boolean | `false` | Shows seconds in the clock. |
 | `batteryPercent` | boolean | `false` | `true` shows the percentage next to the battery symbol. |
+| `glassStyle` | string | `"liquid"` | The glass of the dropdowns, the pills, and LiquidBar's windows: `"liquid"`, `"crystal"`, `"frost"`, `"mist"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
@@ -32,6 +33,18 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
 The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. `clock` runs a command only if `clicks` sets one.
+
+## Glass styles
+
+| Style | Dropdowns and windows | Pills and the focused workspace |
+| --- | --- | --- |
+| `liquid` | Glass with a bright lit rim, like macOS's volume overlay. | A flat 14% white fill. |
+| `crystal` | The clearest glass, showing the most of what is behind. | A faint fill with a thin white outline. |
+| `frost` | Heavy frosted glass that blurs away what is behind. | Liquid Glass. |
+| `mist` | Soft, light glass with gentle contrast. | A brighter 26% white fill. |
+| `obsidian` | Dark tinted glass. | A dark fill. |
+
+`liquid` and `mist` use private variants of macOS's glass. If a later macOS drops them, those two fall back to plain Liquid Glass.
 
 ## Widgets
 

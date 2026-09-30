@@ -19,6 +19,7 @@
 - Now playing for Spotify and Music. On a new track the pill slides out to show the title.
 - The native menu bar stays hidden while the bar runs.
 - The Apple logo opens a dropdown on hover with the Apple menu's items, and a LiquidBar section for settings.
+- Five glass styles for the dropdowns and pills: Liquid, Crystal, Frost, Mist, and Obsidian.
 
 <p align="center">
   <img src="docs/images/clock-v071.webp" height="280" alt="Clock dropdown: the full date over a month calendar with week numbers, today marked in the accent colour, and Open Calendar">

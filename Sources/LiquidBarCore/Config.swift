@@ -32,6 +32,7 @@ extension Config {
             var clock24Hour: Bool?
             var clockSeconds: Bool?
             var batteryPercent: Bool?
+            var glassStyle: String?
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
@@ -44,13 +45,8 @@ extension Config {
             guard margin >= 0 else { throw ConfigError(description: "margin must be >= 0, got \(margin)") }
             config.margin = margin
         }
-        if let name = raw.workspaceSource {
-            guard let source = WorkspaceSource(rawValue: name) else {
-                let names = WorkspaceSource.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
-                throw ConfigError(description: "workspaceSource must be one of \(names), got \"\(name)\"")
-            }
-            config.workspaceSource = source
-        }
+        config.workspaceSource = try choice(WorkspaceSource.self, "workspaceSource", raw.workspaceSource) ?? config.workspaceSource
+        config.glassStyle = try choice(GlassStyle.self, "glassStyle", raw.glassStyle) ?? config.glassStyle
         config.clock24Hour = raw.clock24Hour ?? config.clock24Hour
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
@@ -71,6 +67,16 @@ extension Config {
     }
 }
 
+/// The case of `T` named `name`, nil when the key is missing.
+private func choice<T: RawRepresentable & CaseIterable>(_: T.Type, _ key: String, _ name: String?) throws -> T? where T.RawValue == String {
+    guard let name else { return nil }
+    guard let value = T(rawValue: name) else {
+        let names = T.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
+        throw ConfigError(description: "\(key) must be one of \(names), got \"\(name)\"")
+    }
+    return value
+}
+
 /// A change made from the Apple menu's LiquidBar submenu.
 public enum Setting: Equatable, Sendable {
     case workspaceSource(WorkspaceSource)
@@ -79,6 +85,7 @@ public enum Setting: Equatable, Sendable {
     case batteryPercent(Bool)
     case nowPlaying(Bool)
     case pinned(String, Bool)
+    case glassStyle(GlassStyle)
 
     /// The config file's contents (nil when missing) with this change applied. Every other key stays as written.
     public func applied(to data: Data?) throws -> Data {
@@ -94,6 +101,7 @@ public enum Setting: Equatable, Sendable {
         case .clock24Hour(let on): json["clock24Hour"] = on
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
+        case .glassStyle(let style): json["glassStyle"] = style.rawValue
         case .nowPlaying(let on):
             let name = Widget.nowPlaying.name
             var right: [Any] = json["right"] as? [Any] ?? Config().right.map(\.name)

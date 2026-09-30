@@ -19,7 +19,7 @@ extension Color {
     static let barGreen = Color(hex: 0x7bd88f)
     static let barYellow = Color(hex: 0xfce566)
     static let barRed = Color(hex: 0xfc618d)
-    /// The focused workspace's fill, which the right side's pills share.
+    /// The pills' and the focused workspace's flat fill in the Liquid style.
     static let barFill = Color.white.opacity(0.14)
 }
 
@@ -87,13 +87,13 @@ struct BarView: View {
 }
 
 extension View {
-    /// A capsule in the focused workspace's fill, a step brighter while `lit`.
+    /// A capsule in the style's pill fill, which the focused workspace shares, a step brighter while `lit`.
     func pill(height: CGFloat, padding: CGFloat = 10, lit: Bool = false) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
             .background {
-                Capsule().fill(Color.barFill)
+                PillFill(shape: Capsule())
                 hoverFill(lit)
             }
     }
@@ -330,8 +330,7 @@ struct WorkspaceStrip: View {
         }
         .background(alignment: .leading) {
             if let focusedFrame {
-                DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
-                    .fill(Color.barFill)
+                PillFill(shape: DropletShape(lead: lead, trail: trail, rest: focusedFrame.width))
                     .frame(height: bar.item)
             }
         }
