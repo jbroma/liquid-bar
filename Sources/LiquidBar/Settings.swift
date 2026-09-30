@@ -7,7 +7,13 @@ import SwiftUI
 @Observable
 final class SettingsWindow {
     var section = SettingsSection.general
-    @ObservationIgnored private var window: NSWindow?
+    @ObservationIgnored private var window: AppWindow?
+
+    init() {
+        DistributedNotificationCenter.default().addObserver(forName: .init("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.followSystemAppearance() }
+        }
+    }
 
     /// Shows the window, on `section` when given.
     func show(_ section: SettingsSection? = nil) {
@@ -26,11 +32,14 @@ final class SettingsWindow {
             window.contentView = NSHostingView(rootView: SettingsView(model: delegate.model, window: self))
             if !window.setFrameUsingName("Settings") { window.center() }
             window.setFrameAutosaveName("Settings")
+            // A closed window's SwiftUI content would keep updating, as the permission rows' timers do, so the window
+            // goes with it and the next `show` builds a new one. The name frees for that one.
+            window.onClose = { [weak self, weak window] in
+                window?.setFrameAutosaveName("")
+                self?.window = nil
+            }
             self.window = window
             followSystemAppearance()
-            DistributedNotificationCenter.default().addObserver(forName: .init("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.followSystemAppearance() }
-            }
         }
         window.map(bringForward)
         // The sidebar takes the keyboard focus, as in System Settings, so its selection shows in the accent colour and
@@ -622,7 +631,14 @@ extension Setting {
 
 /// A standard window of LiquidBar's: Esc closes it, like ⌘W.
 final class AppWindow: NSWindow {
+    var onClose: (() -> Void)?
+
     override func cancelOperation(_ sender: Any?) { performClose(sender) }
+
+    override func close() {
+        super.close()
+        onClose?()
+    }
 }
 
 /// LiquidBar has no Dock icon, so its windows would open behind the front app, with dimmed buttons, and Command-Tab
