@@ -7,15 +7,20 @@ SERVICE := $(DOMAIN)/dev.liquidbar
 VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Support/Info.plist)
 ZIP := build/LiquidBar-$(VERSION).zip
 
-.PHONY: app run test install uninstall restore release clean
+.PHONY: app icon run test install uninstall restore release clean
 
 app:
 	swift build -c release
 	rm -rf $(APP)
-	mkdir -p $(APP)/Contents/MacOS
+	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
 	cp .build/release/liquid-bar $(APP)/Contents/MacOS/
 	cp Support/Info.plist $(APP)/Contents/
+	cp Support/AppIcon.icns $(APP)/Contents/Resources/
 	codesign --force --sign "$(SIGN)" $(APP)
+
+# Regenerates Support/AppIcon.icns and docs/images/icon.png from Support/icon/render.swift.
+icon:
+	swift Support/icon/render.swift
 
 # The launch agent's bar would quit for this one and stay down, so stop the agent first; `make restore` brings it back.
 run: app

@@ -1,3 +1,5 @@
+<img src="docs/images/icon.png" width="96" alt="The LiquidBar icon: a glass menu bar with workspace pills over a violet to blue gradient">
+
 # liquid-bar
 
 A macOS 26 menu bar replacement drawn in Liquid Glass.

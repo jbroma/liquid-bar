@@ -27,7 +27,7 @@ private struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: "menubar.rectangle").font(.system(size: 40)).padding(.top, 4)
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
             Text("LiquidBar").font(.system(size: 20, weight: .semibold))
             Text(version).foregroundStyle(secondary)
             Text("A Liquid Glass menu bar for macOS")
