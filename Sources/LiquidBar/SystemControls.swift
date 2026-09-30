@@ -336,6 +336,21 @@ enum SystemControlCenter {
         return Dictionary(MenuExtras.items(pid: owner).compactMap { item in AX.string(item, "AXIdentifier").map { ($0, item) } }) { first, _ in first }
     }
 
+    private nonisolated(unsafe) static var observer: AXObserver?
+    private static var itemsChanged: (() -> Void)?
+
+    /// Calls `handler` whenever one of Apple's status items comes or goes, once Accessibility access allows it.
+    static func onItemsChanged(_ handler: @escaping () -> Void) {
+        guard observer == nil, AXIsProcessTrusted(), let owner,
+              AXObserverCreate(owner, { _, _, _, _ in MainActor.assumeIsolated { SystemControlCenter.itemsChanged?() } }, &observer) == .success,
+              let observer
+        else { return }
+        itemsChanged = handler
+        let app = AXUIElementCreateApplication(owner)
+        for name in [kAXCreatedNotification, kAXUIElementDestroyedNotification] { AXObserverAddNotification(observer, app, name as CFString, nil) }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+    }
+
     /// Whether a Focus is on, read from its status item. Nil without Accessibility access. The Focus database itself
     /// needs Full Disk Access, and the DoNotDisturb framework refuses clients without Apple's entitlement.
     static func focusIsOn() -> Bool? {

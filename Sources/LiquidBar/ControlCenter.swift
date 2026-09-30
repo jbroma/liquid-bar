@@ -10,9 +10,11 @@ final class Controls {
     @ObservationIgnored private var readingBluetooth: Task<Void, Never>?
     @ObservationIgnored private var togglingFocus = false
     @ObservationIgnored private var lastAirDrop: AirDropMode?
+    /// Whether the Focus status item was there at the last look.
+    @ObservationIgnored private var focusItem: Bool?
 
-    /// Focus is read once, then followed through the notifications macOS still posts under Do Not Disturb's old name.
-    /// They arrive as Focus switches, while its status item leaves the menu bar only about 5s after Focus ends.
+    /// Focus is read once, then followed through the notifications macOS posts under Do Not Disturb's old name up to
+    /// macOS 26. They arrive as Focus switches. macOS 27 no longer posts them, so Focus also follows its status item.
     init() {
         readFocus()
         for (name, on) in [("_NSDoNotDisturbEnabledNotification", true), ("_NSDoNotDisturbDisabledNotification", false)] {
@@ -22,7 +24,19 @@ final class Controls {
         }
     }
 
-    func readFocus() { state.focus = SystemControlCenter.focusIsOn() }
+    func readFocus() {
+        focusItem = SystemControlCenter.focusIsOn()
+        state.focus = focusItem
+        SystemControlCenter.onItemsChanged { [weak self] in self?.followFocus() }
+    }
+
+    /// The status item leaves the menu bar only about 5s after Focus ends, so only its coming and going moves the tile:
+    /// a read in between would undo a switch just made here.
+    private func followFocus() {
+        let shown = SystemControlCenter.focusIsOn()
+        guard shown != focusItem else { return }
+        (focusItem, state.focus) = (shown, shown)
+    }
 
     func refresh() {
         let airDrop = AirDrop.mode()
