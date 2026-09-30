@@ -21,24 +21,17 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate {
     }
 
     // Sparkle's recommendation for an app without a Dock icon: while an update window is up, the app is a regular
-    // app, so the window comes forward and Command-Tab reaches it, and a scheduled update badges the Dock icon
-    // instead of taking focus.
+    // app, so the window comes forward and Command-Tab reaches it. A background app's window would otherwise open
+    // behind the front app with dimmed buttons, so a scheduled update comes forward too.
     var supportsGentleScheduledUpdateReminders: Bool { true }
 
     func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool, forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
         NSApp.setActivationPolicy(.regular)
-        if state.userInitiated {
-            NSApp.activate()
-        } else {
-            NSApp.dockTile.badgeLabel = "1"
-        }
-    }
-
-    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
-        NSApp.dockTile.badgeLabel = ""
+        // `activate()` alone is turned down while the app is in the background; see `bringForward`.
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     func standardUserDriverWillFinishUpdateSession() {
-        NSApp.setActivationPolicy(.accessory)
+        followWindows()
     }
 }

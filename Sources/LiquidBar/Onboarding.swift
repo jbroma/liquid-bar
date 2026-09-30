@@ -48,7 +48,7 @@ final class AccessWindow {
         waiting = false
         if window == nil {
             let content = NSHostingController(rootView: AccessView(state: self, close: { [weak self] in self?.close() }))
-            let window = NSWindow(contentViewController: content)
+            let window = AppWindow(contentViewController: content)
             window.styleMask = [.titled, .closable]
             // Centring needs the final size, which the hosting controller only reports after layout.
             window.setContentSize(content.view.fittingSize)
@@ -59,8 +59,7 @@ final class AccessWindow {
         }
         window?.appearance = systemAppearance()
         watch()
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        window.map(bringForward)
     }
 
     private func watch() {
@@ -82,7 +81,7 @@ final class AccessWindow {
 
     /// The poll keeps going until the grant arrives, so a grant made later still restarts what needed it.
     func close() {
-        window?.orderOut(nil)
+        window?.close()
     }
 }
 
