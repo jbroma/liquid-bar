@@ -55,8 +55,8 @@ struct NetworkMenu: View {
                             .transition(.opacity)
                     }
                 } else {
-                    MenuButton { openSettings("com.apple.preference.security?Privacy_LocationServices") } content: {
-                        Text("Allow Location to see network names").lineLimit(1)
+                    MenuButton { Permission.location.request() } content: {
+                        Text(location.status == .notDetermined ? "Show Network Names…" : "Allow Location to see network names…").lineLimit(1)
                     }
                 }
                 // macOS has no public way to open its own "Join Other Network" dialog.
@@ -68,7 +68,6 @@ struct NetworkMenu: View {
         .onChange(of: slot.owner == .wifi) { _, open in if !open { listed = false } }
         .task(id: network) { await sample() }
         .task(id: location.granted) {
-            location.request()
             while !Task.isCancelled {
                 await refresh()
                 try? await Task.sleep(for: .seconds(10))
@@ -248,18 +247,20 @@ private struct KeyWindow: NSViewRepresentable {
     }
 }
 
-/// Location access, without which CoreWLAN hides network names. Created, and asked for, when the Wi-Fi dropdown first
-/// opens, never at launch.
+/// Location access, without which CoreWLAN hides network names. Asked for only from a click on the Wi-Fi dropdown's
+/// row or the Settings window, never by opening the dropdown, which a network change can do on its own.
 @Observable
 final class LocationAccess: NSObject, CLLocationManagerDelegate {
     static let shared = LocationAccess()
-    private(set) var granted = false
+    private(set) var status = CLAuthorizationStatus.notDetermined
     @ObservationIgnored private let manager = CLLocationManager()
+
+    var granted: Bool { status == .authorizedAlways }
 
     override init() {
         super.init()
         manager.delegate = self
-        granted = Self.allows(manager.authorizationStatus)
+        status = manager.authorizationStatus
     }
 
     func request() {
@@ -267,12 +268,8 @@ final class LocationAccess: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        let granted = Self.allows(manager.authorizationStatus)
-        MainActor.assumeIsolated { self.granted = granted }
-    }
-
-    private nonisolated static func allows(_ status: CLAuthorizationStatus) -> Bool {
-        status == .authorizedAlways
+        let status = manager.authorizationStatus
+        MainActor.assumeIsolated { self.status = status }
     }
 }
 

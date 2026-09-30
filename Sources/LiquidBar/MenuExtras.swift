@@ -81,7 +81,11 @@ struct MenuExtrasSection: View {
     @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
-        if !model.menuExtras.isEmpty {
+        if !AXIsProcessTrusted() {
+            MenuButton { Permission.accessibility.request() } content: { Text("Allow Access to Menu Bar Items…").lineLimit(1) }
+                .frame(minHeight: 30)
+                .module()
+        } else if !model.menuExtras.isEmpty {
             VStack(spacing: 0) {
                 HeaderRow(title: "Menu Bar Items") {
                     Text("\(model.menuExtras.count)").foregroundStyle(secondary).monospacedDigit()

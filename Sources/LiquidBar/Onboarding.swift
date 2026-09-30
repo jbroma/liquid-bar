@@ -11,7 +11,7 @@ final class AccessWindow {
     private(set) var prompted = false
     @ObservationIgnored private var window: NSPanel?
     @ObservationIgnored private var poll: Timer?
-    /// Runs once when the grant arrives while the window is open, to restart what needed it.
+    /// Runs once when the grant arrives while the window is open or a request waits, to restart what needed it.
     @ObservationIgnored private let onGranted: () -> Void
 
     init(onGranted: @escaping () -> Void) { self.onGranted = onGranted }
@@ -20,6 +20,7 @@ final class AccessWindow {
     /// as well would race the prompt, so the list opens here only when macOS shows no prompt, as after a Deny.
     /// `prompted` tells whether the prompt is up.
     static func requestAccess(prompted: @escaping (Bool) -> Void = { _ in }) {
+        UserDefaults.standard.set(true, forKey: Permission.askedAccessibility)
         _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
@@ -29,9 +30,15 @@ final class AccessWindow {
         }
     }
 
+    /// Asks without the window, from the Settings window or a bar item that needs access, and follows the grant.
+    func request() {
+        Self.requestAccess { [weak self] shown in self?.prompted = shown }
+        watch()
+    }
+
     /// Opens the list, then moves out of its way: a compact card in the top right corner, below the bar.
     func openSettings() {
-        Self.requestAccess { [weak self] shown in self?.prompted = shown }
+        request()
         guard !granted, let window, let screen = NSScreen.screens.first else { return }
         waiting = true
         let size = NSSize(width: 300, height: 150)
@@ -51,12 +58,18 @@ final class AccessWindow {
             let panel = glassPanel(NSSize(width: 440, height: 380), close: { [weak self] in self?.close() }) { AccessView(state: self, close: { [weak self] in self?.close() }) }
             window = panel
         }
+        watch()
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+    }
+
+    private func watch() {
+        granted = AXIsProcessTrusted()
         poll?.invalidate()
+        guard !granted else { return }
         poll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.check() }
         }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
     }
 
     private func check() {
@@ -67,8 +80,8 @@ final class AccessWindow {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.close() }
     }
 
+    /// The poll keeps going until the grant arrives, so a grant made later still restarts what needed it.
     func close() {
-        poll?.invalidate()
         window?.orderOut(nil)
     }
 }

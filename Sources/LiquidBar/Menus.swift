@@ -206,6 +206,11 @@ struct NowPlayingMenu: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 2)
                 MenuSeparator()
+                if nowPlaying.player.permission.status == .denied {
+                    MenuButton { nowPlaying.player.permission.request() } content: {
+                        Text("Allow Control of \(nowPlaying.player.appName)…").lineLimit(1)
+                    }
+                }
                 MenuButton { shell("open -b \(nowPlaying.player.rawValue)") } content: { Text("Open \(nowPlaying.player.appName)") }
             }
         }

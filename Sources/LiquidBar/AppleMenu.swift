@@ -20,11 +20,11 @@ struct AppleMenu: View {
             MenuSeparator()
             row("Sleep") { shell("pmset sleepnow") }
             // loginwindow's own confirmation dialogs (kAEShowRestartDialog, kAEShowShutdownDialog, kAELogOut).
-            row("Restart…") { shell(#"osascript -e 'tell application "loginwindow" to «event aevtrrst»'"#) }
-            row("Shut Down…") { shell(#"osascript -e 'tell application "loginwindow" to «event aevtrsdn»'"#) }
+            row("Restart…") { Permission.loginwindow.tell("«event aevtrrst»") }
+            row("Shut Down…") { Permission.loginwindow.tell("«event aevtrsdn»") }
             MenuSeparator()
             row("Lock Screen") { lockScreen() }
-            row("Log Out \(NSFullUserName())…") { shell(#"osascript -e 'tell application "loginwindow" to «event aevtlogo»'"#) }
+            row("Log Out \(NSFullUserName())…") { Permission.loginwindow.tell("«event aevtlogo»") }
         }
         // SwiftUI can keep this view's state from one opening to the next; each opens folded.
         .onChange(of: slot.owner == .apple) { _, open in if !open { forceQuit = false } }

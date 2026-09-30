@@ -44,8 +44,8 @@ final class Controls {
         let next = ControlState(brightness: DisplayBrightness.read(), keyboard: KeyboardBrightness.read(), bluetooth: state.bluetooth,
                                 devices: state.devices, focus: state.focus, airDrop: airDrop, darkMode: Appearance.isDark(), nightShift: NightShift.isOn())
         if next != state { state = next }
-        // Until it lands, the tile shows what the last read found.
-        guard readingBluetooth == nil else { return }
+        // Until it lands, the tile shows what the last read found. Before the user allows Bluetooth, a read would ask.
+        guard readingBluetooth == nil, Permission.bluetooth.status == .granted else { return }
         readingBluetooth = Task {
             let (on, devices) = await Bluetooth.read()
             if on != state.bluetooth || devices != state.devices { (state.bluetooth, state.devices) = (on, devices) }
@@ -92,6 +92,7 @@ final class Controls {
             state.nightShift = !on
             NightShift.setOn(!on)
         case .bluetooth:
+            guard Permission.bluetooth.status == .granted else { return Permission.bluetooth.request() }
             guard let on = state.bluetooth, Bluetooth.canSwitch else { return openSettings("com.apple.BluetoothSettings") }
             state.bluetooth = !on
             Bluetooth.setOn(!on)
@@ -240,7 +241,9 @@ struct ControlCenterMenu: View {
             GlassSwitch(on: Bluetooth.canSwitch ? state.bluetooth : nil) { _ in controls.press(.bluetooth, dismiss: slot.dismiss) }
         }
         MenuSeparator()
-        if state.devices.isEmpty {
+        if Permission.bluetooth.status != .granted {
+            MenuButton { Permission.bluetooth.request() } content: { Text("Allow Bluetooth Access…") }.frame(minHeight: 30)
+        } else if state.devices.isEmpty {
             MenuRow { Text("No Devices").foregroundStyle(secondary) }.frame(minHeight: 30)
         }
         ForEach(state.devices) { device in

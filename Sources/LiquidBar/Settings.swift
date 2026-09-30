@@ -11,6 +11,8 @@ final class SettingsWindow {
     /// Shows the window, on `section` when given.
     func show(_ section: SettingsSection? = nil) {
         if let section { self.section = section }
+        // The Accessibility window would float over this one; its row in General takes over.
+        delegate.access.close()
         if window == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 715, height: 500),
@@ -120,16 +122,17 @@ private struct GeneralPane: View {
                 .pickerStyle(.segmented)
                 Toggle("Show Seconds", isOn: saving(config.clockSeconds, Setting.clockSeconds))
             }
-            Section("Permissions") {
-                // macOS posts nothing when the grant changes.
-                TimelineView(.periodic(from: .now, by: 2)) { _ in
-                    LabeledContent("Accessibility") {
-                        HStack {
-                            Text(AXIsProcessTrusted() ? "Allowed" : "Not allowed").foregroundStyle(.secondary)
-                            Button("Open…") { delegate.access.show() }
-                        }
-                    }
+            Section {
+                ForEach(Permission.listed) { permission in
+                    // macOS posts nothing when a grant changes.
+                    TimelineView(.periodic(from: .now, by: 2)) { _ in PermissionRow(permission: permission) }
                 }
+            } header: {
+                Text("Permissions")
+            } footer: {
+                Text("LiquidBar asks for each one the first time you use what needs it.").foregroundStyle(.secondary)
+            }
+            Section {
                 LabeledContent("Started by", value: launcher)
             }
         }
@@ -140,6 +143,34 @@ private struct GeneralPane: View {
     private var launcher: String {
         let job = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? ""
         return job.isEmpty || job == "0" || job.hasPrefix("application.") ? "Opened by hand" : "Launch agent \(job)"
+    }
+}
+
+private struct PermissionRow: View {
+    let permission: Permission
+
+    var body: some View {
+        let status = permission.status
+        LabeledContent {
+            HStack {
+                Text(title(status)).foregroundStyle(.secondary)
+                if status != .unknown {
+                    Button(status == .notAsked ? "Grant…" : "Open Settings…") { permission.request() }
+                }
+            }
+        } label: {
+            Text(permission.title)
+            Text(permission.use)
+        }
+    }
+
+    private func title(_ status: Permission.Status) -> String {
+        switch status {
+        case .granted: "Allowed"
+        case .notAsked: "Not asked yet"
+        case .denied: "Not allowed"
+        case .unknown: "Known while \(permission.app?.name ?? "it") runs"
+        }
     }
 }
 
@@ -365,7 +396,12 @@ private struct MenuBarItemsPane: View {
                 }
             }
             Section("Other Menu Bar Items") {
-                if !AXIsProcessTrusted() { Text("Reading other apps' items needs Accessibility access.").foregroundStyle(.secondary) }
+                if !AXIsProcessTrusted() {
+                    LabeledContent("Reading other apps' items needs Accessibility access.") {
+                        Button("Grant…") { Permission.accessibility.request() }
+                    }
+                    .foregroundStyle(.secondary)
+                }
                 ForEach(Array(others.enumerated()), id: \.offset) { _, extra in
                     row(extra.bundleID, label: extra.label, pinned: false)
                 }

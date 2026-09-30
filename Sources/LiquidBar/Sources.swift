@@ -596,17 +596,17 @@ final class NowPlayingSource {
         }
     }
 
-    /// Players post nothing until their state changes, so ask a running one once at launch.
+    /// Players post nothing until their state changes, so ask a running one once at launch, only if the user already
+    /// allowed it: an Automation prompt at launch would stack on the Accessibility window.
     private func queryRunningPlayers() {
         for player in [NowPlaying.Player.spotify, .music]
-        where !NSRunningApplication.runningApplications(withBundleIdentifier: player.rawValue).isEmpty {
+        where !NSRunningApplication.runningApplications(withBundleIdentifier: player.rawValue).isEmpty && player.permission.status == .granted {
             let idProperty = player == .spotify ? "id" : "persistent ID"
             let script = """
                 tell application "\(player.appName)" to if player state is not stopped then ¬
                 return (player state as string) & linefeed & name of current track & linefeed & artist of current track & linefeed & (\(idProperty) of current track as string)
                 """
             Task {
-                // The first run can wait on the Automation prompt.
                 guard let output = await run(["osascript", "-e", script], timeout: 120) else { return }
                 let fields = output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
                 guard fields.count >= 4 else { return }

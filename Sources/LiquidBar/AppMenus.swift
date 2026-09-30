@@ -63,7 +63,7 @@ enum AppMenus {
     /// Explains the missing permission instead of doing `purpose`, and offers the Privacy pane.
     static func explainAccess(_ purpose: String, at screenPoint: NSPoint) {
         explain("LiquidBar needs Accessibility access to \(purpose).", fix: "Open Accessibility Settings…", at: screenPoint) {
-            AccessWindow.requestAccess()
+            Permission.accessibility.request()
         }
     }
 
