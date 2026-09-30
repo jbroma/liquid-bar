@@ -72,6 +72,8 @@ struct AppleMenu: View {
     @ViewBuilder private var liquidBar: some View {
         let config = model.config
         let nowPlaying = config.right.contains(.nowPlaying)
+        row("About LiquidBar", indent: 14) { delegate.about.show() }
+        MenuSeparator().padding(.leading, 14)
         MenuSection(title: "Workspaces").padding(.leading, 14)
         ForEach([("Automatic", WorkspaceSource.auto), ("AeroSpace", .aerospace), ("Desktops", .spaces), ("Apps", .apps)], id: \.0) { title, source in
             setting(title, config.workspaceSource == source, .workspaceSource(source))

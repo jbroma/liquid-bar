@@ -6,6 +6,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 
 The **LiquidBar** row of the Apple dropdown unfolds a section that edits the same file. It has these items:
 
+- **About LiquidBar** opens a window with the version, a one-line description, a link to the GitHub repository, and the license.
 - **Workspaces**: Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`).
 - **Clock**: 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`).
 - **Show Now Playing**: adds `nowPlaying` to the start of `right`, or removes it.

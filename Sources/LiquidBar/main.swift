@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var fullscreenPoll: Timer?
     var pendingRebuild: Task<Void, Never>?
     /// Without a relaunch, what read Accessibility at launch or earlier and came up empty reads it again.
+    let about = AboutWindow()
     lazy var access = AccessWindow { [model] in
         MenuExtras.refresh(model)
         model.controls.readFocus()

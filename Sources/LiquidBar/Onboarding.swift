@@ -21,18 +21,7 @@ final class AccessWindow {
     func show() {
         granted = AXIsProcessTrusted()
         if window == nil {
-            let panel = OnboardingPanel(contentRect: NSRect(x: 0, y: 0, width: 440, height: 380), styleMask: [.borderless], backing: .buffered, defer: false)
-            panel.backgroundColor = .clear
-            panel.isOpaque = false
-            panel.hasShadow = false
-            panel.isReleasedWhenClosed = false
-            panel.level = .floating
-            panel.hidesOnDeactivate = false
-            panel.isMovableByWindowBackground = true
-            let host = NSHostingView(rootView: AccessView(state: self, close: { [weak self] in self?.close() }))
-            host.sizingOptions = []
-            panel.contentView = host
-            panel.center()
+            let panel = glassPanel(NSSize(width: 440, height: 380), close: { [weak self] in self?.close() }) { AccessView(state: self, close: { [weak self] in self?.close() }) }
             window = panel
         }
         poll?.invalidate()
@@ -57,9 +46,29 @@ final class AccessWindow {
     }
 }
 
+/// A borderless glass window centred on screen, which `content` fills. Esc calls `close`.
+func glassPanel<Content: View>(_ size: NSSize, close: @escaping () -> Void, content: () -> Content) -> NSPanel {
+    let panel = OnboardingPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+    panel.onCancel = close
+    panel.backgroundColor = .clear
+    panel.isOpaque = false
+    panel.hasShadow = false
+    panel.isReleasedWhenClosed = false
+    panel.level = .floating
+    panel.hidesOnDeactivate = false
+    panel.isMovableByWindowBackground = true
+    let host = NSHostingView(rootView: content())
+    host.sizingOptions = []
+    panel.contentView = host
+    panel.center()
+    return panel
+}
+
 /// A borderless window refuses key status unless it says otherwise, and its buttons need the first click.
 private final class OnboardingPanel: NSPanel {
+    var onCancel: () -> Void = {}
     override var canBecomeKey: Bool { true }
+    override func cancelOperation(_ sender: Any?) { onCancel() }
 }
 
 private struct AccessView: View {
