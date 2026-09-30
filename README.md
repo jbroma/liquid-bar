@@ -14,7 +14,7 @@
 
 - A glass bar with glass pills. Hover a pill and its dropdown floats below it.
 - Workspaces with their apps' icons, from AeroSpace, the macOS desktops, or the running apps.
-- The front app's menus when you click the focused workspace.
+- The front app's menus when you click the focused workspace, or while you hold Shift with the pointer on the bar.
 - Control Center, with the other apps' menu bar items listed inside it. Pin one and it moves onto the bar as its own pill, with the item's menu as its dropdown.
 - Now playing for Spotify and Music. On a new track the pill slides out to show the title.
 - The native menu bar stays hidden while the bar runs.

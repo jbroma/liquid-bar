@@ -48,7 +48,7 @@ struct BarView: View {
         .onContinuousHover { phase in
             switch phase {
             case .active:
-                menuMode.hover(true)
+                menuMode.hover(true, app: model.frontApp)
             case .ended:
                 menuMode.hover(false)
             }

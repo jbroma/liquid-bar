@@ -30,7 +30,7 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 **Changes you did not make.** A change the bar did not cause, like plugging in the charger or a network drop, opens that dropdown for 2.2 s. A new track opens no dropdown. The now playing pill instead widens for 3 s to show the title and artist next to the new artwork, and stays wide while the pointer is on it.
 
-**The front app's menus.** Clicking the focused workspace turns the strip into the front app's menu titles, read through Accessibility, with the app's own menu first and in bold. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking an item runs it in the app. Press Esc, switch apps, click the focused workspace again, or move the pointer out of the bar to bring the workspaces back.
+**The front app's menus.** Clicking the focused workspace, or holding Shift with the pointer on the bar, turns the strip into the front app's menu titles, read through Accessibility, with the app's own menu first and in bold. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking an item runs it in the app. Press Esc, switch apps, click the focused workspace again, or move the pointer out of the bar to bring the workspaces back.
 
 **The native menu bar.** While the bar runs, it sets the native menu bar's opacity to 0 through SkyLight, as yabai's `menubar_opacity` does, so the native menu bar never shows through the glass and ignores the mouse. While a fullscreen window hides the bar, the native menu bar is visible again, so that app's menus stay reachable. If the bar quits or crashes, macOS restores the native menu bar.
 

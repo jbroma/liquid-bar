@@ -194,7 +194,8 @@ private final class MenuFiller: NSObject, NSMenuDelegate {
 }
 
 /// Whether one bar's left island shows the front app's menu titles instead of the workspaces. Esc, switching apps, or
-/// the pointer leaving the bar morphs it back.
+/// the pointer leaving the bar morphs it back. Holding Shift with the pointer on the bar peeks at them: they show while
+/// Shift is down, and an open menu keeps them until it closes.
 @Observable
 final class MenuMode {
     private(set) var titles: [AppMenuTitle]?
@@ -204,27 +205,36 @@ final class MenuMode {
     @ObservationIgnored private var escape: Any?
     @ObservationIgnored private var dropdownOpen = false
     @ObservationIgnored private var pointerInside = false
+    /// Listens for Shift only while the pointer is on the bar.
+    @ObservationIgnored private var shiftMonitors: [Any] = []
+    @ObservationIgnored private var peeking = false
+    @ObservationIgnored private var app: FrontApp?
 
     var active: Bool { titles != nil }
 
     /// Rebuilding the bars for a screen change drops this with the menus still showing.
     isolated deinit {
         escape.map(NSEvent.removeMonitor)
+        shiftMonitors.forEach(NSEvent.removeMonitor)
     }
 
     /// Clicking the focused workspace: menus on, or off again. Without Accessibility access it explains why not.
     func toggle(_ app: FrontApp, at screenPoint: NSPoint) {
         if active { return end() }
-        guard let titles = AppMenus.titles(pid: app.pid), !titles.isEmpty else {
-            if !AXIsProcessTrusted() { AppMenus.explainAccess("show \(app.name)'s menus", at: screenPoint) }
-            return
-        }
+        if !show(app), !AXIsProcessTrusted() { AppMenus.explainAccess("show \(app.name)'s menus", at: screenPoint) }
+    }
+
+    /// Shows the app's menus; false without Accessibility access or when the app has none.
+    @discardableResult
+    private func show(_ app: FrontApp) -> Bool {
+        guard let titles = AppMenus.titles(pid: app.pid), !titles.isEmpty else { return false }
         withAnimation(spring) { self.titles = titles }
         // Global key events need Accessibility access, which reading the menus already proved.
         escape = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.keyCode == 53 else { return }
             MainActor.assumeIsolated { self?.end() }
         }
+        return true
     }
 
     /// Opens the menu of the column `id`. Sliding onto another title while it is open switches to that title's menu,
@@ -241,12 +251,26 @@ final class MenuMode {
         }
         openTitle = nil
         dropdownOpen = false
+        if peeking, !NSEvent.modifierFlags.contains(.shift) { return end() }
         if !pointerInside { hover(false) }
     }
 
-    func hover(_ inside: Bool) {
+    /// The pointer entering or leaving the bar, with the app whose menus a Shift peek shows.
+    func hover(_ inside: Bool, app: FrontApp? = nil) {
         pointerInside = inside
+        self.app = app
         leave?.cancel()
+        if inside, shiftMonitors.isEmpty {
+            let changed: (NSEvent) -> Void = { [weak self] event in
+                MainActor.assumeIsolated { self?.shift(event.modifierFlags.contains(.shift)) }
+            }
+            shiftMonitors = [NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: changed),
+                             NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { changed($0); return $0 }].compactMap { $0 }
+            shift(NSEvent.modifierFlags.contains(.shift))
+        } else if !inside {
+            shiftMonitors.forEach(NSEvent.removeMonitor)
+            shiftMonitors = []
+        }
         guard !inside, active else { return }
         leave = Task {
             try? await Task.sleep(for: .seconds(0.7))
@@ -255,7 +279,16 @@ final class MenuMode {
         }
     }
 
+    private func shift(_ down: Bool) {
+        if down, !active, let app, show(app) {
+            peeking = true
+        } else if !down, peeking, !dropdownOpen {
+            end()
+        }
+    }
+
     func end() {
+        peeking = false
         leave?.cancel()
         escape.map(NSEvent.removeMonitor)
         escape = nil
