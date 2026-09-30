@@ -15,24 +15,36 @@ final class SettingsWindow {
         // One permission request at a time; the Accessibility row in General takes over.
         delegate.access.close()
         if window == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 715, height: 500),
+            let window = AppWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 740, height: 560),
                 styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView], backing: .buffered, defer: false)
             window.title = "LiquidBar Settings"
             window.isReleasedWhenClosed = false
+            // SwiftUI puts the pane's title in the toolbar, as System Settings does, only once the window has one.
+            window.toolbar = NSToolbar()
+            window.toolbarStyle = .unified
             window.contentView = NSHostingView(rootView: SettingsView(model: delegate.model, window: self))
-            window.center()
+            if !window.setFrameUsingName("Settings") { window.center() }
+            window.setFrameAutosaveName("Settings")
             self.window = window
             followSystemAppearance()
             DistributedNotificationCenter.default().addObserver(forName: .init("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.followSystemAppearance() }
             }
         }
-        NSApp.activate()
-        window?.makeKeyAndOrderFront(nil)
+        window.map(bringForward)
+        // The sidebar takes the keyboard focus, as in System Settings, so its selection shows in the accent colour and
+        // no control in the pane starts with a focus ring.
+        DispatchQueue.main.async { [weak window] in
+            window?.makeFirstResponder(window?.contentView.flatMap { firstTable(in: $0) })
+        }
     }
 
     private func followSystemAppearance() { window?.appearance = systemAppearance() }
+}
+
+private func firstTable(in view: NSView) -> NSTableView? {
+    view as? NSTableView ?? view.subviews.lazy.compactMap(firstTable).first
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
@@ -78,7 +90,7 @@ private struct SettingsView: View {
                 Label { Text(section.title) } icon: { IconTile(symbol: section.symbol, tint: section.tint) }.tag(section)
             }
             .toolbar(removing: .sidebarToggle)
-            .navigationSplitViewColumnWidth(190)
+            .navigationSplitViewColumnWidth(215)
         } detail: {
             Group {
                 switch section {
@@ -87,10 +99,11 @@ private struct SettingsView: View {
                 case .menuBarItems: MenuBarItemsPane(model: model)
                 }
             }
-            // The sidebar already names the pane.
-            .toolbar(removing: .title)
+            .navigationTitle(section.title)
         }
-        .frame(minWidth: 640, minHeight: 440)
+        // A fixed size, like System Settings' width and the Settings windows of Apple's apps: a resizable window
+        // would be tiled by window managers such as AeroSpace.
+        .frame(width: 740, height: 560)
     }
 }
 
@@ -111,8 +124,8 @@ private struct GeneralPane: View {
                     Text("Desktops").tag(WorkspaceSource.spaces)
                     Text("Apps").tag(WorkspaceSource.apps)
                 }
-                Toggle("Show Now Playing", isOn: saving(config.right.contains(.nowPlaying), Setting.nowPlaying))
-                Toggle("Show Battery Percentage", isOn: saving(config.batteryPercent, Setting.batteryPercent))
+                Toggle("Show now playing", isOn: saving(config.right.contains(.nowPlaying), Setting.nowPlaying))
+                Toggle("Show battery percentage", isOn: saving(config.batteryPercent, Setting.batteryPercent))
             }
             Section("Clock") {
                 Picker("Format", selection: saving(config.clock24Hour, Setting.clock24Hour)) {
@@ -121,7 +134,7 @@ private struct GeneralPane: View {
                     Text("12-Hour").tag(Bool?.some(false))
                 }
                 .pickerStyle(.segmented)
-                Toggle("Show Seconds", isOn: saving(config.clockSeconds, Setting.clockSeconds))
+                Toggle("Show seconds", isOn: saving(config.clockSeconds, Setting.clockSeconds))
             }
             Section {
                 ForEach(Permission.listed) { permission in
@@ -137,7 +150,7 @@ private struct GeneralPane: View {
                 LabeledContent {
                     Text(configURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")).textSelection(.enabled)
                 } label: {
-                    Label { Text("Config File") } icon: { IconTile(symbol: "doc.text.fill", tint: .gray) }
+                    Label { Text("Config file") } icon: { IconTile(symbol: "doc.text.fill", tint: .gray) }
                 }
                 LabeledContent {
                     Text(launcher).foregroundStyle(.secondary)
@@ -286,32 +299,59 @@ private struct AppearancePane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Show Pills", isOn: saving(config.pills, Setting.pills))
+                Toggle("Show pills", isOn: saving(config.pills, Setting.pills))
             } footer: {
                 Text("Off, the bar's items sit straight on the bar, and a line marks the focused workspace.").foregroundStyle(.secondary)
             }
             Section {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 10)], spacing: 10) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
                     ForEach(GlassStyle.allCases, id: \.self) { style in
                         StyleCard(style: style, selected: !config.glassIsCustom && style == config.glassStyle)
                     }
                 }
                 .padding(.vertical, 4)
-            } header: {
-                HStack {
-                    Text("Glass Style")
-                    Spacer()
-                    Picker("Preview", selection: $backdrop) {
-                        ForEach(PreviewBackdropKind.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .fixedSize()
+                Picker("Preview background", selection: $backdrop) {
+                    ForEach(PreviewBackdropKind.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
+            } header: {
+                Text("Glass Style")
             } footer: {
                 Text("The glass of the dropdowns and the bar's pills.").foregroundStyle(.secondary)
             }
             CustomizeGroup(config: config)
         }
         .formStyle(.grouped)
+    }
+}
+
+/// System Settings' thumbnail choice: an accent ring around the selected thumbnail, and its caption in bold.
+private struct Choice<Thumbnail: View>: View {
+    let title: String
+    let selected: Bool
+    var corner: CGFloat = 8
+    let pick: () -> Void
+    @ViewBuilder let thumbnail: Thumbnail
+
+    var body: some View {
+        VStack(spacing: 5) {
+            thumbnail
+                .environment(\.colorScheme, .dark)
+                .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+                .padding(3)
+                .overlay {
+                    RoundedRectangle(cornerRadius: corner + 3, style: .continuous)
+                        .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2.5)
+                }
+            Text(title)
+                .font(.callout)
+                .fontWeight(selected ? .semibold : .regular)
+                .foregroundStyle(selected ? .primary : .secondary)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: pick)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -365,13 +405,13 @@ private struct CustomizeGroup: View {
         Section {
             StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
-        } header: {
-            HStack {
-                Text("Customize")
-                if config.glassIsCustom { Text("Custom").foregroundStyle(.secondary) }
-                Spacer()
-                if config.glassIsCustom { Button("Reset to Preset") { Setting.glassStyle(config.glassStyle).save() } }
+            if config.glassIsCustom {
+                LabeledContent("Custom mix") {
+                    Button("Reset to \(config.glassStyle.title)") { Setting.glassStyle(config.glassStyle).save() }
+                }
             }
+        } header: {
+            Text("Customize")
         }
     }
 }
@@ -385,16 +425,15 @@ private struct StylePicker: View {
     let pick: (GlassStyle) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).fontWeight(.semibold)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(GlassStyle.allCases, id: \.self) { style in
-                        StyleSwatch(style: style, part: part, selected: style == selected)
-                            .onTapGesture { pick(style) }
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+            HStack(spacing: 6) {
+                ForEach(GlassStyle.allCases, id: \.self) { style in
+                    Choice(title: style.title, selected: style == selected, corner: 7, pick: { pick(style) }) {
+                        StyleSwatch(style: style, part: part)
                     }
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(2)
             }
         }
     }
@@ -404,36 +443,26 @@ private struct StylePicker: View {
 private struct StyleSwatch: View {
     let style: GlassStyle
     let part: StylePart
-    let selected: Bool
 
     var body: some View {
-        VStack(spacing: 4) {
-            ZStack {
-                PreviewBackdrop(text: false)
-                switch part {
-                case .bar:
-                    Text("9:41")
-                        .font(.system(size: 11, weight: .semibold))
-                        .padding(.horizontal, 8)
-                        .frame(height: 18)
-                        .background(PillFill(shape: Capsule(), style: style))
-                case .dropdown:
-                    Text("Sound")
-                        .font(.system(size: 11, weight: .semibold))
-                        .frame(width: 44, height: 24)
-                        .background(OverlayGlass(corner: 8, style: style))
-                }
+        ZStack {
+            PreviewBackdrop(text: false)
+            switch part {
+            case .bar:
+                Text("9:41")
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 8)
+                    .frame(height: 18)
+                    .background(PillFill(shape: Capsule(), style: style))
+            case .dropdown:
+                Text("Sound")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 44, height: 24)
+                    .background(OverlayGlass(corner: 8, style: style))
             }
-            .foregroundStyle(Color.barWhite)
-            .environment(\.colorScheme, .dark)
-            .frame(width: 64, height: 34)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
-            Text(style.title).font(.caption)
         }
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .foregroundStyle(Color.barWhite)
+        .frame(width: 54, height: 34)
     }
 }
 
@@ -443,7 +472,7 @@ private struct StyleCard: View {
     let selected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        Choice(title: style.title, selected: selected, pick: { Setting.glassStyle(style).save() }) {
             ZStack(alignment: .top) {
                 PreviewBackdrop(text: true)
                 VStack(alignment: .trailing, spacing: 4) {
@@ -468,19 +497,9 @@ private struct StyleCard: View {
                 }
                 .foregroundStyle(Color.barWhite)
             }
-            .environment(\.colorScheme, .dark)
             .frame(height: 64)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            Text(style.title).fontWeight(.semibold)
         }
         .help(style.summary)
-        .padding(8)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.primary.opacity(selected ? 0.12 : 0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))
-        .contentShape(RoundedRectangle(cornerRadius: 16))
-        .onTapGesture { Setting.glassStyle(style).save() }
-        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -492,18 +511,27 @@ private struct MenuBarItemsPane: View {
     var body: some View {
         let pinned = model.config.pinned
         let others = trayItems(model.menuExtras).filter { !$0.bundleID.isEmpty && !pinned.contains($0.bundleID) }
-        List {
-            Section("On the Bar") {
+        Form {
+            Section {
                 if pinned.isEmpty { Text("Nothing pinned yet").foregroundStyle(.secondary) }
+                // A grouped form has no `onMove`, so each row is dragged onto the row whose place it takes.
                 ForEach(pinned, id: \.self) { id in
                     let extra = model.menuExtras.first { $0.bundleID == id }
                     row(id, label: extra == nil ? "Not running" : extra?.label, pinned: true)
+                        .draggable(id) { Image(nsImage: AppIcons.icon(id)).resizable().frame(width: 32, height: 32) }
+                        .dropDestination(for: String.self) { dropped, _ in
+                            guard let moved = dropped.first, let from = pinned.firstIndex(of: moved),
+                                  let to = pinned.firstIndex(of: id), from != to else { return false }
+                            var order = pinned
+                            order.move(fromOffsets: [from], toOffset: to > from ? to + 1 : to)
+                            Setting.pinnedOrder(order).save()
+                            return true
+                        }
                 }
-                .onMove { from, to in
-                    var order = pinned
-                    order.move(fromOffsets: from, toOffset: to)
-                    Setting.pinnedOrder(order).save()
-                }
+            } header: {
+                Text("On the Bar")
+            } footer: {
+                Text("Drag to change their order on the bar.").foregroundStyle(.secondary)
             }
             Section("Other Menu Bar Items") {
                 if !AXIsProcessTrusted() {
@@ -517,25 +545,23 @@ private struct MenuBarItemsPane: View {
                 }
             }
         }
+        .formStyle(.grouped)
         .onAppear { MenuExtras.refresh(model) }
     }
 
+    /// System Settings' Menu Bar list: a checkbox, the app's icon and name.
     private func row(_ bundleID: String, label: String?, pinned: Bool) -> some View {
         HStack(spacing: 8) {
-            if pinned { Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary) }
-            Image(nsImage: AppIcons.icon(bundleID)).resizable().frame(width: 20, height: 20)
+            Toggle(AppIcons.name(bundleID), isOn: Binding(get: { pinned }, set: { Setting.pinned(bundleID, $0).save() }))
+                .toggleStyle(.checkbox)
+                .labelsHidden()
+                .help(pinned ? "Unpin from the Bar" : "Pin to the Bar")
+            Image(nsImage: AppIcons.icon(bundleID)).resizable().frame(width: 22, height: 22)
             Text(AppIcons.name(bundleID)).lineLimit(1)
             if let label { Text(label).foregroundStyle(.secondary).lineLimit(1) }
             Spacer(minLength: 8)
-            Button {
-                Setting.pinned(bundleID, !pinned).save()
-            } label: {
-                Image(systemName: pinned ? "pin.fill" : "pin")
-            }
-            .buttonStyle(.borderless)
-            .help(pinned ? "Unpin from the Bar" : "Pin to the Bar")
+            if pinned { Image(systemName: "line.3.horizontal").foregroundStyle(.tertiary).accessibilityHidden(true) }
         }
-        .padding(.vertical, 2)
     }
 }
 
@@ -591,6 +617,30 @@ extension Setting {
         } catch {
             log.error("cannot change \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
         }
+    }
+}
+
+/// A standard window of LiquidBar's: Esc closes it, like ⌘W.
+final class AppWindow: NSWindow {
+    override func cancelOperation(_ sender: Any?) { performClose(sender) }
+}
+
+/// LiquidBar has no Dock icon, so its windows would open behind the front app, with dimmed buttons, and Command-Tab
+/// would skip them. While one is up it is a regular app, and the window opens on the Space the user is on.
+func bringForward(_ window: NSWindow) {
+    window.collectionBehavior.insert(.moveToActiveSpace)
+    NSApp.setActivationPolicy(.regular)
+    window.makeKeyAndOrderFront(nil)
+    // Plain `activate()` is only a request, which macOS turns down for an app launched in the background, as by
+    // launchd at login: the window then opened behind the front app with dimmed buttons.
+    NSApp.activate(ignoringOtherApps: true)
+}
+
+/// Makes LiquidBar an accessory app again once none of its titled windows, its own or Sparkle's, is on screen.
+func followWindows() {
+    DispatchQueue.main.async {
+        guard !NSApp.windows.contains(where: { $0.isVisible && $0.styleMask.contains(.titled) }) else { return }
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 

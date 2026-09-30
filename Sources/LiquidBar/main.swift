@@ -30,6 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // The bar, its dropdowns and its menus are dark in either system appearance.
         NSApp.appearance = NSAppearance(named: .darkAqua)
+        NSApp.mainMenu = mainMenu()
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { followWindows() }
+        }
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
         if !AXIsProcessTrusted() {
@@ -113,6 +117,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return rect.contains(CGDisplayBounds(CGMainDisplayID()))
         }
     }
+
+    /// Never on screen, since the bar covers the menu bar, but its shortcuts work while a LiquidBar window is in front:
+    /// ⌘, ⌘W ⌘M ⌘Q and the Edit commands for the text fields.
+    private func mainMenu() -> NSMenu {
+        func menu(_ title: String, _ items: [NSMenuItem]) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.submenu = NSMenu(title: title)
+            items.forEach(item.submenu!.addItem)
+            return item
+        }
+        let settings = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        let quit = NSMenuItem(title: "Quit LiquidBar", action: #selector(quitFromMenu), keyEquivalent: "q")
+        [settings, quit].forEach { $0.target = self }
+        let main = NSMenu()
+        [
+            menu("LiquidBar", [settings, .separator(), quit]),
+            menu("Edit", [
+                NSMenuItem(title: "Undo", action: Selector(("undo:")), keyEquivalent: "z"),
+                NSMenuItem(title: "Redo", action: Selector(("redo:")), keyEquivalent: "Z"),
+                .separator(),
+                NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x"),
+                NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c"),
+                NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v"),
+                NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"),
+            ]),
+            menu("Window", [
+                NSMenuItem(title: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m"),
+                NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w"),
+            ]),
+        ].forEach(main.addItem)
+        return main
+    }
+
+    @objc private func showSettings() { settings.show() }
+    @objc private func quitFromMenu() { quit() }
 
     /// Opening LiquidBar again while it runs, from Finder or `open -a LiquidBar`, shows its settings.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
