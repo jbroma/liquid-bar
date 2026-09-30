@@ -366,15 +366,20 @@ enum SystemControlCenter {
         if DoNotDisturbShortcut.press() { return true }
         guard let (app, item) = openPanel(extras()[focus] != nil ? focus : controlCenter) else { return false }
         defer { close(app, item) }
-        func isMode(_ element: AXUIElement) -> Bool { AX.string(element, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
-        if let module = waitFor(app, { isMode($0) || AX.string($0, "AXIdentifier") == "controlcenter-focus-modes" }).first, !isMode(module) {
-            AX.press(module)
-        }
-        let modes = waitFor(app, isMode)
+        if let module = waitFor(app, { focusModes($0) + $0.filter(isFocusModule) }).first, isFocusModule(module) { AX.press(module) }
+        let modes = waitFor(app, focusModes)
         let active = modes.first { AX.attribute($0, kAXValueAttribute) as? Int == 1 }
-        let target = active ?? modes.first { AX.string($0, "AXIdentifier")?.hasSuffix(".donotdisturb.mode.default") == true }
+        // Do Not Disturb, which macOS 27 lists first without an identifier.
+        let target = active ?? modes.first { AX.string($0, "AXIdentifier")?.hasSuffix(".donotdisturb.mode.default") == true } ?? modes.first
         guard let target else { return false }
         return AX.press(target)
+    }
+
+    /// The Focus modes the panel lists, identified up to macOS 26 and unnamed checkboxes under the "Focus" title since.
+    private nonisolated static func focusModes(_ controls: [AXUIElement]) -> [AXUIElement] {
+        let named = controls.filter { AX.string($0, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
+        guard named.isEmpty, controls.contains(where: { AX.string($0, "AXIdentifier") == "focus-modes-header" }) else { return named }
+        return controls.filter { AX.string($0, kAXRoleAttribute) == kAXCheckBoxRole }
     }
 
     /// Opens the real Control Center on one of its modules, as a click on the module would, and leaves it open for
@@ -382,7 +387,7 @@ enum SystemControlCenter {
     /// returns false when it did not, or without Accessibility.
     nonisolated static func showModule(_ id: String) -> Bool {
         guard let (app, _) = openPanel() else { return false }
-        guard let module = waitFor(app, { AX.string($0, "AXIdentifier") == id }).first else { return false }
+        guard let module = waitFor(app, { $0.filter { AX.string($0, "AXIdentifier") == id } }).first else { return false }
         return AX.press(module)
     }
 
@@ -422,20 +427,25 @@ enum SystemControlCenter {
         windows(app).flatMap { AX.children($0).flatMap(AX.children) }
     }
 
-    /// The panel's controls matching `match`, once they appear, within 1.5s.
-    private nonisolated static func waitFor(_ app: AXUIElement, _ match: (AXUIElement) -> Bool) -> [AXUIElement] {
+    /// What `find` picks from the panel's controls, once it picks any, within 1.5s.
+    private nonisolated static func waitFor(_ app: AXUIElement, _ find: ([AXUIElement]) -> [AXUIElement]) -> [AXUIElement] {
         for _ in 0..<150 {
-            let found = controls(app).filter(match)
+            let found = find(controls(app))
             if !found.isEmpty { return found }
             usleep(10_000)
         }
         return []
     }
 
+    /// Control Center's Focus module, "controlcenter-focus-modes" before macOS 27 and "controlcenter-focus-modes-compact-2" since.
+    private nonisolated static func isFocusModule(_ element: AXUIElement) -> Bool {
+        AX.string(element, "AXIdentifier")?.hasPrefix("controlcenter-focus-modes") == true
+    }
+
     /// Presses the status item until the panel is gone. From a module's detail view a press goes back to the main
     /// view, and the panel takes a moment to close, so each press waits for one or the other before the next.
     private nonisolated static func close(_ app: AXUIElement, _ item: AXUIElement) {
-        func mainView() -> Bool { controls(app).contains { AX.string($0, "AXIdentifier") == "controlcenter-focus-modes" } }
+        func mainView() -> Bool { controls(app).contains(where: isFocusModule) }
         for _ in 0..<3 where !windows(app).isEmpty {
             let fromDetail = !mainView()
             AX.press(item)
