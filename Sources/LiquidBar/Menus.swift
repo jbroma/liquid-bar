@@ -1,5 +1,4 @@
 import CoreAudio
-import CoreWLAN
 import LiquidBarCore
 import SwiftUI
 
@@ -83,84 +82,14 @@ struct DeviceIcon: View {
     let symbol: String
     let selected: Bool
     var size: CGFloat = 24
+    /// How much of a variable symbol, like the Wi-Fi bars, is lit.
+    var level: Double?
 
     var body: some View {
-        Image(systemName: symbol)
+        Image(systemName: symbol, variableValue: level)
             .font(.system(size: size * 0.46, weight: .medium))
             .iconCircle(on: selected, size: size)
             .padding(.vertical, 2)
-    }
-}
-
-/// Like the Wi-Fi menu extra: the Wi-Fi switch, the network, its address and live throughput. Throughput is sampled
-/// once a second only while the menu is open.
-struct NetworkMenu: View {
-    let network: NetworkState
-    @State private var power: Bool?
-    /// Why CoreWLAN refused to switch Wi-Fi, shown beside the disabled switch.
-    @State private var failure: String?
-    @State private var name: String?
-    @State private var bars: Int?
-    @State private var address: String?
-    @State private var rates: (down: Double, up: Double)?
-
-    var body: some View {
-        MenuBody {
-            HeaderRow(title: "Wi-Fi") {
-                if let failure { Text(failure).font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1).help(failure) }
-                GlassSwitch(on: failure == nil ? power : nil, set: setPower)
-            }
-            if network.kind == .wired || (network.kind != .offline && power != false) {
-                MenuSeparator()
-                MenuRow {
-                    DeviceIcon(symbol: network.symbol, selected: true)
-                    // The SSID needs Location access; without it CoreWLAN returns nil and the signal stands in.
-                    Text(name ?? (network.kind == .wifi ? "Wi-Fi Network" : "Connected")).lineLimit(1)
-                    Spacer(minLength: 8)
-                    if let bars { Image(systemName: "wifi", variableValue: Double(bars) / 3).foregroundStyle(secondary) }
-                }
-                MenuSeparator()
-                if let address { CopyableValue(title: "IP Address", value: address) } else { MenuValue(title: "IP Address", value: "None") }
-                MenuValue(title: "Download", value: throughputText(rates?.down ?? 0))
-                MenuValue(title: "Upload", value: throughputText(rates?.up ?? 0))
-            }
-            MenuSeparator()
-            SettingsButton(title: "Network Settings…", pane: "com.apple.Network-Settings.extension")
-        }
-        .task(id: network) { await sample() }
-    }
-
-    private func setPower(_ on: Bool) {
-        power = on
-        Task {
-            failure = await blocking { () -> String? in
-                do {
-                    try CWWiFiClient.shared().interface()?.setPower(on)
-                    return nil
-                } catch {
-                    return error.localizedDescription
-                }
-            }
-            power = CWWiFiClient.shared().interface()?.powerOn()
-        }
-    }
-
-    private func sample() async {
-        power = CWWiFiClient.shared().interface()?.powerOn()
-        let wifi = network.kind == .wifi ? CWWiFiClient.shared().interface() : nil
-        name = wifi?.ssid()
-        bars = wifi.map { signalBars(rssi: $0.rssiValue()) }
-        address = network.interface.flatMap(ipv4Address)
-        guard let interface = network.interface, var last = interfaceBytes(interface) else { return }
-        var lastTime = Date()
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(1))
-            guard let now = interfaceBytes(interface) else { return }
-            let elapsed = Date().timeIntervalSince(lastTime)
-            rates = (Double(now.received &- last.received) / elapsed, Double(now.sent &- last.sent) / elapsed)
-            last = now
-            lastTime = Date()
-        }
     }
 }
 

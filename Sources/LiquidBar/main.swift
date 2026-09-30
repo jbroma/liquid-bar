@@ -203,6 +203,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 /// AppKit pushes a window below the menu bar when its level is under the menu bar's; the bar sits over that strip.
 final class BarPanel: NSPanel {
+    /// The dropdowns take typing, like a Wi-Fi password; the bar itself never does.
+    override var canBecomeKey: Bool { becomesKeyOnlyIfNeeded }
+
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
 }
 
