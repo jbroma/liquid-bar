@@ -73,7 +73,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape.fill"
         case .appearance: "circle.lefthalf.filled"
-        case .menuBarItems: "menubar.rectangle"
+        case .menuBarItems: "switch.2"
         }
     }
 
@@ -99,7 +99,7 @@ private struct SettingsView: View {
                 Label { Text(section.title) } icon: { IconTile(symbol: section.symbol, tint: section.tint) }.tag(section)
             }
             .toolbar(removing: .sidebarToggle)
-            .navigationSplitViewColumnWidth(215)
+            .navigationSplitViewColumnWidth(232)
         } detail: {
             Group {
                 switch section {
@@ -109,6 +109,9 @@ private struct SettingsView: View {
                 }
             }
             .navigationTitle(section.title)
+            // A grouped form starts some 20pt lower under the toolbar than System Settings' panes, and neither
+            // `contentMargins` nor `safeAreaPadding` moves it.
+            .padding(.top, -20)
         }
         // A fixed size, like System Settings' width and the Settings windows of Apple's apps: a resizable window
         // would be tiled by window managers such as AeroSpace.
@@ -126,7 +129,7 @@ private struct GeneralPane: View {
 
     var body: some View {
         Form {
-            Section("Bar") {
+            Section {
                 Picker("Workspaces", selection: saving(config.workspaceSource, Setting.workspaceSource)) {
                     Text("Automatic").tag(WorkspaceSource.auto)
                     Text("AeroSpace").tag(WorkspaceSource.aerospace)
@@ -180,9 +183,6 @@ private struct GeneralPane: View {
                 }
             } header: {
                 Text("Configuration")
-            } footer: {
-                Text("Every setting here is a key in the config file. Edits to the file show up here and on the bar right away.")
-                    .foregroundStyle(.secondary)
             }
             Section("Updates") {
                 if let updater = delegate.updates.updater {
@@ -209,16 +209,15 @@ private struct GeneralPane: View {
 struct IconTile: View {
     let symbol: String
     let tint: Color
-    var size: CGFloat = 22
+    var size: CGFloat = 20
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
         Image(systemName: symbol)
-            .font(.system(size: size * 0.6, weight: .semibold))
+            .font(.system(size: size * 0.55, weight: .medium))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(LinearGradient(colors: [tint.mix(with: .white, by: 0.18), tint], startPoint: .top, endPoint: .bottom), in: shape)
-            .overlay(shape.strokeBorder(.black.opacity(0.12), lineWidth: 0.5))
+            .background(LinearGradient(colors: [tint.mix(with: .white, by: 0.18), tint], startPoint: .top, endPoint: .bottom),
+                        in: RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
     }
 }
 
@@ -308,9 +307,10 @@ private struct AppearancePane: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Show pills", isOn: saving(config.pills, Setting.pills))
-            } footer: {
-                Text("Off, the bar's items sit straight on the bar, and a line marks the focused workspace.").foregroundStyle(.secondary)
+                Toggle(isOn: saving(config.pills, Setting.pills)) {
+                    Text("Show pills")
+                    Text("Off, the items sit straight on the bar.")
+                }
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
@@ -324,8 +324,6 @@ private struct AppearancePane: View {
                 }
             } header: {
                 Text("Glass Style")
-            } footer: {
-                Text("The glass of the dropdowns and the bar's pills.").foregroundStyle(.secondary)
             }
             CustomizeGroup(config: config)
         }
@@ -539,8 +537,6 @@ private struct MenuBarItemsPane: View {
                 }
             } header: {
                 Text("On the Bar")
-            } footer: {
-                Text("Drag to change their order on the bar.").foregroundStyle(.secondary)
             }
             Section("Other Menu Bar Items") {
                 if !AXIsProcessTrusted() {
