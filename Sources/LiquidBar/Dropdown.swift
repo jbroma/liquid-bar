@@ -46,7 +46,7 @@ struct DropdownView: View {
     @State private var anchor = CGRect.zero
 
     static let corner: CGFloat = 22
-    /// The lit edge, brightest along the top like the pills' glint.
+    /// The lit edge, brightest along the top.
     static let rim = LinearGradient(stops: [.init(color: .white.opacity(0.35), location: 0), .init(color: .white.opacity(0.08), location: 0.5),
                                             .init(color: .white.opacity(0.14), location: 1)], startPoint: .top, endPoint: .bottom)
 

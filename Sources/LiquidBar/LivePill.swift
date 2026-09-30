@@ -185,7 +185,7 @@ private struct BarHitArea: ViewModifier {
     }
 }
 
-/// A glass pill on the right whose menu is the bar's dropdown. It widens a few points while its dropdown is open.
+/// A pill on the right whose menu is the bar's dropdown. It widens a few points while its dropdown is open.
 struct MenuPill<Pulse: Equatable, Label: View>: View {
     let id: Dropdown
     var pulse: Pulse
@@ -198,7 +198,7 @@ struct MenuPill<Pulse: Equatable, Label: View>: View {
             label()
                 .fixedSize()
                 .padding(.horizontal, open ? 3 : 0)
-                .pill(height: bar.pill, padding: padding)
+                .pill(height: bar.pill, padding: padding, lit: open)
         }
     }
 }

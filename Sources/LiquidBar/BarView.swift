@@ -19,6 +19,8 @@ extension Color {
     static let barGreen = Color(hex: 0x7bd88f)
     static let barYellow = Color(hex: 0xfce566)
     static let barRed = Color(hex: 0xfc618d)
+    /// The focused workspace's fill, which the right side's pills share.
+    static let barFill = Color.white.opacity(0.14)
 }
 
 /// One bar per screen.
@@ -68,17 +70,15 @@ struct BarView: View {
         let outer = leading ? shown.first : shown.last
         let reach = model.config.margin - itemGap / 2
         let edgeReach = leading ? EdgeInsets(top: 0, leading: reach, bottom: 0, trailing: 0) : EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: reach)
-        return GlassEffectContainer(spacing: 4) {
-            HStack(spacing: 0) {
-                if !pinned.isEmpty { PinnedGroup(extras: pinned).transition(.scale(0.6).combined(with: .opacity)) }
-                ForEach(shown, id: \.self) { widget in
-                    WidgetView(model: model, widget: widget)
-                        .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
-                }
+        return HStack(spacing: 0) {
+            if !pinned.isEmpty { PinnedGroup(extras: pinned).transition(.scale(0.6).combined(with: .opacity)) }
+            ForEach(shown, id: \.self) { widget in
+                WidgetView(model: model, widget: widget)
+                    .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
             }
-            .animation(spring, value: model.nowPlaying == nil)
-            .animation(spring, value: pinned.map(\.bundleID))
         }
+        .animation(spring, value: model.nowPlaying == nil)
+        .animation(spring, value: pinned.map(\.bundleID))
         // Islands get a finite width beside the notch. Each item's hit area already reaches half a gap past it.
         .padding(leading ? .trailing : .leading, 8 - itemGap / 2)
         .frame(width: width, alignment: alignment)
@@ -87,25 +87,15 @@ struct BarView: View {
 }
 
 extension View {
-    /// A glass capsule.
-    func pill(height: CGFloat, padding: CGFloat = 10) -> some View {
+    /// A capsule in the focused workspace's fill, a step brighter while `lit`.
+    func pill(height: CGFloat, padding: CGFloat = 10, lit: Bool = false) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
-            .glassEffect(.regular.interactive(), in: .capsule)
-            .overlay { Specular() }
-    }
-}
-
-/// The glint along a pill's top edge, fading out toward its middle.
-struct Specular: View {
-    static let gradient = LinearGradient(stops: [.init(color: .white.opacity(0.5), location: 0), .init(color: .white.opacity(0), location: 0.45),
-                                                 .init(color: .white.opacity(0.1), location: 1)], startPoint: .top, endPoint: .bottom)
-
-    var body: some View {
-        Capsule()
-            .strokeBorder(Self.gradient, lineWidth: 0.5)
-            .allowsHitTesting(false)
+            .background {
+                Capsule().fill(Color.barFill)
+                hoverFill(lit)
+            }
     }
 }
 
@@ -341,7 +331,7 @@ struct WorkspaceStrip: View {
         .background(alignment: .leading) {
             if let focusedFrame {
                 DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
-                    .fill(.white.opacity(0.14))
+                    .fill(Color.barFill)
                     .frame(height: bar.item)
             }
         }

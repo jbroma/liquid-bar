@@ -143,7 +143,7 @@ struct MenuExtraMenu: View {
     }
 }
 
-/// All pinned status items in one glass pill: each one's app icon and title is its own hover target, opening its menu
+/// All pinned status items in one pill: each one's app icon and title is its own hover target, opening its menu
 /// as the dropdown under it. An item without a menu presses the status item on a click instead.
 struct PinnedGroup: View {
     let extras: [MenuExtra<AXUIElement>]
