@@ -209,21 +209,26 @@ struct WidgetView: View {
     }
 }
 
-/// SwiftUI has no scroll-wheel hook for plain views; this overlay takes only scroll events and lets clicks and hover through.
+/// SwiftUI has no scroll-wheel hook for plain views; this overlay takes only scroll events and lets clicks and hover
+/// through. It reports steps up or right as positive.
 struct ScrollCatcher: NSViewRepresentable {
     /// Points of precise (trackpad) scrolling per step.
     var step: CGFloat = 10
+    /// Steps per notch of a mouse wheel.
+    var notch = 1
     let onScroll: (Int) -> Void
 
     func makeNSView(context: Context) -> CatcherView { CatcherView() }
     func updateNSView(_ view: CatcherView, context: Context) {
         view.onScroll = onScroll
         view.step = step
+        view.notch = notch
     }
 
     final class CatcherView: NSView {
         var onScroll: (Int) -> Void = { _ in }
         var step: CGFloat = 10
+        var notch = 1
         private var pending: CGFloat = 0
 
         override func hitTest(_ point: NSPoint) -> NSView? {
@@ -231,10 +236,12 @@ struct ScrollCatcher: NSViewRepresentable {
         }
 
         override func scrollWheel(with event: NSEvent) {
-            // Device direction: wheel away / fingers up raises the volume regardless of natural scrolling.
-            let delta = event.scrollingDeltaY * (event.isDirectionInvertedFromDevice ? -1 : 1)
+            // Device direction: wheel away or fingers up or right raise the level regardless of natural scrolling.
+            // AppKit reports scrolling right as a negative x.
+            let (dx, dy) = (event.scrollingDeltaX, event.scrollingDeltaY)
+            let delta = (abs(dx) > abs(dy) ? -dx : dy) * (event.isDirectionInvertedFromDevice ? -1 : 1)
             guard event.hasPreciseScrollingDeltas else {
-                if delta != 0 { onScroll(delta > 0 ? 1 : -1) }
+                if delta != 0 { onScroll(delta > 0 ? notch : -notch) }
                 return
             }
             pending += delta / step

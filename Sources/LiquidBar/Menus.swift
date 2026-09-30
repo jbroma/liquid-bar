@@ -47,7 +47,8 @@ struct VolumeMenu: View {
     }
 }
 
-/// A Control Center slider: the fill always covers the symbol at its leading end. Click or drag anywhere sets the level.
+/// A Control Center slider: the fill always covers the symbol at its leading end. Click or drag anywhere sets the
+/// level, and so does scrolling over it: about 200pt of trackpad travel crosses the range, a wheel notch moves 5%.
 struct LevelSlider: View {
     let level: Int
     let muted: Bool
@@ -71,6 +72,7 @@ struct LevelSlider: View {
             }
             .contentShape(Capsule())
             .gesture(DragGesture(minimumDistance: 0).onChanged { set(VolumeState.level(at: $0.location.x - knob / 2, width: travel)) })
+            .overlay { ScrollCatcher(step: 2, notch: 5) { set(min(100, max(0, level + $0))) } }
         }
         .frame(height: height)
     }
