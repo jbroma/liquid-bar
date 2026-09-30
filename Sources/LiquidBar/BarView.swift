@@ -85,13 +85,13 @@ struct BarView: View {
 }
 
 extension View {
-    /// A capsule in the style's pill fill, which the focused workspace shares, a step brighter while `lit`.
+    /// An optional capsule in the style's pill fill, with a highlight while `lit` even without the resting fill.
     func pill(height: CGFloat, padding: CGFloat = 10, lit: Bool = false) -> some View {
         self.padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
             .background {
-                PillFill(shape: Capsule())
+                if delegate.model.config.pillBackgrounds { PillFill(shape: Capsule()) }
                 hoverFill(lit)
             }
     }

@@ -153,6 +153,10 @@ private struct AppearancePane: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
+                Toggle("Show Item Backgrounds", isOn: saving(config.pillBackgrounds, Setting.pillBackgrounds))
+                Text("Draw backgrounds behind bar items. Hover highlights stay visible when turned off.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack {
                     Text("The glass of the dropdowns, bar pills, and windows.")
                         .foregroundStyle(.secondary)

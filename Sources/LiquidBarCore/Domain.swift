@@ -138,6 +138,8 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour = true
     public var clockSeconds = false
     public var batteryPercent = false
+    /// Draw the resting backgrounds behind bar items; hover highlights remain visible either way.
+    public var pillBackgrounds = true
     /// The preset. `barStyle` and `dropdownStyle` override its half; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?

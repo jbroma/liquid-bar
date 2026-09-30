@@ -51,6 +51,26 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     String(decoding: try setting.applied(to: json.map { Data($0.utf8) }), as: UTF8.self)
 }
 
+@Test func pillBackgroundsDefaultOnAndCanBeDisabled() throws {
+    #expect(try decode("{}").pillBackgrounds)
+    #expect(try decode(#"{"pillBackgrounds": true}"#).pillBackgrounds)
+    #expect(!(try decode(#"{"pillBackgrounds": false}"#)).pillBackgrounds)
+    #expect(throws: (any Error).self) { try decode(#"{"pillBackgrounds": "false"}"#) }
+}
+
+@Test func pillBackgroundSettingPreservesOtherConfigAndCanBeRestored() throws {
+    let hidden = try apply(.pillBackgrounds(false), to: #"{"barStyle": "crystal", "dropdownStyle": "pearl", "margin": 4, "custom": [1]}"#)
+    let decoded = try decode(hidden)
+    #expect(!decoded.pillBackgrounds)
+    #expect(decoded.glass == GlassPair(bar: .crystal, dropdown: .pearl))
+    #expect(decoded.margin == 4)
+    let json = try #require(JSONSerialization.jsonObject(with: Data(hidden.utf8)) as? [String: Any])
+    #expect(json["custom"] as? [Int] == [1])
+    #expect(try decode(try apply(.pillBackgrounds(true), to: hidden)).pillBackgrounds)
+    #expect(!(try decode(try apply(.pillBackgrounds(false), to: nil))).pillBackgrounds)
+    #expect(!(try decode(try apply(.glassStyle(.mist), to: hidden))).pillBackgrounds)
+}
+
 @Test func settingsEditTheConfigKeepingOtherKeys() throws {
     #expect(try apply(.clockSeconds(true), to: nil) == """
         {
