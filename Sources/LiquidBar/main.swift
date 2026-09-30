@@ -16,8 +16,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var fullscreenPoll: Timer?
     var pendingRebuild: Task<Void, Never>?
     var missionControlSettle: Task<Void, Never>?
+    /// Each screen's hover state, closed when the bar's menu opens.
+    var slots: [ExpansionSlot] = []
+    let settings = SettingsWindow()
+    let barMenu = BarMenu()
     /// Without a relaunch, what read Accessibility at launch or earlier and came up empty reads it again.
-    let about = AboutWindow()
     lazy var access = AccessWindow { [model] in
         MenuExtras.refresh(model)
         model.controls.readFocus()
@@ -38,6 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clock = ClockSource(model: model)
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
+        // A secondary click anywhere on a bar opens LiquidBar's own menu; nothing on the bar has another use for it.
+        NSEvent.addLocalMonitorForEvents(matching: [.rightMouseDown, .leftMouseDown]) { [weak self] event in
+            guard let self, event.type == .rightMouseDown || event.modifierFlags.contains(.control),
+                  let window = event.window, window.parent == nil, panels.contains(where: { $0 === window }) else { return event }
+            slots.forEach { $0.dismiss() }
+            barMenu.show(at: NSEvent.mouseLocation, below: window.frame.minY)
+            return nil
+        }
         // launchd stops us with SIGTERM.
         signal(SIGTERM, SIG_IGN)
         sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
@@ -102,6 +113,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Opening LiquidBar again while it runs, from Finder or `open -a LiquidBar`, shows its settings.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        settings.show()
+        return false
+    }
+
     /// Takes the AeroSpace subscriber down too so it is not left orphaned inside AeroSpace.
     func quit() {
         workspaces?.feed?.stop()
@@ -157,7 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func rebuildPanels() {
         trace("rebuild panels")
         panels.forEach { $0.close() }
-        panels = NSScreen.screens.flatMap { makePanels(for: $0, slot: ExpansionSlot(screen: $0.frame)) }
+        slots = NSScreen.screens.map { ExpansionSlot(screen: $0.frame) }
+        panels = zip(NSScreen.screens, slots).flatMap { makePanels(for: $0, slot: $1) }
     }
 
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {

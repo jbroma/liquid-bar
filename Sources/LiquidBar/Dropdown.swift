@@ -121,7 +121,7 @@ struct DropdownView: View {
         case .battery: BatteryMenu(battery: model.battery, percent: model.config.batteryPercent)
         case .controlCenter: ControlCenterMenu(model: model)
         case .clock: ClockMenu(now: model.now)
-        case .apple: AppleMenu(model: model)
+        case .apple: AppleMenu()
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)

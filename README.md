@@ -18,7 +18,8 @@
 - Control Center, with the other apps' menu bar items listed inside it. Pin one and it moves onto the bar as its own pill, with the item's menu as its dropdown.
 - Now playing for Spotify and Music. On a new track the pill slides out to show the title.
 - The native menu bar stays hidden while the bar runs.
-- The Apple logo opens a dropdown on hover with the Apple menu's items, and a LiquidBar section for settings.
+- The Apple logo opens a dropdown on hover with the Apple menu's items.
+- A right-click on the bar opens LiquidBar's menu: Settings, About, and Quit.
 - Five glass styles for the dropdowns and pills: Liquid, Crystal, Frost, Mist, and Obsidian.
 
 <p align="center">
@@ -46,16 +47,14 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 - macOS 26 or later.
 - Menu bar auto-hide off (System Settings, "Automatically hide and show the menu bar", Never). With auto-hide on, windows and notification banners can slide under the bar.
-- Accessibility access, for the front app's menus, other apps' menu bar items, and a few Control Center tiles. The bar runs without it. On launch without the grant, the bar shows a window that opens the right Settings pane and notices the grant; Apple dropdown, LiquidBar, Permissions… reopens it. [Permissions](docs/details.md#permissions) lists every grant.
+- Accessibility access, for the front app's menus, other apps' menu bar items, and a few Control Center tiles. The bar runs without it. On launch without the grant, the bar shows a window that opens the right Settings pane and notices the grant; the Open… button next to Accessibility in Settings, General reopens it. [Permissions](docs/details.md#permissions) lists every grant.
 - [AeroSpace](https://github.com/nikitabobko/AeroSpace) is optional.
 
 ## Settings
 
-Hover the Apple logo and open **LiquidBar** to switch the workspace source, the clock format, and whether now playing and the battery percentage show.
+Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has five sections. General holds the workspace source, now playing, the battery percentage, the clock format, and the Accessibility status. Appearance picks the glass style from five cards with a live preview. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag. Advanced opens and reloads the config file. About shows the version and license.
 
-<p align="center">
-  <img src="docs/images/settings-v071.webp" height="360" alt="The Apple dropdown's LiquidBar section unfolded: About LiquidBar, the workspace source, the clock format, Show Now Playing, Show Battery Percentage, Open Config File, Reload Config, Permissions, and Quit LiquidBar">
-</p>
+<!-- Screenshot placeholder: the Settings window on its Appearance section, the five glass style cards with Liquid selected. -->
 
 Everything else, like widget order, click commands, and script widgets, lives in `~/.config/liquid-bar/config.json`. See [Configuration](docs/configuration.md).
 

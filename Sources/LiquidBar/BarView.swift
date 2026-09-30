@@ -458,8 +458,10 @@ enum AppIcons {
         return icon
     }
 
-    /// The running app's name, like "WezTerm".
+    /// The app's name, like "WezTerm", also while it is not running.
     static func name(_ bundleID: String) -> String {
-        NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName ?? bundleID
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
+            ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map { $0.deletingPathExtension().lastPathComponent }
+            ?? bundleID
     }
 }

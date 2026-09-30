@@ -2,17 +2,15 @@
 
 liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A missing key keeps its default, and a missing file means all defaults. The bar reloads the file when it changes. If the new file is invalid, the bar logs the error to stderr and keeps the previous config.
 
-## The LiquidBar section
+## The Settings window
 
-The **LiquidBar** row of the Apple dropdown unfolds a section that edits the same file. It has these items:
+A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu below the pointer, in the dropdown glass: **LiquidBar Settings…**, **About LiquidBar**, which opens the Settings window on its About section, and **Quit LiquidBar**. A click outside it or Esc closes it. Opening LiquidBar again while it runs (from Finder, or `open -a LiquidBar`) also opens the Settings window. Every control in it edits the config file, and an edit to the file shows in the window right away. Its sections:
 
-- **About LiquidBar** opens a window with the version, a one-line description, a link to the GitHub repository, and the license.
-- **Workspaces**: Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`).
-- **Clock**: 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`).
-- **Show Now Playing**: adds `nowPlaying` to the start of `right`, or removes it.
-- **Show Battery Percentage** (`batteryPercent`).
-- **Open Config File…** opens the file, and creates it as `{}` first when it is missing.
-- **Reload Config**, **Permissions…**, and **Quit LiquidBar**.
+- **General**: Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`). Whether LiquidBar has Accessibility access, with a button that opens the Accessibility window, and whether a launch agent started it.
+- **Appearance**: the five glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one.
+- **Menu Bar Items**: the pinned apps in bar order (`pinned`). Drag a row to reorder, and the pin button unpins. Below them, the other apps' menu bar items, each with a pin button.
+- **Advanced**: the config file's path, **Open Config File…**, which creates the file as `{}` first when it is missing, and **Reload Config**.
+- **About**: the version, a link to the GitHub repository, and the license.
 
 Each change rewrites the file with sorted keys and keeps every other key.
 
@@ -29,7 +27,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
-| `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The pin button on a row of Control Center's Menu Bar Items section edits it. |
+| `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The pin button on a row of Control Center's Menu Bar Items section edits it, and so does the Settings window, which also reorders it. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
 The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. `clock` runs a command only if `clicks` sets one.

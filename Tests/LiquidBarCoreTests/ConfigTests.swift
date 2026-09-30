@@ -181,3 +181,14 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
         }
         """)
 }
+
+@Test func pinnedOrderReplacesThePinnedList() throws {
+    #expect(try apply(.pinnedOrder(["com.example.b", "com.example.a"]), to: #"{"pinned": ["com.example.a", "com.example.b"]}"#) == """
+        {
+          "pinned" : [
+            "com.example.b",
+            "com.example.a"
+          ]
+        }
+        """)
+}

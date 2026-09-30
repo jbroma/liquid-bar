@@ -77,7 +77,7 @@ private func choice<T: RawRepresentable & CaseIterable>(_: T.Type, _ key: String
     return value
 }
 
-/// A change made from the Apple menu's LiquidBar submenu.
+/// A change made from the Settings window or a dropdown.
 public enum Setting: Equatable, Sendable {
     case workspaceSource(WorkspaceSource)
     case clock24Hour(Bool)
@@ -85,6 +85,8 @@ public enum Setting: Equatable, Sendable {
     case batteryPercent(Bool)
     case nowPlaying(Bool)
     case pinned(String, Bool)
+    /// The whole pinned list, in its new order.
+    case pinnedOrder([String])
     case glassStyle(GlassStyle)
 
     /// The config file's contents (nil when missing) with this change applied. Every other key stays as written.
@@ -102,6 +104,7 @@ public enum Setting: Equatable, Sendable {
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
         case .glassStyle(let style): json["glassStyle"] = style.rawValue
+        case .pinnedOrder(let pinned): json["pinned"] = pinned
         case .nowPlaying(let on):
             let name = Widget.nowPlaying.name
             var right: [Any] = json["right"] as? [Any] ?? Config().right.map(\.name)
