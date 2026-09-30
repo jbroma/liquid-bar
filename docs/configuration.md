@@ -6,7 +6,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 
 A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu below the pointer, in the dropdown glass: **LiquidBar Settings…** and **Quit LiquidBar**. A click outside it or Esc closes it. Opening LiquidBar again while it runs (from Finder, or `open -a LiquidBar`) also opens the Settings window. It is a standard macOS settings window that follows the system appearance, whatever the glass style. Every control in it edits the config file, and an edit to the file shows in the window right away. Its sections:
 
-- **General**: Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`). Permissions: each grant the bar can use, with its live status and a Grant… or Open Settings… button (see [Permissions](details.md#permissions)). Whether a launch agent started the bar.
+- **General**: Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as System, 24-Hour, or 12-Hour (`clock24Hour`; System removes the key), and Show Seconds (`clockSeconds`). Permissions: each grant the bar can use, with its live status and a Grant… or Open Settings… button (see [Permissions](details.md#permissions)). Whether a launch agent started the bar.
 - **Appearance**: Show Pills (`pills`). Then the seven glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one and clears both overrides. Below them, Customize picks the style of the bar (`barStyle`) and of the dropdowns (`dropdownStyle`) apart, each from the same seven. While they differ from the preset, no card is selected, Customize reads Custom, and Reset to preset removes both keys.
 - **Menu Bar Items**: the pinned apps in bar order (`pinned`). Drag a row to reorder, and the pin button unpins. Below them, the other apps' menu bar items, each with a pin button.
 - **Advanced**: the config file's path, **Open Config File…**, which creates the file as `{}` first when it is missing, and **Reload Config**.
@@ -20,7 +20,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | --- | --- | --- | --- |
 | `margin` | number, at least 0 | `10` | Space between the screen edge and the outer pills. |
 | `workspaceSource` | string | `"auto"` | Where the workspace strip's items come from: `"auto"`, `"aerospace"`, `"spaces"`, or `"apps"`. See [Workspaces](details.md#workspaces). |
-| `clock24Hour` | boolean | `true` | `false` shows the clock as 12-hour with AM or PM. |
+| `clock24Hour` | boolean | follows the system | `true` shows a 24-hour clock, `false` a 12-hour clock with AM or PM. Without the key the clock follows the region and the 24-hour time setting in System Settings. |
 | `clockSeconds` | boolean | `false` | Shows seconds in the clock. |
 | `batteryPercent` | boolean | `false` | `true` shows the percentage next to the battery symbol. |
 | `pills` | boolean | `true` | `false` draws the right-side items, the pinned items and the workspaces straight on the bar with no capsule. The item under the pointer gets a faint highlight, and a line under the focused workspace marks it. The glass style still sets the dropdowns and the bar. |

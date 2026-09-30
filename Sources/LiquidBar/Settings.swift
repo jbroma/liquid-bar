@@ -116,8 +116,9 @@ private struct GeneralPane: View {
             }
             Section("Clock") {
                 Picker("Format", selection: saving(config.clock24Hour, Setting.clock24Hour)) {
-                    Text("24-Hour").tag(true)
-                    Text("12-Hour").tag(false)
+                    Text("System").tag(Bool?.none)
+                    Text("24-Hour").tag(Bool?.some(true))
+                    Text("12-Hour").tag(Bool?.some(false))
                 }
                 .pickerStyle(.segmented)
                 Toggle("Show Seconds", isOn: saving(config.clockSeconds, Setting.clockSeconds))

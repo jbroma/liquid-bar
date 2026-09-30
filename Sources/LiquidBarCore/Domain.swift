@@ -135,7 +135,8 @@ public enum Widget: Equatable, Hashable, Sendable {
 public struct Config: Equatable, Sendable {
     public var margin: Double = 10
     public var workspaceSource = WorkspaceSource.auto
-    public var clock24Hour = true
+    /// Nil follows the system's region and its 24-hour time setting.
+    public var clock24Hour: Bool?
     public var clockSeconds = false
     public var batteryPercent = false
     /// Off, the bar's items sit straight on the bar strip with no capsule behind them.
@@ -303,6 +304,12 @@ extension NetworkState {
 /// "19:27", "19:27:05", "7:27 PM" or "7:27:05 PM".
 public func clockText(_ date: Date, hour24: Bool = true, seconds: Bool = false, timeZone: TimeZone = .current) -> String {
     format(date, (hour24 ? "HH:mm" : "h:mm") + (seconds ? ":ss" : "") + (hour24 ? "" : " a"), timeZone)
+}
+
+/// Whether `locale`, with the user's 24-hour time setting folded in, writes times on a 24-hour clock.
+public func uses24HourClock(_ locale: Locale = .autoupdatingCurrent) -> Bool {
+    let pattern = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale) ?? "HH"
+    return pattern.contains("H") || pattern.contains("k")
 }
 
 /// "Saturday 26 September 2026".

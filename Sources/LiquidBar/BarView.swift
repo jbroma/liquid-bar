@@ -194,7 +194,7 @@ struct WidgetView: View {
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             // While macOS shows its privacy dot, the pill makes room for it, so the dot sits inside the pill after the time.
-            MenuPill(id: .clock, pulse: 0, padding: 14) { Text(clockText(model.now, hour24: model.config.clock24Hour, seconds: model.config.clockSeconds)).padding(.trailing, model.privacyDot ? 4 : 0) }
+            MenuPill(id: .clock, pulse: 0, padding: 14) { Text(clockText(model.now, hour24: model.config.clock24Hour ?? uses24HourClock(), seconds: model.config.clockSeconds)).padding(.trailing, model.privacyDot ? 4 : 0) }
                 .animation(spring, value: model.privacyDot)
         case .script(let script):
             HStack(spacing: 5) {

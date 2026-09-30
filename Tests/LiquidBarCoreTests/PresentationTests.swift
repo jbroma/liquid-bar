@@ -99,3 +99,12 @@ import Testing
     #expect(ShortcutModifiers(axMask: 14) == [.option, .control])
     #expect(ShortcutModifiers(axMask: 8) == [])
 }
+
+@Test func theClockFollowsTheRegionAndItsHourSetting() {
+    #expect(uses24HourClock(Locale(identifier: "en_US")) == false)
+    #expect(uses24HourClock(Locale(identifier: "en_GB")) == true)
+    #expect(uses24HourClock(Locale(identifier: "pl_PL")) == true)
+    #expect(uses24HourClock(Locale(identifier: "en_US@rg=plzzzz")) == true)
+    #expect(uses24HourClock(Locale(identifier: "en_US@hours=h23")) == true)
+    #expect(uses24HourClock(Locale(identifier: "en_GB@hours=h12")) == false)
+}

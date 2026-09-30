@@ -52,7 +52,7 @@ extension Config {
         config.glassStyle = try choice(GlassStyle.self, "glassStyle", raw.glassStyle) ?? config.glassStyle
         config.barStyle = try choice(GlassStyle.self, "barStyle", raw.barStyle)
         config.dropdownStyle = try choice(GlassStyle.self, "dropdownStyle", raw.dropdownStyle)
-        config.clock24Hour = raw.clock24Hour ?? config.clock24Hour
+        config.clock24Hour = raw.clock24Hour
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
         config.pills = raw.pills ?? config.pills
@@ -86,7 +86,8 @@ private func choice<T: RawRepresentable & CaseIterable>(_: T.Type, _ key: String
 /// A change made from the Settings window or a dropdown.
 public enum Setting: Equatable, Sendable {
     case workspaceSource(WorkspaceSource)
-    case clock24Hour(Bool)
+    /// nil removes the key, so the clock follows the system again.
+    case clock24Hour(Bool?)
     case clockSeconds(Bool)
     case batteryPercent(Bool)
     case pills(Bool)

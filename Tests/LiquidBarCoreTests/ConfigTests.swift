@@ -9,7 +9,8 @@ private func decode(_ json: String) throws -> Config {
 @Test func emptyConfigIsTheDefault() throws {
     let config = try decode("{}")
     #expect(config == Config())
-    #expect([config.clock24Hour, config.clockSeconds, config.batteryPercent, config.pills] == [true, false, false, true])
+    #expect(config.clock24Hour == nil)
+    #expect([config.clockSeconds, config.batteryPercent, config.pills] == [false, false, true])
 }
 
 @Test func overridesOnlyTheKeysGiven() throws {
@@ -21,7 +22,9 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"workspaceSource": "spaces"}"#).workspaceSource == .spaces)
     #expect(try decode(#"{"unknown": true}"#) == Config())
     let display = try decode(#"{"clock24Hour": false, "clockSeconds": true, "batteryPercent": false}"#)
-    #expect([display.clock24Hour, display.clockSeconds, display.batteryPercent] == [false, true, false])
+    #expect(display.clock24Hour == false)
+    #expect([display.clockSeconds, display.batteryPercent] == [true, false])
+    #expect(try decode(#"{"clock24Hour": true}"#).clock24Hour == true)
     #expect(try decode(#"{"pills": false}"#).pills == false)
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
@@ -75,6 +78,11 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     #expect(try apply(.clock24Hour(false), to: #"{"clock24Hour": true}"#) == """
         {
           "clock24Hour" : false
+        }
+        """)
+    #expect(try apply(.clock24Hour(nil), to: #"{"clock24Hour": true, "margin": 4}"#) == """
+        {
+          "margin" : 4
         }
         """)
     #expect(try apply(.pills(false), to: #"{"glassStyle": "dew"}"#) == """
