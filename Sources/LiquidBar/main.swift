@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var sigterm: DispatchSourceSignal?
     var fullscreenPoll: Timer?
     var pendingRebuild: Task<Void, Never>?
+    var missionControlSettle: Task<Void, Never>?
     /// Without a relaunch, what read Accessibility at launch or earlier and came up empty reads it again.
     let about = AboutWindow()
     lazy var access = AccessWindow { [model] in
@@ -63,8 +64,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Polled: no notification fires when a covering window closes, a fullscreen animation settles, or the privacy
         // dot comes and goes.
+        watchMissionControl()
         fullscreenPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.followWindowList() }
+        }
+    }
+
+    /// Mission Control puts the native menu bar back at full opacity as it opens and closes, and it fades out over
+    /// several frames, so the poll cannot hide it in time. Until the animation settles, the bar sits above the menu bar.
+    func watchMissionControl() {
+        NativeMenuBar.onMissionControl(context: Unmanaged.passUnretained(self).toOpaque()) { context, opened in
+            let delegate = Unmanaged<AppDelegate>.fromOpaque(context).takeUnretainedValue()
+            MainActor.assumeIsolated { delegate.raiseBarThroughMissionControl(open: opened) }
+        }
+    }
+
+    func raiseBarThroughMissionControl(open: Bool) {
+        panels.forEach { $0.level = .init(rawValue: barLevel.rawValue + 5) }
+        followWindowList()
+        missionControlSettle?.cancel()
+        guard !open else { return }
+        missionControlSettle = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            panels.forEach { $0.level = barLevel }
         }
     }
 

@@ -154,6 +154,21 @@ enum NativeMenuBar {
     private nonisolated static let setShown = systemFunction(framework, "SLSSetMenuBarVisibilityOverrideOnDisplay",
                                                              as: (@convention(c) (Int32, CGDirectDisplayID, Bool) -> Void).self)
 
+    private typealias NotifyProc = @convention(c) (UInt32, UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Void
+    private nonisolated static let register = systemFunction(framework, "SLSRegisterNotifyProc", as: (@convention(c) (NotifyProc, UInt32, UnsafeMutableRawPointer?) -> Int32).self)
+    private nonisolated(unsafe) static var missionControlHandler: ((UnsafeMutableRawPointer, Bool) -> Void)?
+
+    /// Calls `handler` when Mission Control opens (WindowServer event 1327) or closes (1328).
+    static func onMissionControl(context: UnsafeMutableRawPointer, _ handler: @escaping (UnsafeMutableRawPointer, Bool) -> Void) {
+        guard let register else { return }
+        missionControlHandler = handler
+        for event: UInt32 in [1327, 1328] {
+            _ = register({ event, _, _, context in
+                DispatchQueue.main.async { NativeMenuBar.missionControlHandler?(context!, event == 1327) }
+            }, event, context)
+        }
+    }
+
     static func setAlpha(_ alpha: Float) {
         guard let connection, let set else { return }
         _ = set(connection(), 0, 1, alpha)
