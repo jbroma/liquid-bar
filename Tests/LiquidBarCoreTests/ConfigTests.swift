@@ -9,7 +9,7 @@ private func decode(_ json: String) throws -> Config {
 @Test func emptyConfigIsTheDefault() throws {
     let config = try decode("{}")
     #expect(config == Config())
-    #expect([config.clock24Hour, config.clockSeconds, config.batteryPercent] == [true, false, false])
+    #expect([config.clock24Hour, config.clockSeconds, config.batteryPercent, config.pills] == [true, false, false, true])
 }
 
 @Test func overridesOnlyTheKeysGiven() throws {
@@ -22,6 +22,7 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"unknown": true}"#) == Config())
     let display = try decode(#"{"clock24Hour": false, "clockSeconds": true, "batteryPercent": false}"#)
     #expect([display.clock24Hour, display.clockSeconds, display.batteryPercent] == [false, true, false])
+    #expect(try decode(#"{"pills": false}"#).pills == false)
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")
@@ -74,6 +75,12 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     #expect(try apply(.clock24Hour(false), to: #"{"clock24Hour": true}"#) == """
         {
           "clock24Hour" : false
+        }
+        """)
+    #expect(try apply(.pills(false), to: #"{"glassStyle": "dew"}"#) == """
+        {
+          "glassStyle" : "dew",
+          "pills" : false
         }
         """)
     #expect(throws: (any Error).self) { try apply(.clockSeconds(true), to: "[]") }

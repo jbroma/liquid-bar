@@ -138,6 +138,8 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour = true
     public var clockSeconds = false
     public var batteryPercent = false
+    /// Off, the bar's items sit straight on the bar strip with no capsule behind them.
+    public var pills = true
     /// The preset. `barStyle` and `dropdownStyle` override its half; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?

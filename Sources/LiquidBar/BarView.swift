@@ -38,6 +38,7 @@ struct BarView: View {
         .monospacedDigit()
         .foregroundStyle(Color.barWhite)
         .environment(menuMode)
+        .environment(\.pills, config.pills)
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
         .frame(height: bar.height)
@@ -85,13 +86,26 @@ struct BarView: View {
 }
 
 extension View {
-    /// A capsule in the style's pill fill, which the focused workspace shares, a step brighter while `lit`.
+    /// A capsule in the style's pill fill, which the focused workspace shares, a step brighter while `lit`. Without
+    /// pills only the lit step shows.
     func pill(height: CGFloat, padding: CGFloat = 10, lit: Bool = false) -> some View {
-        self.padding(.horizontal, padding)
+        modifier(Pill(height: height, padding: padding, lit: lit))
+    }
+}
+
+private struct Pill: ViewModifier {
+    let height: CGFloat
+    let padding: CGFloat
+    let lit: Bool
+    @Environment(\.pills) private var pills
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, padding)
             .frame(height: height)
             .contentShape(Capsule())
             .background {
-                PillFill(shape: Capsule())
+                if pills { PillFill(shape: Capsule()) }
                 hoverFill(lit)
             }
     }
@@ -267,6 +281,8 @@ struct BarMetrics {
 
 extension EnvironmentValues {
     @Entry var bar = BarMetrics()
+    /// The config's `pills`: whether items sit in capsules or straight on the bar.
+    @Entry var pills = true
 }
 
 struct AppleButton: View {
@@ -289,6 +305,7 @@ struct WorkspaceStrip: View {
     @Environment(\.bar) private var bar
     /// A click on the already focused workspace, with its global frame.
     let focusedTap: (CGRect) -> Void
+    @Environment(\.pills) private var pills
     @State private var frames: [String: CGRect] = [:]
     @State private var lead: CGFloat = 0
     @State private var trail: CGFloat = 0
@@ -328,8 +345,13 @@ struct WorkspaceStrip: View {
         }
         .background(alignment: .leading) {
             if let focusedFrame {
-                PillFill(shape: DropletShape(lead: lead, trail: trail, rest: focusedFrame.width))
-                    .frame(height: bar.item)
+                let droplet = DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
+                if pills {
+                    PillFill(shape: droplet).frame(height: bar.item)
+                } else {
+                    // Without pills, a line under the focused workspace that flows the same way.
+                    droplet.fill(Color.barWhite.opacity(0.85)).frame(height: 2).frame(height: bar.item + 2, alignment: .bottom)
+                }
             }
         }
         .coordinateSpace(.named("strip"))

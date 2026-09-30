@@ -181,6 +181,11 @@ private struct AppearancePane: View {
     var body: some View {
         Form {
             Section {
+                Toggle("Show Pills", isOn: saving(config.pills, Setting.pills))
+            } footer: {
+                Text("Off, the bar's items sit straight on the bar, and a line marks the focused workspace.").foregroundStyle(.secondary)
+            }
+            Section {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 112), spacing: 10)], spacing: 10) {
                     ForEach(GlassStyle.allCases, id: \.self) { style in
                         StyleCard(style: style, selected: !config.glassIsCustom && style == config.glassStyle)

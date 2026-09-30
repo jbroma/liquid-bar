@@ -2,7 +2,7 @@
 
 ## Layout
 
-On a notched screen the bar is as tall as the native menu bar, one point taller than the notch. Left of the notch, drawn straight on the glass, are the Apple logo and the workspaces. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills, are now playing, volume, Wi-Fi, battery, Control Center, and the clock.
+On a notched screen the bar is as tall as the native menu bar, one point taller than the notch. Left of the notch, drawn straight on the glass, are the Apple logo and the workspaces. A soft fill marks the focused workspace and flows to the next one like a droplet. Right of the notch, in glass pills (or straight on the bar with `pills` off), are now playing, volume, Wi-Fi, battery, Control Center, and the clock.
 
 Every screen gets its own bar, exactly as tall as the native menu bar under it: 34 points on a notched screen and 24 on most others. Pills are 8 points shorter. Nothing is drawn beside the notch that does not fit there.
 
