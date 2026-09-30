@@ -39,7 +39,7 @@ final class SettingsWindow {
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, menuBarItems, advanced, about
+    case general, appearance, menuBarItems
 
     var id: Self { self }
 
@@ -48,8 +48,6 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "General"
         case .appearance: "Appearance"
         case .menuBarItems: "Menu Bar Items"
-        case .advanced: "Advanced"
-        case .about: "About"
         }
     }
 
@@ -58,8 +56,6 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .appearance: "paintpalette"
         case .menuBarItems: "menubar.rectangle"
-        case .advanced: "wrench.and.screwdriver"
-        case .about: "info.circle"
         }
     }
 }
@@ -84,11 +80,10 @@ private struct SettingsView: View {
                 case .general: GeneralPane(config: model.config)
                 case .appearance: AppearancePane(config: model.config)
                 case .menuBarItems: MenuBarItemsPane(model: model)
-                case .advanced: AdvancedPane()
-                case .about: ScrollView { AboutInfo().padding(.top, 60) }.frame(maxWidth: .infinity)
                 }
             }
-            .navigationTitle(section.title)
+            // The sidebar already names the pane.
+            .toolbar(removing: .title)
         }
         .frame(minWidth: 640, minHeight: 440)
     }
@@ -134,7 +129,30 @@ private struct GeneralPane: View {
                 Text("LiquidBar asks for each one the first time you use what needs it.").foregroundStyle(.secondary)
             }
             Section {
+                LabeledContent("Config File") {
+                    Text(configURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")).textSelection(.enabled)
+                }
                 LabeledContent("Started by", value: launcher)
+                HStack {
+                    Spacer()
+                    Button("Open Config File…") {
+                        do {
+                            try createConfigFile(at: configURL)
+                            NSWorkspace.shared.open(configURL)
+                        } catch {
+                            log.error("cannot create \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
+                        }
+                    }
+                    Button("Reload Config") { delegate.configWatcher?.reload() }
+                }
+            } header: {
+                Text("Configuration")
+            } footer: {
+                Text("Every setting here is a key in the config file. Edits to the file show up here and on the bar right away.")
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                AboutLine()
             }
         }
         .formStyle(.grouped)
@@ -153,15 +171,29 @@ private struct PermissionRow: View {
     var body: some View {
         let status = permission.status
         LabeledContent {
-            HStack {
-                Text(title(status)).foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Image(systemName: status.symbol)
+                    .foregroundStyle(status.color)
+                    .help(title(status))
+                    .accessibilityLabel(title(status))
                 if status != .unknown {
-                    Button(status == .notAsked ? "Grant…" : "Open Settings…") { permission.request() }
+                    let action = status == .notAsked ? "Grant…" : "Open Privacy & Security…"
+                    Button { permission.request() } label: {
+                        Image(systemName: status == .notAsked ? "arrow.forward.circle" : "gear")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(action)
+                    .accessibilityLabel(action)
                 }
             }
+            .imageScale(.large)
         } label: {
-            Text(permission.title)
-            Text(permission.use)
+            Label {
+                Text(permission.title)
+                Text(permission.use)
+            } icon: {
+                Image(systemName: permission.symbol).foregroundStyle(.secondary).frame(width: 22)
+            }
         }
     }
 
@@ -171,6 +203,26 @@ private struct PermissionRow: View {
         case .notAsked: "Not asked yet"
         case .denied: "Not allowed"
         case .unknown: "Known while \(permission.app?.name ?? "it") runs"
+        }
+    }
+}
+
+extension Permission.Status {
+    fileprivate var symbol: String {
+        switch self {
+        case .granted: "checkmark.circle.fill"
+        case .notAsked: "exclamationmark.circle.fill"
+        case .denied: "xmark.circle.fill"
+        case .unknown: "questionmark.circle"
+        }
+    }
+
+    fileprivate var color: Color {
+        switch self {
+        case .granted: .green
+        case .notAsked: .orange
+        case .denied: .red
+        case .unknown: .secondary
         }
     }
 }
@@ -435,52 +487,19 @@ private struct MenuBarItemsPane: View {
     }
 }
 
-private struct AdvancedPane: View {
-    var body: some View {
-        Form {
-            Section {
-                LabeledContent("Config file") {
-                    Text(configURL.path.replacingOccurrences(of: NSHomeDirectory(), with: "~")).textSelection(.enabled)
-                }
-                HStack {
-                    Button("Open Config File…") {
-                        do {
-                            try createConfigFile(at: configURL)
-                            NSWorkspace.shared.open(configURL)
-                        } catch {
-                            log.error("cannot create \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
-                        }
-                    }
-                    Button("Reload Config") { delegate.configWatcher?.reload() }
-                }
-            } footer: {
-                Text("Every setting here is a key in the config file. Edits to the file show up here and on the bar right away.")
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .formStyle(.grouped)
-    }
-}
-
-/// The app's icon, version, link and license.
-private struct AboutInfo: View {
+/// The app's icon, version, link and license on one line, at the foot of General.
+private struct AboutLine: View {
     private var version: String {
         let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
-        return "Version \(short) (\(info?["CFBundleVersion"] as? String ?? "?"))"
+        return "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
-            Text("LiquidBar").font(.system(size: 20, weight: .semibold))
-            Text(version).foregroundStyle(.secondary)
-            Text("A Liquid Glass menu bar for macOS")
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 6)
+        HStack(spacing: 8) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 20, height: 20)
+            Text("LiquidBar \(version)")
+            Spacer()
             Link("github.com/jbroma/liquid-bar", destination: URL(string: "https://github.com/jbroma/liquid-bar")!)
-                .foregroundStyle(Color.accentColor)
                 .pointerStyle(.link)
             Text("MIT License").foregroundStyle(.secondary)
         }

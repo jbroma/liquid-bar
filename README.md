@@ -16,7 +16,7 @@ Also in the bar:
 
 - Now playing for Spotify and Music. On a new track the pill slides out to show the title.
 - The Apple logo opens a dropdown with the Apple menu's items.
-- A right-click on the bar opens LiquidBar's menu: Settings, About, and Quit.
+- A right-click on the bar opens LiquidBar's menu: Settings and Quit.
 - The native menu bar stays hidden while the bar runs.
 
 ## Install
@@ -40,7 +40,7 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 ## Settings
 
-Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has five sections. General holds the workspace source, now playing, the battery percentage, the clock format, and the Accessibility status. Appearance picks the glass style from seven cards with a live preview, and Customize sets the bar's style and the dropdowns' style apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag. Advanced opens and reloads the config file. About shows the version and license.
+Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has three sections. General holds the workspace source, now playing, the battery percentage, the clock format, each permission's status, the config file, and the version. Appearance turns the pills on or off, picks the glass style from seven cards with a live preview, and Customize sets the bar's style and the dropdowns' style apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag.
 
 <p align="center">
   <img src="docs/images/settings-v080.webp" width="480" alt="The Settings window on its Appearance section: seven glass style cards over a busy preview backdrop, and under Customize, separate style swatches for the bar and the dropdowns">

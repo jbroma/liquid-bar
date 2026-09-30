@@ -27,6 +27,15 @@ enum Permission: CaseIterable, Identifiable {
         }
     }
 
+    var symbol: String {
+        switch self {
+        case .accessibility: "hand.raised"
+        case .bluetooth: "dot.radiowaves.left.and.right"
+        case .location: "location"
+        case .spotify, .music, .loginwindow: "gearshape.2"
+        }
+    }
+
     var use: String {
         switch self {
         case .accessibility: "App menus, menu bar items, Focus, switching desktops"
