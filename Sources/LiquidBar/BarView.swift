@@ -99,9 +99,11 @@ private struct Pill: ViewModifier {
     let lit: Bool
     @Environment(\.pills) private var pills
 
+    /// Without pills, items sit as close as the native menu bar's status items, about 20pt apart with the gap, and do
+    /// not widen when lit, which would shift their neighbours.
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, padding)
+            .padding(.horizontal, pills ? padding + (lit ? 3 : 0) : 7)
             .frame(height: height)
             .contentShape(Capsule())
             .background {
@@ -194,7 +196,11 @@ struct WidgetView: View {
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             // While macOS shows its privacy dot, the pill makes room for it, so the dot sits inside the pill after the time.
-            MenuPill(id: .clock, pulse: 0, padding: 14) { Text(clockText(model.now, hour24: model.config.clock24Hour ?? uses24HourClock(), seconds: model.config.clockSeconds)).padding(.trailing, model.privacyDot ? 4 : 0) }
+            // Without pills the clock's inset is 7 points smaller, so the room grows by as much.
+            MenuPill(id: .clock, pulse: 0, padding: 14) {
+                Text(clockText(model.now, hour24: model.config.clock24Hour ?? uses24HourClock(), seconds: model.config.clockSeconds))
+                    .padding(.trailing, model.privacyDot ? (model.config.pills ? 4 : 11) : 0)
+            }
                 .animation(spring, value: model.privacyDot)
         case .script(let script):
             HStack(spacing: 5) {

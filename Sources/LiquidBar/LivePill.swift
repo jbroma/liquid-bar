@@ -197,7 +197,6 @@ struct MenuPill<Pulse: Equatable, Label: View>: View {
         LivePill(id: id, pulse: pulse) { open in
             label()
                 .fixedSize()
-                .padding(.horizontal, open ? 3 : 0)
                 .pill(height: bar.pill, padding: padding, lit: open)
         }
     }
