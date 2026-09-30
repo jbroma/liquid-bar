@@ -1,24 +1,16 @@
 <p align="center">
-  <img src="docs/images/icon.webp" width="112" alt="The LiquidBar icon: a glass menu bar with workspace pills over a violet to blue gradient">
-</p>
-
-<h1 align="center">liquid-bar</h1>
-
-<p align="center">A macOS 26 menu bar replacement in Liquid Glass, with workspaces, Control Center, and a dropdown under every pill.</p>
-
-<p align="center">
   <img src="docs/images/hero-v080b.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and workspaces 1 to 9 on the left, pinned menu bar items, volume, Wi-Fi, battery, Control Center, and the clock on the right, and the top of the Control Center dropdown open below it">
 </p>
 
 ## What you get
 
-<img src="docs/images/workspaces-v080b.webp" width="100%" alt="Banner: Workspaces and app menus. Workspace 2's dropdown lists Google Chrome, 1Password, and Xcode, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the Edit menu open">
+<img src="docs/images/workspaces-v080c.webp" width="100%" alt="Banner: Workspaces and menus. Workspace 2's dropdown lists Google Chrome, 1Password, and Xcode, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the top of the Edit menu open">
 
-<img src="docs/images/control-center-v080b.webp" width="100%" alt="Banner: Control Center. Two Control Center dropdowns, one at rest and one with the AirDrop section unfolded to Contacts Only and Everyone, each with Bluetooth, AirDrop, and Focus above the display and keyboard brightness sliders">
+<img src="docs/images/control-center-v080c.webp" width="100%" alt="Banner: Control Center. Two Control Center dropdowns, one at rest and one with the AirDrop section unfolded to Contacts Only and Everyone, each showing Bluetooth, AirDrop, Focus, and the display and keyboard brightness sliders">
 
-<img src="docs/images/styles-v080b.webp" width="100%" alt="Banner: Seven glass styles. The battery dropdown in four styles side by side, Liquid, Crystal, Mist, and Obsidian">
+<img src="docs/images/styles-v080c.webp" width="100%" alt="Banner: Seven glass styles. The top of the battery dropdown in four styles side by side, Liquid, Crystal, Mist, and Obsidian">
 
-<img src="docs/images/clock-battery-v080b.webp" width="100%" alt="Banner: Clock, battery, and Wi-Fi. The clock dropdown with the full date and a month calendar, and the battery dropdown with power source, status, condition, cycle count, and a Show Percentage switch">
+<img src="docs/images/clock-battery-v080c.webp" width="100%" alt="Banner: Clock, battery, and Wi-Fi. The clock dropdown with the full date and a month calendar, and the battery dropdown with power source, status, condition, cycle count, and a Show Percentage switch">
 
 Also in the bar:
 
@@ -51,7 +43,7 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has five sections. General holds the workspace source, now playing, the battery percentage, the clock format, and the Accessibility status. Appearance picks the glass style from seven cards with a live preview, and Customize sets the bar's style and the dropdowns' style apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag. Advanced opens and reloads the config file. About shows the version and license.
 
 <p align="center">
-  <img src="docs/images/settings-v080.webp" width="640" alt="The Settings window on its Appearance section: seven glass style cards over a busy preview backdrop, and under Customize, separate style swatches for the bar and the dropdowns">
+  <img src="docs/images/settings-v080.webp" width="480" alt="The Settings window on its Appearance section: seven glass style cards over a busy preview backdrop, and under Customize, separate style swatches for the bar and the dropdowns">
 </p>
 
 Everything else, like widget order, click commands, and script widgets, lives in `~/.config/liquid-bar/config.json`. See [Configuration](docs/configuration.md).
