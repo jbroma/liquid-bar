@@ -28,21 +28,27 @@ final class WorkspacesSource {
     let model: BarModel
     private(set) var feed: WorkspaceFeed?
     private var observers: [NSObjectProtocol] = []
+    /// Changed only by AeroSpace's own launch and quit: `runningApplications(withBundleIdentifier:)` sometimes misses
+    /// a running AeroSpace while another app quits, which swapped the strip to apps until the next launch.
+    private var aerospaceRunning = NSRunningApplication.runningApplications(withBundleIdentifier: aerospaceID).contains { !$0.isTerminated }
 
     init(model: BarModel) {
         self.model = model
         observers = observeWorkspace([
             NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
             NSWorkspace.activeSpaceDidChangeNotification,
-        ]) { [weak self] _ in
-            MainActor.assumeIsolated { self?.update() }
+        ]) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            MainActor.assumeIsolated {
+                if app?.bundleIdentifier == aerospaceID { self?.aerospaceRunning = note.name == NSWorkspace.didLaunchApplicationNotification }
+                self?.update()
+            }
         }
         update()
     }
 
     func update() {
-        let aerospace = NSRunningApplication.runningApplications(withBundleIdentifier: "bobko.aerospace").contains { !$0.isTerminated }
-        let source = model.config.workspaceSource.resolved(aerospaceRunning: aerospace, desktops: Desktops.current()?.desktops.count ?? 0)
+        let source = model.config.workspaceSource.resolved(aerospaceRunning: aerospaceRunning, desktops: Desktops.current()?.desktops.count ?? 0)
         let ids = model.config.workspaces.map(\.id)
         if source == .aerospace, model.workspaces.ids != ids { model.workspaces.ids = ids }
         guard feed == nil || source != model.workspaces.source else { return }
@@ -65,12 +71,20 @@ final class AeroSpaceSource: WorkspaceFeed {
     private var retry: Task<Void, Never>?
     private var loop: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
+    private var movePoll: Timer?
+    private var frames: [Int: CGRect] = [:]
 
     init(model: BarModel) {
         self.model = model
+        // AeroSpace posts no event when a window that does not have focus moves to another workspace, as with
+        // `move-node-to-workspace --window-id`. It hides that window by moving it into a screen corner, so a change in
+        // the windows' frames is the cue to read the list again.
+        movePoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.followFrames() }
+        }
         observers = observeWorkspace([NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification]) { [weak self] note in
             let launched = note.name == NSWorkspace.didLaunchApplicationNotification
-                && (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == "bobko.aerospace"
+                && (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier == aerospaceID
             MainActor.assumeIsolated {
                 if launched { self?.retry?.cancel() }
                 self?.refreshWindows()
@@ -81,6 +95,7 @@ final class AeroSpaceSource: WorkspaceFeed {
 
     func stop() {
         observers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
+        movePoll?.invalidate()
         loop?.cancel()
         retry?.cancel()
         refreshTask?.cancel()
@@ -124,6 +139,18 @@ final class AeroSpaceSource: WorkspaceFeed {
         if !Task.isCancelled { model.workspacesConnected = false }
     }
 
+    private func followFrames() {
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        let frames = Dictionary(windows.compactMap { window -> (Int, CGRect)? in
+            guard window[kCGWindowLayer as String] as? Int == 0, let number = window[kCGWindowNumber as String] as? Int,
+                  let bounds = window[kCGWindowBounds as String], let rect = CGRect(dictionaryRepresentation: bounds as! CFDictionary) else { return nil }
+            return (number, rect)
+        }, uniquingKeysWith: { first, _ in first })
+        guard frames != self.frames else { return }
+        self.frames = frames
+        refreshWindows()
+    }
+
     func refreshWindows() {
         refreshTask?.cancel()
         refreshTask = Task {
@@ -141,6 +168,7 @@ final class AeroSpaceSource: WorkspaceFeed {
 }
 
 private let windowFormat = "%{workspace}|%{window-id}|%{app-bundle-id}"
+private let aerospaceID = "bobko.aerospace"
 
 /// The desktops or the apps, read again on each desktop switch and app activation, launch, quit, hide or unhide. No
 /// notification tells when a window opens or closes, so each read is repeated half a second later, when a launched
