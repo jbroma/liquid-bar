@@ -121,8 +121,8 @@ func openSettings(_ pane: String) {
 
 /// Like Control Center, minus Wi-Fi, Sound and Now Playing, which have their own items. Bluetooth, AirDrop and Focus
 /// come first, then the brightness sliders and a row of labeled tiles, each in its own module. The Bluetooth and AirDrop
-/// rows unfold their devices and modes, and the circle beside each toggles the control. Then the other apps' status
-/// items the bar covers.
+/// rows unfold a module with the control's switch and its devices or modes. Then the other apps' status items the bar
+/// covers.
 struct ControlCenterMenu: View {
     let model: BarModel
     @Environment(ExpansionSlot.self) private var slot
@@ -157,8 +157,8 @@ struct ControlCenterMenu: View {
     @ViewBuilder private func switches(_ controls: Controls, _ state: ControlState) -> some View {
         HStack(spacing: 8) {
             VStack(spacing: 0) {
-                row(.bluetooth, controls, state)
-                row(.airDrop, controls, state)
+                row(.bluetooth, state)
+                row(.airDrop, state)
             }
             .frame(maxWidth: .infinity)
             .module()
@@ -184,10 +184,8 @@ struct ControlCenterMenu: View {
         }
     }
 
-    private func row(_ tile: ControlTile, _ controls: Controls, _ state: ControlState) -> some View {
+    private func row(_ tile: ControlTile, _ state: ControlState) -> some View {
         ControlRow(tile: tile, state: state, open: expanded == tile) {
-            controls.press(tile, dismiss: slot.dismiss)
-        } expand: {
             withAnimation(spring) { expanded = expanded == tile ? nil : tile }
         }
     }
@@ -278,39 +276,31 @@ private func percent(_ fraction: Double) -> Int {
     Int((fraction * 100).rounded())
 }
 
-/// A switch with choices as a row of two targets: its circle, filled with the accent colour while on, toggles it, and
-/// its name over its state, with a chevron, unfolds its list.
+/// A control with choices as one row: its circle, filled with the accent colour while on, its name over its state, and
+/// a chevron. A click unfolds its list, whose header holds the switch; the row stays lit while its list is open.
 private struct ControlRow: View {
     let tile: ControlTile
     let state: ControlState
     let open: Bool
-    let press: () -> Void
     let expand: () -> Void
 
-    private var icon: some View { TileIcon(tile: tile, on: tile.isOn(state), size: 28) }
-
-    private var text: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(tile.name).font(.system(size: 12, weight: .semibold))
-            if let detail = tile.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
-        }
-        .lineLimit(1)
-    }
-
     var body: some View {
-        HStack(spacing: 0) {
-            ControlButton(name: tile.name, radius: 14, action: press) { icon.padding(5) }
-            ControlButton(name: "\(tile.name) Options", radius: 14, action: expand) {
-                HStack(spacing: 2) {
-                    text
-                    Spacer(minLength: 0)
-                    Disclosure(open: open)
+        ControlButton(name: tile.name, radius: 14, selected: open, action: expand) {
+            HStack(spacing: 0) {
+                TileIcon(tile: tile, on: tile.isOn(state), size: 28)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(tile.name).font(.system(size: 12, weight: .semibold))
+                    if let detail = tile.detail(state) { Text(detail).font(.system(size: 11)).foregroundStyle(secondary) }
                 }
-                .padding(.vertical, 5)
-                .padding(.leading, 3)
-                .padding(.trailing, 7)
+                .lineLimit(1)
+                .padding(.leading, 8)
+                Spacer(minLength: 2)
+                Disclosure(open: open)
             }
+            .padding(5)
+            .padding(.trailing, 2)
         }
+        .accessibilityValue(tile.detail(state) ?? "")
     }
 }
 
@@ -385,6 +375,7 @@ private struct BluetoothRune: Shape {
 private struct ControlButton<Label: View>: View {
     let name: String
     let radius: CGFloat
+    var selected = false
     let action: () -> Void
     @ViewBuilder var label: () -> Label
     @State private var hovering = false
@@ -393,7 +384,7 @@ private struct ControlButton<Label: View>: View {
         Button(action: action, label: label)
             .help(name)
             .accessibilityLabel(name)
-            .buttonStyle(ControlStyle(radius: radius, hovering: hovering))
+            .buttonStyle(ControlStyle(radius: radius, hovering: hovering, selected: selected))
             .onHover { hovering = $0 }
     }
 }
@@ -401,14 +392,16 @@ private struct ControlButton<Label: View>: View {
 private struct ControlStyle: ButtonStyle {
     let radius: CGFloat
     let hovering: Bool
+    let selected: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         configuration.label
             .contentShape(shape)
-            .background(shape.fill(.white.opacity(configuration.isPressed ? 0.12 : hovering ? 0.06 : 0)))
+            .background(shape.fill(.white.opacity(configuration.isPressed ? 0.14 : (hovering ? 0.06 : 0) + (selected ? 0.08 : 0))))
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(spring, value: configuration.isPressed)
             .animation(.easeOut(duration: 0.12), value: hovering)
+            .animation(spring, value: selected)
     }
 }

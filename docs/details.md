@@ -34,10 +34,10 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 ## Control Center
 
-The Control Center dropdown is 300pt wide and opens with modules like the top of macOS's Control Center. Bluetooth and AirDrop are rows in the left module, and Focus is a tile of its own on the right. Each circle fills with the accent colour while its control is on, and a click on the circle switches it:
+The Control Center dropdown is 300pt wide and opens with modules like the top of macOS's Control Center. Bluetooth and AirDrop are rows in the left module, and Focus is a tile of its own on the right. Each circle fills with the accent colour while its control is on. A click anywhere on a Bluetooth or AirDrop row unfolds its module below, and the row stays lit while it is open. The module starts with the control's name and a switch, and ends with its Settings row. Each opening of the dropdown starts with every module folded.
 
-- Bluetooth: the circle switches Bluetooth on or off. A click on the rest of the row expands the paired devices in a module below, connected ones first, each with its battery when the device reports it and a filled circle while connected. Click a device to connect or disconnect it. Bluetooth Settings… opens its pane.
-- AirDrop: the row reads Off, Contacts Only, or Everyone. The circle switches between Off and the last mode that was on, Contacts Only by default. The rest of the row expands the three modes, with a checkmark on the current one, and AirDrop Settings… opens General > AirDrop & Continuity.
+- Bluetooth: the switch turns Bluetooth on or off. The module lists the paired devices, connected ones first, each with its battery when the device reports it and a filled circle while connected. Click a device to connect or disconnect it. While Bluetooth is off the devices are dimmed. Bluetooth Settings… opens its pane.
+- AirDrop: the row reads Off, Contacts Only, or Everyone. The switch turns AirDrop off, or back on in the last mode that was on, Contacts Only by default. The module lists Contacts Only and Everyone, with a filled circle on the current one, and AirDrop Settings… opens General > AirDrop & Continuity.
 - Focus: click the tile to turn the active Focus off, or Do Not Disturb on.
 
 One row is expanded at a time. Its chevron turns down, and the dropdown grows downward without moving the rows. Below are a module with horizontal sliders for the built-in display and keyboard brightness, and a module of labeled tiles for Dark Mode, Night Shift, and Screenshot, which opens the Screenshot toolbar. Screen Mirroring is not in it, because listing AirPlay displays and starting mirroring need entitlements only Apple's Control Center has.
