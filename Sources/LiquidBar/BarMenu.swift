@@ -6,15 +6,16 @@ import SwiftUI
 final class BarMenu {
     private var panel: NSPanel?
     private var monitors: [Any] = []
-    private static let size = NSSize(width: 220, height: 74)
 
     /// `point` is the pointer in screen coordinates, `barBottom` the bar's lower edge.
     func show(at point: NSPoint, below barBottom: CGFloat) {
         close()
         let screen = NSScreen.screens.first { $0.frame.contains(point) }?.frame ?? .zero
-        let x = min(max(point.x - 14, screen.minX + 6), screen.maxX - Self.size.width - 6)
+        // Each row is 24pt; the padding and the separator take 26pt.
+        let size = NSSize(width: 220, height: delegate.updates.updater == nil ? 74 : 98)
+        let x = min(max(point.x - 14, screen.minX + 6), screen.maxX - size.width - 6)
         let panel = NSPanel(
-            contentRect: NSRect(origin: NSPoint(x: x, y: barBottom - 6 - Self.size.height), size: Self.size),
+            contentRect: NSRect(origin: NSPoint(x: x, y: barBottom - 6 - size.height), size: size),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .init(rawValue: barLevel.rawValue + 1)
         panel.backgroundColor = .clear
@@ -55,6 +56,9 @@ private struct BarMenuView: View {
 
     var body: some View {
         MenuBody {
+            if delegate.updates.updater != nil {
+                row("Check for Updates…") { delegate.updates.check() }
+            }
             row("LiquidBar Settings…") { delegate.settings.show() }
             MenuSeparator()
             row("Quit LiquidBar") { delegate.quit() }

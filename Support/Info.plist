@@ -20,6 +20,12 @@
 	<string>26.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/jbroma/liquid-bar/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>1ODwJc7Lh6H0ZkTPDYqT8H3sDc1oM3o00EQwZ250Tik=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>LiquidBar lists your Bluetooth devices in its Control Center, connects and disconnects them, and switches Bluetooth on and off.</string>
 	<key>NSLocationUsageDescription</key>

@@ -1,5 +1,6 @@
 import AppKit
 import LiquidBarCore
+import Sparkle
 import SwiftUI
 
 /// The LiquidBar Settings window: a standard macOS settings window, whatever the glass style.
@@ -164,6 +165,13 @@ private struct GeneralPane: View {
             } footer: {
                 Text("Every setting here is a key in the config file. Edits to the file show up here and on the bar right away.")
                     .foregroundStyle(.secondary)
+            }
+            Section("Updates") {
+                if let updater = delegate.updates.updater {
+                    UpdateRows(updater: updater)
+                } else {
+                    Text("Updated by your Nix configuration").foregroundStyle(.secondary)
+                }
             }
             Section {
                 AboutLine()
@@ -531,6 +539,29 @@ private struct MenuBarItemsPane: View {
             .help(pinned ? "Unpin from the Bar" : "Pin to the Bar")
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// Sparkle keeps the automatic-check preference in its own defaults, so the toggle writes straight to the updater.
+private struct UpdateRows: View {
+    let updater: SPUUpdater
+    @State private var automatic: Bool
+    @State private var canCheck = false
+
+    init(updater: SPUUpdater) {
+        self.updater = updater
+        _automatic = State(initialValue: updater.automaticallyChecksForUpdates)
+    }
+
+    var body: some View {
+        Toggle("Check for updates automatically", isOn: $automatic)
+            .onChange(of: automatic) { updater.automaticallyChecksForUpdates = $1 }
+        HStack {
+            Spacer()
+            Button("Check Now") { delegate.updates.check() }
+                .disabled(!canCheck)
+        }
+        .onReceive(updater.publisher(for: \.canCheckForUpdates)) { canCheck = $0 }
     }
 }
 

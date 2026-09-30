@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var slots: [ExpansionSlot] = []
     let settings = SettingsWindow()
     let barMenu = BarMenu()
+    let updates = Updates()
     /// Without a relaunch, what read Accessibility at launch or earlier and came up empty reads it again.
     lazy var access = AccessWindow { [model] in
         MenuExtras.refresh(model)
