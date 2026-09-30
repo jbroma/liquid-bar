@@ -429,7 +429,7 @@ func hoverFill(_ on: Bool) -> some View {
 }
 
 /// The focus fill between `lead` and `trail`. Stretched wider than its resting width it thins like a droplet.
-struct DropletShape: Shape {
+nonisolated struct DropletShape: Shape {
     var lead: CGFloat
     var trail: CGFloat
     let rest: CGFloat

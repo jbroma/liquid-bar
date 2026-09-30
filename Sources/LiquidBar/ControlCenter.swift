@@ -386,7 +386,7 @@ private struct TileIcon: View {
 }
 
 /// ᛒ: two stacked arrowheads on a vertical stroke.
-private struct BluetoothRune: Shape {
+private nonisolated struct BluetoothRune: Shape {
     func path(in rect: CGRect) -> Path {
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height) }
         var path = Path()
