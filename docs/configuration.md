@@ -4,7 +4,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 
 ## The Settings window
 
-A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu below the pointer, in the dropdown glass: **LiquidBar Settings…**, **About LiquidBar**, which opens the Settings window on its About section, and **Quit LiquidBar**. A click outside it or Esc closes it. Opening LiquidBar again while it runs (from Finder, or `open -a LiquidBar`) also opens the Settings window. Every control in it edits the config file, and an edit to the file shows in the window right away. Its sections:
+A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu below the pointer, in the dropdown glass: **LiquidBar Settings…** and **Quit LiquidBar**. A click outside it or Esc closes it. Opening LiquidBar again while it runs (from Finder, or `open -a LiquidBar`) also opens the Settings window. Every control in it edits the config file, and an edit to the file shows in the window right away. Its sections:
 
 - **General**: Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`). Whether LiquidBar has Accessibility access, with a button that opens the Accessibility window, and whether a launch agent started it.
 - **Appearance**: the five glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one.

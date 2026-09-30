@@ -6,7 +6,7 @@ import SwiftUI
 final class BarMenu {
     private var panel: NSPanel?
     private var monitors: [Any] = []
-    private static let size = NSSize(width: 220, height: 98)
+    private static let size = NSSize(width: 220, height: 74)
 
     /// `point` is the pointer in screen coordinates, `barBottom` the bar's lower edge.
     func show(at point: NSPoint, below barBottom: CGFloat) {
@@ -56,7 +56,6 @@ private struct BarMenuView: View {
     var body: some View {
         MenuBody {
             row("LiquidBar Settings…") { delegate.settings.show() }
-            row("About LiquidBar") { delegate.settings.show(.about) }
             MenuSeparator()
             row("Quit LiquidBar") { delegate.quit() }
         }
