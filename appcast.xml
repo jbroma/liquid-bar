@@ -2,5 +2,18 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>LiquidBar</title>
+        <item>
+            <title>0.10.0</title>
+            <pubDate>Wed, 30 Sep 2026 23:26:32 +0200</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[**Full Changelog**: https://github.com/jbroma/liquid-bar/compare/v0.9.0...v0.10.0
+
+[LiquidBar 0.10.0 on GitHub](https://github.com/jbroma/liquid-bar/releases/tag/v0.10.0)
+]]></description>
+            <enclosure url="https://github.com/jbroma/liquid-bar/releases/download/v0.10.0/LiquidBar-0.10.0.zip" length="3171907" type="application/octet-stream" sparkle:edSignature="OoG2BcuMJxXIMZEZMcI6yG+c62j6glVxdSXd1JxTIuCnS/agb4/e/tFzAMcZ6F4jfJiG0+6NXn9Z+MGb0s2HAQ=="/>
+        </item>
     </channel>
 </rss>
