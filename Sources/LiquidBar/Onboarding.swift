@@ -5,6 +5,8 @@ import SwiftUI
 @Observable
 final class AccessWindow {
     private(set) var granted = AXIsProcessTrusted()
+    /// System Settings is open on the Accessibility list; the window steps aside into the corner while it waits.
+    private(set) var waiting = false
     @ObservationIgnored private var window: NSPanel?
     @ObservationIgnored private var poll: Timer?
     /// Runs once when the grant arrives while the window is open, to restart what needed it.
@@ -18,8 +20,24 @@ final class AccessWindow {
         shell("open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'")
     }
 
+    /// Opens the list, then moves out of its way: a compact card in the top right corner, below the bar.
+    func openSettings() {
+        Self.requestAccess()
+        guard !granted, let window, let screen = NSScreen.screens.first else { return }
+        waiting = true
+        let size = NSSize(width: 300, height: 150)
+        let bar = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
+        let origin = NSPoint(x: screen.frame.maxX - size.width - 6, y: screen.frame.maxY - bar - 6 - size.height)
+        window.setFrame(NSRect(origin: origin, size: size), display: true, animate: true)
+    }
+
     func show() {
         granted = AXIsProcessTrusted()
+        if waiting, let window {
+            waiting = false
+            window.setContentSize(NSSize(width: 440, height: 380))
+            window.center()
+        }
         if window == nil {
             let panel = glassPanel(NSSize(width: 440, height: 380), close: { [weak self] in self?.close() }) { AccessView(state: self, close: { [weak self] in self?.close() }) }
             window = panel
@@ -83,10 +101,10 @@ private struct AccessView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            if state.granted { grantedBody } else { requestBody }
+            if state.granted { grantedBody } else if state.waiting { waitingBody } else { requestBody }
         }
-        .padding(28)
-        .frame(width: 440, height: 380)
+        .padding(state.waiting ? 20 : 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .font(.system(size: 13))
         .foregroundStyle(Color.barWhite)
@@ -114,7 +132,7 @@ private struct AccessView: View {
             .fixedSize(horizontal: false, vertical: true)
         list.padding(.top, 4)
         Spacer(minLength: 0)
-        Button("Open Accessibility Settings") { AccessWindow.requestAccess() }
+        Button("Open Accessibility Settings") { state.openSettings() }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
         Button("Not Now", action: close)
@@ -123,7 +141,31 @@ private struct AccessView: View {
             .foregroundStyle(secondary)
     }
 
+    @ViewBuilder private var waitingBody: some View {
+        HStack(spacing: 10) {
+            ProgressView().controlSize(.small)
+            Text("Switch on LiquidBar").font(.system(size: 15, weight: .semibold))
+        }
+        Text("in the Accessibility list. This closes by itself once it is on.")
+            .foregroundStyle(secondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+        Button("Not Now", action: close)
+            .buttonStyle(.plain)
+            .focusEffectDisabled()
+            .foregroundStyle(secondary)
+    }
+
     @ViewBuilder private var grantedBody: some View {
+        if state.waiting {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 30))
+            Text("You're all set").font(.system(size: 15, weight: .semibold))
+        } else {
+            fullGrantedBody
+        }
+    }
+
+    @ViewBuilder private var fullGrantedBody: some View {
         Spacer(minLength: 0)
         Image(systemName: "checkmark.circle.fill").font(.system(size: 44))
         Text("You're all set").font(.system(size: 20, weight: .semibold))
