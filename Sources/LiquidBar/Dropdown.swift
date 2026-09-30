@@ -1,16 +1,20 @@
 import LiquidBarCore
 import SwiftUI
 
-/// The items that open a dropdown, and the ids of the `ExpansionSlot`. A workspace's hangs left of the notch, the rest
+/// The items that open a dropdown, and the ids of the `ExpansionSlot`. The Apple logo's and a workspace's hang left of the notch, the rest
 /// right of it.
 nonisolated enum Dropdown: Hashable, Sendable {
     case nowPlaying, volume, wifi, battery, controlCenter, clock
+    case apple
     case workspace(String)
     /// A pinned app's status item, by bundle id.
     case menuExtra(String)
 
     var isLeft: Bool {
-        if case .workspace = self { true } else { false }
+        switch self {
+        case .apple, .workspace: true
+        default: false
+        }
     }
 
     var width: CGFloat {
@@ -19,6 +23,7 @@ nonisolated enum Dropdown: Hashable, Sendable {
         case .clock: 276
         case .nowPlaying: 280
         case .workspace: 220
+        case .apple: 240
         default: 264
         }
     }
@@ -122,6 +127,7 @@ struct DropdownView: View {
         case .battery: BatteryMenu(battery: model.battery, percent: model.config.batteryPercent)
         case .controlCenter: ControlCenterMenu(model: model)
         case .clock: ClockMenu(now: model.now)
+        case .apple: AppleMenu(model: model)
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)

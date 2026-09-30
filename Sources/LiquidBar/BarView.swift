@@ -135,7 +135,7 @@ struct WidgetView: View {
     @ViewBuilder private var item: some View {
         switch widget {
         case .apple:
-            AppleButton(model: model)
+            AppleButton()
         case .workspaces:
             Group {
                 if let titles = menuMode.titles {
@@ -282,26 +282,15 @@ extension EnvironmentValues {
 }
 
 struct AppleButton: View {
-    let model: BarModel
     @Environment(\.bar) private var bar
-    @State private var frame = CGRect.zero
-    @State private var hovering = false
 
     var body: some View {
-        Image(systemName: "apple.logo")
-            .font(.system(size: 14, weight: .semibold))
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
-            .padding(.horizontal, 3)
-            .background { hoverFill(hovering).frame(width: bar.item, height: bar.item) }
-            .barHitArea()
-            .onHover { hovering = $0 }
-            .onTapGesture {
-                if let command = model.config.clicks["apple"] {
-                    shell(command)
-                } else {
-                    AppleMenu.popUp(at: bar.menuOrigin(under: frame), config: model.config)
-                }
-            }
+        LivePill(id: .apple, pulse: 0) { open in
+            Image(systemName: "apple.logo")
+                .font(.system(size: 14, weight: .semibold))
+                .padding(.horizontal, 3)
+                .background { hoverFill(open).frame(width: bar.item, height: bar.item) }
+        }
     }
 }
 

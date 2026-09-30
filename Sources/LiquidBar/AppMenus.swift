@@ -262,3 +262,16 @@ final class MenuMode {
         if active { withAnimation(spring) { titles = nil } }
     }
 }
+
+/// Menu items that run a closure, without a target object per item.
+func actionItem(_ title: String, handler: @escaping () -> Void) -> NSMenuItem {
+    let item = NSMenuItem(title: title, action: #selector(MenuTarget.fire), keyEquivalent: "")
+    item.target = MenuTarget.shared
+    item.representedObject = handler
+    return item
+}
+
+final class MenuTarget: NSObject {
+    static let shared = MenuTarget()
+    @objc func fire(_ sender: NSMenuItem) { (sender.representedObject as? () -> Void)?() }
+}

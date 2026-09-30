@@ -2,16 +2,16 @@
 
 liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A missing key keeps its default, and a missing file means all defaults. The bar reloads the file when it changes. If the new file is invalid, the bar logs the error to stderr and keeps the previous config.
 
-## The LiquidBar submenu
+## The LiquidBar section
 
-The Apple menu's **LiquidBar** submenu edits the same file. It has these items:
+The **LiquidBar** row of the Apple dropdown unfolds a section that edits the same file. It has these items:
 
 - **Workspaces**: Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`).
 - **Clock**: 24-Hour or 12-Hour (`clock24Hour`), and Show Seconds (`clockSeconds`).
 - **Show Now Playing**: adds `nowPlaying` to the start of `right`, or removes it.
 - **Show Battery Percentage** (`batteryPercent`).
 - **Open Config File…** opens the file, and creates it as `{}` first when it is missing.
-- **Reload Config** and **Quit LiquidBar**.
+- **Reload Config**, **Permissions…**, and **Quit LiquidBar**.
 
 Each change rewrites the file with sorted keys and keeps every other key.
 
@@ -30,7 +30,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The pin button on a row of Control Center's Menu Bar Items section edits it. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
-The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens the Apple menu unless `clicks` sets a command for it. `clock` runs a command only if `clicks` sets one.
+The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. `clock` runs a command only if `clicks` sets one.
 
 ## Widgets
 
@@ -38,7 +38,7 @@ A widget is one of these names, or a script object.
 
 | Name | At rest | Dropdown on hover |
 | --- | --- | --- |
-| `apple` | Apple logo. Click opens the Apple menu. | |
+| `apple` | Apple logo. Hover opens the Apple dropdown. | |
 | `workspaces` | Each workspace shows its number and a card stack of up to three app icons, the app of its most recently focused window on top and leftmost, then "+N". Empty workspaces show a dim number. A soft fill marks the focused workspace. | With two or more apps, a list of them, the most recent first, with a dot on the app that holds the focused window. Click one to focus that app's window, switching workspace if needed. Scroll over the strip to step through the workspaces that have windows. Click the focused workspace to see the front app's menus. |
 | `nowPlaying` | Artwork and an equalizer, only while Spotify or Music plays and for five minutes after a pause. | Artwork, title, artist, previous, play or pause, next, and a row that opens the player. |
 | `volume` | Speaker symbol. Scroll over it to change the volume in steps of 2. | A slider, Mute, the output devices with the current one filled in (click one to switch), AirPlay… (opens the real Control Center on its Sound outputs), and Sound Settings…. |
