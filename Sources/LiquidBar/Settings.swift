@@ -645,6 +645,7 @@ func followWindows() {
 }
 
 /// The app is dark for the bar's sake; its standard windows follow the system appearance instead.
+/// Read from SkyLight: the process's cached `AppleInterfaceStyle` default still said Dark after a switch to Light.
 func systemAppearance() -> NSAppearance? {
-    NSAppearance(named: UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .darkAqua : .aqua)
+    NSAppearance(named: Appearance.isDark() ?? true ? .darkAqua : .aqua)
 }
