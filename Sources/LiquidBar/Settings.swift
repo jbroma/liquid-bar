@@ -117,6 +117,9 @@ private struct SettingsView: View {
                 case .menuBarItems: MenuBarItemsPane(model: model)
                 }
             }
+            // The sidebar otherwise gives way to a pane that asks for more width, as Appearance's cards do, and the
+            // divider moved with every pane.
+            .frame(width: 740 - 232)
             .navigationTitle(section.title)
             // A grouped form starts some 20pt lower under the toolbar than System Settings' panes, and neither
             // `contentMargins` nor `safeAreaPadding` moves it.
