@@ -17,6 +17,9 @@ struct NetworkMenu: View {
     @State private var rates: (down: Double, up: Double)?
     @State private var scan: [WiFiNetwork] = []
     @State private var join = JoinState.idle
+    /// The network list starts folded, like Menu Bar Items; it folds again each time the dropdown closes.
+    @State private var listed = false
+    @Environment(ExpansionSlot.self) private var slot
     private let location = LocationAccess.shared
 
     var body: some View {
@@ -41,7 +44,16 @@ struct NetworkMenu: View {
             if power == true {
                 MenuSeparator()
                 if location.granted {
-                    NetworkList(networks: WiFiNetworks(scan: scan, current: name), join: join, select: select, submit: submit) { join.cancel() }
+                    let networks = WiFiNetworks(scan: scan, current: name)
+                    HeaderRow(title: "Networks", bold: false) {
+                        Text("\(networks.known.count + networks.other.count)").foregroundStyle(secondary).monospacedDigit()
+                        Disclosure(open: listed)
+                    }
+                    .hoverButton { withAnimation(spring) { listed.toggle() } }
+                    if listed {
+                        NetworkList(networks: networks, join: join, select: select, submit: submit) { join.cancel() }
+                            .transition(.opacity)
+                    }
                 } else {
                     MenuButton { openSettings("com.apple.preference.security?Privacy_LocationServices") } content: {
                         Text("Allow Location to see network names").lineLimit(1)
@@ -53,6 +65,7 @@ struct NetworkMenu: View {
             MenuSeparator()
             SettingsButton(title: "Network Settings…", pane: "com.apple.Network-Settings.extension")
         }
+        .onChange(of: slot.owner == .wifi) { _, open in if !open { listed = false } }
         .task(id: network) { await sample() }
         .task(id: location.granted) {
             location.request()
