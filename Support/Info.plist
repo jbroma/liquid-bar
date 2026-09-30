@@ -2,35 +2,35 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleIdentifier</key>
-	<string>dev.liquidbar</string>
-	<key>CFBundleName</key>
-	<string>LiquidBar</string>
 	<key>CFBundleExecutable</key>
 	<string>liquid-bar</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.liquidbar</string>
+	<key>CFBundleName</key>
+	<string>LiquidBar</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.9.0</string>
+	<string>0.10.0</string>
 	<key>CFBundleVersion</key>
-	<string>10</string>
+	<string>11</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>26.0</string>
 	<key>LSUIElement</key>
+	<true/>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>LiquidBar asks Spotify and Music what is playing and sends them play, pause and skip, and asks loginwindow to show the Restart, Shut Down and Log Out dialogs.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>LiquidBar lists your Bluetooth devices in its Control Center, connects and disconnects them, and switches Bluetooth on and off.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>LiquidBar shows the names of nearby Wi-Fi networks.</string>
+	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/jbroma/liquid-bar/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>1ODwJc7Lh6H0ZkTPDYqT8H3sDc1oM3o00EQwZ250Tik=</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>LiquidBar lists your Bluetooth devices in its Control Center, connects and disconnects them, and switches Bluetooth on and off.</string>
-	<key>NSLocationUsageDescription</key>
-	<string>LiquidBar shows the names of nearby Wi-Fi networks.</string>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>LiquidBar asks Spotify and Music what is playing and sends them play, pause and skip, and asks loginwindow to show the Restart, Shut Down and Log Out dialogs.</string>
 </dict>
 </plist>
