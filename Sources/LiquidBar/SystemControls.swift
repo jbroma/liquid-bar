@@ -320,14 +320,20 @@ enum SystemControlCenter {
     /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
     nonisolated static let focus = "com.apple.menuextra.focusmode"
 
-    private nonisolated static var pid: pid_t? {
-        NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.controlcenter").first?.processIdentifier
+    private nonisolated static func running(_ bundleID: String) -> pid_t? {
+        NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.processIdentifier
     }
 
-    /// Control Center's status items by identifier, empty without Accessibility access.
+    /// Control Center owns the panels.
+    private nonisolated static var pid: pid_t? { running("com.apple.controlcenter") }
+
+    /// The owner of Apple's status items: MenuBarAgent since macOS 27, Control Center before.
+    private nonisolated static var owner: pid_t? { running("com.apple.MenuBarAgent") ?? pid }
+
+    /// Apple's status items by identifier, empty without Accessibility access.
     nonisolated static func extras() -> [String: AXUIElement] {
-        guard AXIsProcessTrusted(), let pid else { return [:] }
-        return Dictionary(MenuExtras.items(pid: pid).compactMap { item in AX.string(item, "AXIdentifier").map { ($0, item) } }) { first, _ in first }
+        guard AXIsProcessTrusted(), let owner else { return [:] }
+        return Dictionary(MenuExtras.items(pid: owner).compactMap { item in AX.string(item, "AXIdentifier").map { ($0, item) } }) { first, _ in first }
     }
 
     /// Whether a Focus is on, read from its status item. Nil without Accessibility access. The Focus database itself

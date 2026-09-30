@@ -10,7 +10,10 @@ enum MenuExtras {
         let app = AXUIElementCreateApplication(pid)
         // A busy app would otherwise stall the caller for AX's default 6s.
         AXUIElementSetMessagingTimeout(app, 0.25)
-        return AX.children(AX.attribute(app, "AXExtrasMenuBar").map { $0 as! AXUIElement })
+        // Since macOS 27, MenuBarAgent wraps each of Apple's items in a group; the item inside has the identifier and presses.
+        return AX.children(AX.attribute(app, "AXExtrasMenuBar").map { $0 as! AXUIElement }).map { item in
+            AX.string(item, kAXRoleAttribute) == kAXGroupRole ? AX.children(item).first ?? item : item
+        }
     }
 
     /// Re-reads every app's status items into `model.menuExtras`. Asking some 40 apps takes most of a second, so it
