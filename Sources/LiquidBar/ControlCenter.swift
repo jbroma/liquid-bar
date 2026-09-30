@@ -138,9 +138,8 @@ struct ControlCenterMenu: View {
                 switches(controls, state)
                 BrightnessModule(state: state, controls: controls)
                 tiles(controls, state)
+                MenuExtrasSection(model: model)
             }
-            .padding(.bottom, 6)
-            MenuExtrasSection(model: model)
         }
         // SwiftUI can keep this view's state from one opening to the next; like Control Center, each opens collapsed.
         .onChange(of: slot.owner == .controlCenter) { _, open in if !open { expanded = nil } }
@@ -342,7 +341,7 @@ private struct BrightnessModule: View {
     }
 }
 
-private extension View {
+extension View {
     /// The rounded panel behind a group of controls.
     func module() -> some View {
         padding(6).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.1)))
