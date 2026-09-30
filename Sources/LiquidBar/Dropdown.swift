@@ -35,6 +35,7 @@ struct DropdownView: View {
     /// This window is left of the notch, with the screen edge on its left.
     let left: Bool
     @Environment(ExpansionSlot.self) private var slot
+    @Environment(\.bar) private var bar
     @State private var heights: [Dropdown: CGFloat] = [:]
     /// The pill the dropdown last hung from, where it shrinks back into while closing.
     @State private var anchor = CGRect.zero
@@ -55,6 +56,8 @@ struct DropdownView: View {
         let pill = open.flatMap { slot.frames[$0] } ?? anchor
         GeometryReader { proxy in
             let geometry = geometry(open, pill: pill, panel: proxy.size)
+            // In the bar's coordinates, reaching up over the gap to the bar so a pointer crossing it stays inside.
+            let area = open.map { _ in CGRect(x: originX + geometry.x, y: bar.height, width: geometry.width, height: geometry.height + 6) }
             let shape = RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
             Color.clear
                 .glassEffect(.regular, in: shape)
@@ -89,6 +92,7 @@ struct DropdownView: View {
                 .offset(x: geometry.x, y: 6)
                 .animation(spring, value: geometry)
                 .animation(.easeOut(duration: 0.18), value: open == nil)
+                .onChange(of: area, initial: true) { slot.dropdowns[left] = area }
         }
         .font(.system(size: 13))
         .foregroundStyle(Color.barWhite)

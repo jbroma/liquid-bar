@@ -17,14 +17,14 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     // Like the native menu bar: volume's dropdown is open and the pointer moves to battery, which opens with no
     // intent delay while volume closes.
     let inputs = Inputs(inside: .init("battery", at(1)), left: .init("volume", at(1)))
-    #expect(inputs.owner(now: at(1), current: "volume") == ("battery", at(1.5)))
+    #expect(inputs.owner(now: at(1), current: "volume") == ("battery", at(1.15)))
 }
 
 @Test func leavingLingersThenCollapses() {
     let inputs = Inputs(left: .init("wifi", at(2)))
-    #expect(inputs.owner(now: at(2.3), current: "wifi").id == "wifi")
-    #expect(inputs.owner(now: at(2.3), current: "wifi").recheck == at(2.5))
-    #expect(inputs.owner(now: at(2.6), current: "wifi").id == nil)
+    #expect(inputs.owner(now: at(2.1), current: "wifi").id == "wifi")
+    #expect(inputs.owner(now: at(2.1), current: "wifi").recheck == at(2.15))
+    #expect(inputs.owner(now: at(2.2), current: "wifi").id == nil)
     // A pill that was never expanded does not linger.
     #expect(inputs.owner(now: at(2.3), current: nil).id == nil)
 }
@@ -41,7 +41,7 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     let resting = Inputs(inside: .init("battery", t0), pulse: .init("volume", at(2.2)))
     #expect(resting.owner(now: at(1), current: "battery").id == "battery")
     let leaving = Inputs(pulse: .init("volume", at(2.2)), left: .init("battery", at(1.5)))
-    #expect(leaving.owner(now: at(1.6), current: "battery") == ("battery", at(2)))
+    #expect(leaving.owner(now: at(1.6), current: "battery") == ("battery", at(1.65)))
     #expect(leaving.owner(now: at(2.1), current: "battery").id == nil)
     // The pointer arrives on battery during volume's pulse: the open dropdown moves to battery at once.
     let arriving = Inputs(inside: .init("battery", at(1)), pulse: .init("volume", at(2.2)))
@@ -120,4 +120,23 @@ private func at(_ seconds: Double) -> Date { t0 + seconds }
     #expect(pulsed.owner(now: at(6), current: "battery").id == "battery")
     // Holding with nothing open opens nothing.
     #expect(Inputs(holding: true).owner(now: at(6), current: nil).id == nil)
+}
+
+@Test func pointerOutsideDropsMissedClaimsAndTheLingerRunsFromThere() {
+    var inputs = Inputs(inside: .init("volume", at(1)), holding: true)
+    #expect(inputs.pointer(overPill: false, overDropdown: false, now: at(2), current: "volume") == true)
+    #expect(inputs.owner(now: at(2.1), current: "volume").id == "volume")
+    #expect(inputs.owner(now: at(2.15), current: "volume").id == nil)
+}
+
+@Test func pointerInTheGapAboveTheDropdownHolds() {
+    var inputs = Inputs(left: .init("volume", at(1)))
+    #expect(inputs.pointer(overPill: false, overDropdown: true, now: at(1.1), current: "volume") == true)
+    #expect(inputs.owner(now: at(5), current: "volume").id == "volume")
+}
+
+@Test func pointerAgreeingWithTheClaimsChangesNothing() {
+    var inputs = Inputs(inside: .init("volume", at(1)))
+    #expect(inputs.pointer(overPill: true, overDropdown: false, now: at(2), current: "volume") == false)
+    #expect(inputs.left == nil)
 }

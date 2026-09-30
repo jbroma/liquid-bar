@@ -68,13 +68,31 @@ public struct ExpansionInputs<ID: Hashable & Sendable>: Equatable, Sendable {
         now >= quietUntil && inside?.id != id && !(holding && current == id)
     }
 
+    /// Reconciles the pointer claims with where the pointer really is, for when SwiftUI misses an enter or exit: the
+    /// claims follow `overPill` (the hovered pill's hit area) and `overDropdown` (the open dropdown, and the gap above
+    /// it). Returns true when a claim changed. A claim dropped starts the linger from `now`.
+    public mutating func pointer(overPill: Bool, overDropdown: Bool, now: Date, current: ID?) -> Bool {
+        var changed = false
+        if holding != overDropdown {
+            holding = overDropdown
+            changed = true
+            if !overDropdown, let current { left = Mark(current, now) }
+        }
+        if !overPill, inside != nil {
+            inside = nil
+            changed = true
+            if let current { left = Mark(current, now) }
+        }
+        return changed
+    }
+
     /// Waking from sleep reconnects the network and re-reads the power source, which is not news either.
     public mutating func woke(at now: Date) {
         quietUntil = max(quietUntil, now + 5)
     }
 
     public static var hoverIntent: TimeInterval { 0.04 }
-    public static var linger: TimeInterval { 0.5 }
+    public static var linger: TimeInterval { 0.15 }
     public static var pulseLength: TimeInterval { 2.2 }
     public static var inlineLength: TimeInterval { 3 }
 

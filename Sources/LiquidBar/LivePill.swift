@@ -15,6 +15,9 @@ final class ExpansionSlot {
     private(set) var inline: Dropdown?
     /// Pill frames in the bar window, top-left origin, so the dropdown can sit under its item.
     var frames: [Dropdown: CGRect] = [:]
+    /// The pill hit areas, and each side's open dropdown from the bar's bottom, in the same coordinates.
+    @ObservationIgnored var hits: [Dropdown: CGRect] = [:]
+    @ObservationIgnored var dropdowns: [Bool: CGRect] = [:]
     @ObservationIgnored private var inputs = ExpansionInputs<Dropdown>(quietUntil: Date() + 2)
     @ObservationIgnored private var timer: Task<Void, Never>?
     /// The bar's screen; only the screen the user is looking at, the pointer's, pulses.
@@ -22,6 +25,8 @@ final class ExpansionSlot {
     @ObservationIgnored private var wake: NSObjectProtocol?
     /// Esc closes the open item; the monitor exists only while one is open.
     @ObservationIgnored private var escape: Any?
+    /// SwiftUI can miss a hover exit, so while an item is open the real pointer is checked against its areas.
+    @ObservationIgnored private var watch: Task<Void, Never>?
 
     init(screen: CGRect) {
         self.screen = screen
@@ -33,6 +38,7 @@ final class ExpansionSlot {
     isolated deinit {
         wake.map(NSWorkspace.shared.notificationCenter.removeObserver)
         escape.map(NSEvent.removeMonitor)
+        watch?.cancel()
     }
 
     func hover(_ id: Dropdown, _ inside: Bool) {
@@ -54,6 +60,18 @@ final class ExpansionSlot {
         inputs.holding = inside
         if !inside, let owner { inputs.left = .init(owner, Date()) }
         update()
+    }
+
+    private func checkPointer() {
+        guard let owner else { return }
+        let pointer = NSEvent.mouseLocation
+        let point = CGPoint(x: pointer.x - screen.minX, y: screen.maxY - pointer.y)
+        let overPill = inputs.inside.flatMap { hits[$0.id] }?.contains(point) ?? false
+        let overDropdown = dropdowns[owner.isLeft]?.contains(point) ?? false
+        if inputs.pointer(overPill: overPill, overDropdown: overDropdown, now: Date(), current: owner) {
+            trace("pointer check pill=\(overPill) dropdown=\(overDropdown)")
+            update()
+        }
     }
 
     /// Closes the open item now, when one of its rows hands over to a native menu.
@@ -88,7 +106,15 @@ final class ExpansionSlot {
             if next == nil {
                 escape.map(NSEvent.removeMonitor)
                 escape = nil
+                watch?.cancel()
+                watch = nil
             } else if escape == nil {
+                watch = Task {
+                    while !Task.isCancelled {
+                        try? await Task.sleep(for: .milliseconds(40))
+                        checkPointer()
+                    }
+                }
                 escape = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
                     guard event.keyCode == 53 else { return }
                     MainActor.assumeIsolated { self?.dismiss() }
@@ -121,6 +147,7 @@ struct LivePill<Pulse: Equatable, Content: View>: View {
                 trace("frame \(id) \(Int($0.minX))...\(Int($0.maxX))")
             }
             .barHitArea(gap: gap)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { slot.hits[id] = $0 }
             .onHover { slot.hover(id, $0) }
             .onChange(of: pulse) { slot.pulse(id, "\(pulse)") }
     }
