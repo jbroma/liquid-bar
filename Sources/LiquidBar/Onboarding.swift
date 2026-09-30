@@ -5,11 +5,11 @@ import SwiftUI
 @Observable
 final class AccessWindow {
     private(set) var granted = AXIsProcessTrusted()
-    /// System Settings is open on the Accessibility list; the window steps aside into the corner while it waits.
+    /// The request is out; the window shows a waiting state until the grant arrives.
     private(set) var waiting = false
-    /// macOS's own prompt is up, so the card points at its button rather than at the list.
+    /// macOS's own prompt is up, so the window points at its button rather than at the list.
     private(set) var prompted = false
-    @ObservationIgnored private var window: NSPanel?
+    @ObservationIgnored private var window: NSWindow?
     @ObservationIgnored private var poll: Timer?
     /// Runs once when the grant arrives while the window is open or a request waits, to restart what needed it.
     @ObservationIgnored private let onGranted: () -> Void
@@ -36,28 +36,28 @@ final class AccessWindow {
         watch()
     }
 
-    /// Opens the list, then moves out of its way: a compact card in the top right corner, below the bar.
+    /// Asks through macOS's prompt and waits in place: the window stays a normal one, so System Settings and the
+    /// prompt open above it.
     func openSettings() {
         request()
-        guard !granted, let window, let screen = NSScreen.screens.first else { return }
-        waiting = true
-        let size = NSSize(width: 300, height: 150)
-        let bar = max(screen.frame.maxY - screen.visibleFrame.maxY, 24)
-        let origin = NSPoint(x: screen.frame.maxX - size.width - 6, y: screen.frame.maxY - bar - 6 - size.height)
-        window.setFrame(NSRect(origin: origin, size: size), display: true, animate: true)
+        waiting = !granted
     }
 
     func show() {
         granted = AXIsProcessTrusted()
-        if waiting, let window {
-            waiting = false
-            window.setContentSize(NSSize(width: 440, height: 380))
-            window.center()
-        }
+        waiting = false
         if window == nil {
-            let panel = glassPanel(NSSize(width: 440, height: 380), close: { [weak self] in self?.close() }) { AccessView(state: self, close: { [weak self] in self?.close() }) }
-            window = panel
+            let content = NSHostingController(rootView: AccessView(state: self, close: { [weak self] in self?.close() }))
+            let window = NSWindow(contentViewController: content)
+            window.styleMask = [.titled, .closable]
+            // Centring needs the final size, which the hosting controller only reports after layout.
+            window.setContentSize(content.view.fittingSize)
+            window.title = ""
+            window.isReleasedWhenClosed = false
+            window.center()
+            self.window = window
         }
+        window?.appearance = systemAppearance()
         watch()
         NSApp.activate()
         window?.makeKeyAndOrderFront(nil)
@@ -86,118 +86,69 @@ final class AccessWindow {
     }
 }
 
-/// A borderless glass window centred on screen, which `content` fills. Esc calls `close`.
-func glassPanel<Content: View>(_ size: NSSize, close: @escaping () -> Void, content: () -> Content) -> NSPanel {
-    let panel = OnboardingPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
-    panel.onCancel = close
-    panel.backgroundColor = .clear
-    panel.isOpaque = false
-    panel.hasShadow = false
-    panel.isReleasedWhenClosed = false
-    panel.level = .floating
-    panel.hidesOnDeactivate = false
-    panel.isMovableByWindowBackground = true
-    let host = NSHostingView(rootView: content())
-    host.sizingOptions = []
-    panel.contentView = host
-    panel.center()
-    return panel
-}
-
-/// A borderless window refuses key status unless it says otherwise, and its buttons need the first click.
-private final class OnboardingPanel: NSPanel {
-    var onCancel: () -> Void = {}
-    override var canBecomeKey: Bool { true }
-    override func cancelOperation(_ sender: Any?) { onCancel() }
-}
-
 private struct AccessView: View {
     let state: AccessWindow
     let close: () -> Void
-    private let uses = [
-        "The front app's menus in the bar",
-        "Other apps' menu bar items",
-        "Control Center's Focus, AirDrop, and Bluetooth options",
-        "Switching desktops with the bar",
+    private let uses: [(symbol: String, tint: Color, text: String)] = [
+        ("menubar.rectangle", .blue, "Show the front app's menus in the bar"),
+        ("square.grid.2x2.fill", .orange, "Show other apps' menu bar items"),
+        ("switch.2", .gray, "Use Control Center's Focus, AirDrop, and Bluetooth"),
+        ("rectangle.3.group.fill", .purple, "Switch desktops from the bar"),
     ]
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
             if state.granted { grantedBody } else if state.waiting { waitingBody } else { requestBody }
         }
-        .padding(state.waiting ? 20 : 28)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(OverlayGlass(corner: DropdownView.corner))
-        .font(.system(size: 13))
-        .foregroundStyle(Color.barWhite)
+        .padding(.horizontal, 32)
+        .padding(.top, 8)
+        .padding(.bottom, 20)
+        .frame(width: 480)
         .animation(.easeOut(duration: 0.2), value: state.granted)
     }
 
-    private var list: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(uses, id: \.self) { use in
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(secondary)
-                    Text(use)
+    private func heading(_ title: String, _ detail: String) -> some View {
+        VStack(spacing: 6) {
+            Text(title).font(.title2.bold())
+            Text(detail)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder private var requestBody: some View {
+        heading("LiquidBar Needs Accessibility Access", "LiquidBar covers the menu bar, so it needs Accessibility access to read and press what is under it.")
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(uses, id: \.text) { use in
+                HStack(spacing: 12) {
+                    IconTile(symbol: use.symbol, tint: use.tint, size: 28)
+                    Text(use.text)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder private var requestBody: some View {
-        Image(systemName: "hand.raised.fill").font(.system(size: 34)).padding(.top, 4)
-        Text("Allow Accessibility").font(.system(size: 20, weight: .semibold))
-        Text("LiquidBar covers the menu bar, so it needs Accessibility access to read and press what is under it.")
-            .foregroundStyle(secondary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-        list.padding(.top, 4)
-        Spacer(minLength: 0)
-        Button("Open Accessibility Settings") { state.openSettings() }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-        Button("Not Now", action: close)
-            .buttonStyle(.plain)
-            .focusEffectDisabled()
-            .foregroundStyle(secondary)
+        .padding(.vertical, 8)
+        HStack {
+            Spacer()
+            Button("Not Now", action: close).keyboardShortcut(.cancelAction).focusEffectDisabled()
+            Button("Open System Settings") { state.openSettings() }.keyboardShortcut(.defaultAction)
+        }
     }
 
     @ViewBuilder private var waitingBody: some View {
-        HStack(spacing: 10) {
-            ProgressView().controlSize(.small)
-            Text(state.prompted ? "Open System Settings" : "Switch on LiquidBar").font(.system(size: 15, weight: .semibold))
-        }
-        Text(state.prompted ? "in macOS's dialog, then switch on LiquidBar. This closes by itself once it is on." : "in the Accessibility list. This closes by itself once it is on.")
-            .foregroundStyle(secondary)
-            .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
-        Button("Not Now", action: close)
-            .buttonStyle(.plain)
-            .focusEffectDisabled()
-            .foregroundStyle(secondary)
-    }
-
-    @ViewBuilder private var grantedBody: some View {
-        if state.waiting {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 30))
-            Text("You're all set").font(.system(size: 15, weight: .semibold))
-        } else {
-            fullGrantedBody
+        heading("Turn On LiquidBar in the Accessibility List", state.prompted
+            ? "Click Open System Settings in the macOS dialog, then switch on LiquidBar. This window closes once it is on."
+            : "Switch on LiquidBar in System Settings. This window closes once it is on.")
+        ProgressView().controlSize(.small).padding(.vertical, 8)
+        HStack {
+            Spacer()
+            Button("Close", action: close).keyboardShortcut(.cancelAction).focusEffectDisabled()
         }
     }
 
-    @ViewBuilder private var fullGrantedBody: some View {
-        Spacer(minLength: 0)
-        Image(systemName: "checkmark.circle.fill").font(.system(size: 44))
-        Text("You're all set").font(.system(size: 20, weight: .semibold))
-        Text("LiquidBar has Accessibility access.").foregroundStyle(secondary)
-        Spacer(minLength: 0)
-        Button("Open Accessibility Settings") { AccessWindow.requestAccess() }
-            .buttonStyle(.plain)
-            .focusEffectDisabled()
-            .foregroundStyle(secondary)
-        Button("Close", action: close)
-            .buttonStyle(.glass)
+    private var grantedBody: some View {
+        heading("You're All Set", "LiquidBar has Accessibility access.")
     }
 }

@@ -12,7 +12,7 @@ final class SettingsWindow {
     /// Shows the window, on `section` when given.
     func show(_ section: SettingsSection? = nil) {
         if let section { self.section = section }
-        // The Accessibility window would float over this one; its row in General takes over.
+        // One permission request at a time; the Accessibility row in General takes over.
         delegate.access.close()
         if window == nil {
             let window = NSWindow(
@@ -32,11 +32,7 @@ final class SettingsWindow {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// The app is dark for the bar's sake; this window follows the system appearance like any settings window.
-    private func followSystemAppearance() {
-        let dark = UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
-        window?.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-    }
+    private func followSystemAppearance() { window?.appearance = systemAppearance() }
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
@@ -188,16 +184,17 @@ private struct GeneralPane: View {
 }
 
 /// A white SF Symbol on a rounded square with System Settings' top-to-bottom gradient.
-private struct IconTile: View {
+struct IconTile: View {
     let symbol: String
     let tint: Color
+    var size: CGFloat = 22
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
         Image(systemName: symbol)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: size * 0.6, weight: .semibold))
             .foregroundStyle(.white)
-            .frame(width: 22, height: 22)
+            .frame(width: size, height: size)
             .background(LinearGradient(colors: [tint.mix(with: .white, by: 0.18), tint], startPoint: .top, endPoint: .bottom), in: shape)
             .overlay(shape.strokeBorder(.black.opacity(0.12), lineWidth: 0.5))
     }
@@ -595,4 +592,9 @@ extension Setting {
             log.error("cannot change \(configURL.path, privacy: .public): \(String(describing: error), privacy: .public)")
         }
     }
+}
+
+/// The app is dark for the bar's sake; its standard windows follow the system appearance instead.
+func systemAppearance() -> NSAppearance? {
+    NSAppearance(named: UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .darkAqua : .aqua)
 }
