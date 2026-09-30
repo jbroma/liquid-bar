@@ -119,7 +119,7 @@ struct DropdownView: View {
         switch dropdown {
         case .volume: VolumeMenu(model: model)
         case .wifi: NetworkMenu(network: model.network)
-        case .battery: BatteryMenu(battery: model.battery)
+        case .battery: BatteryMenu(battery: model.battery, percent: model.config.batteryPercent)
         case .controlCenter: ControlCenterMenu(model: model)
         case .clock: ClockMenu(now: model.now)
         case .workspace(let id): WorkspaceMenu(model: model, id: id)

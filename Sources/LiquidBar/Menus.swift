@@ -142,6 +142,8 @@ struct NetworkMenu: View {
 /// Like the Battery menu extra, with the health figures from System Settings.
 struct BatteryMenu: View {
     let battery: BatteryState?
+    /// The bar shows the percentage beside the battery.
+    let percent: Bool
     @State private var health: BatteryHealth?
     @State private var watts: Int?
 
@@ -161,6 +163,7 @@ struct BatteryMenu: View {
                 }
                 MenuSeparator()
             }
+            HeaderRow(title: "Show Percentage", bold: false) { GlassSwitch(on: percent) { Setting.batteryPercent($0).save() } }
             SettingsButton(title: "Battery Settings…", pane: "com.apple.Battery-Settings.extension")
         }
         .task(id: battery) {
