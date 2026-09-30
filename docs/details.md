@@ -79,7 +79,7 @@ Building needs Xcode 26 (Swift 6.2 or later).
 - `make run` stops the launch agent, builds the app, and opens it. A newly started bar quits any running one, so repeated runs never stack two bars.
 - `make restore` hands the bar back to the launch agent after `make run`.
 - `make test` runs the unit tests.
-- `make release` notarizes the signed app, publishes it as the GitHub release for the version in `Support/Info.plist`, and adds it to the update feed. [Releases and updates](#releases-and-updates) describes each step.
+- `make release` notarizes the signed app and uploads it as the GitHub release for the version in `Support/Info.plist`. A GitHub workflow then writes the notes, publishes it, and adds it to the update feed. [Releases and updates](#releases-and-updates) describes each step.
 
 `make app` signs with the Developer ID identity in your keychain, or else an Apple Development one, with the hardened runtime, so macOS keeps the Accessibility and Automation grants across rebuilds. Without one it signs ad hoc, and every rebuild asks for the grants again. Set `SIGN=` to pick an identity, for example `make app SIGN=-` for ad hoc.
 
@@ -91,12 +91,20 @@ The app updates itself with [Sparkle](https://sparkle-project.org) 2, which `Pac
 
 Once a day Sparkle reads `appcast.xml` from this repository's `main` branch (`SUFeedURL` in `Support/Info.plist`). It offers any entry with a higher `CFBundleVersion` whose zip passes two checks: the EdDSA signature must match `SUPublicEDKey`, and the new app must be signed by the same Developer ID. After an install it relaunches the bar.
 
-`make release` runs these steps in order:
+A release starts on the Mac, which holds the Developer ID and the Sparkle key, and GitHub Actions finishes it. `make release` runs these steps in order:
 
-1. Checks that the working tree is clean, then notarizes and staples the app.
-2. Zips it, pushes the signed tag `v<version>`, and creates the GitHub release with that zip.
-3. Runs Sparkle's `generate_appcast` over `appcast.xml` and the new zip. It signs the zip with the EdDSA private key from the login keychain, adds an entry with the version, build, minimum macOS, size, signature, and the release notes, and keeps every older entry.
-4. Commits `appcast.xml` and pushes `main`. The feed changes only after the zip is on GitHub, so it never points to a missing file.
+1. Checks that the working tree is clean and matches `origin/main`, then notarizes and staples the app.
+2. Zips it, pushes the signed tag `v<version>`, and uploads the zip to a draft GitHub release.
+3. Signs the zip with the EdDSA private key from the login keychain, using Sparkle's `sign_update`, and starts the Release workflow with that signature.
+
+The [Release workflow](../.github/workflows/release.yml) then:
+
+1. Writes the release notes and `CHANGELOG.md` from the commit messages with [git-cliff](https://git-cliff.org) (`cliff.toml`). `feat` commits go under New, `fix` and `perf` under Fixes, and `chore`, `docs`, `refactor`, `test`, and `build` commits are left out, so a commit subject should read as a line of release notes.
+2. Publishes the release with those notes.
+3. Adds an entry to the top of `appcast.xml` with `scripts/appcast.py`: the version, build, and minimum macOS from `Support/Info.plist`, the zip's size and signature, and the notes.
+4. Commits `CHANGELOG.md` and `appcast.xml` to `main`. The feed changes only after the release is public, so it never points to a missing file.
+
+The [CI workflow](../.github/workflows/ci.yml) runs the tests and a release build on every push to `main` and every pull request.
 
 Every release needs a higher `CFBundleVersion` as well as a new `CFBundleShortVersionString`. The release needs notary credentials saved once with `xcrun notarytool store-credentials liquid-bar`. It also needs the EdDSA key that `.build/artifacts/sparkle/Sparkle/bin/generate_keys` created in the login keychain. Losing that key means shipped copies reject every later update, so keep a backup (`generate_keys -x <file>` exports it).
 

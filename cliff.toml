@@ -1,0 +1,37 @@
+# git-cliff turns the conventional commit subjects into CHANGELOG.md and each release's notes.
+# Only user-facing commits count: feat and fix, plus commits without a type, as merged pull requests have.
+
+[changelog]
+header = """
+# Changelog
+
+What changed in each release, from the commit messages.
+"""
+body = """
+{% if version %}\
+## {{ version | trim_start_matches(pat="v") }} ({{ timestamp | date(format="%Y-%m-%d") }})
+{% else %}\
+## Unreleased
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim | upper_first }}\
+{% if commit.author.name != "Jakub Romanczyk" %} (thanks {{ commit.author.name }}){% endif %}\
+{% endfor %}
+{% endfor %}
+"""
+trim = false
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+commit_parsers = [
+  { message = "^(Merge|Revert|revert)", skip = true },
+  { message = "^feat", group = "<!-- 0 -->New" },
+  { message = "^(fix|perf)", group = "<!-- 1 -->Fixes" },
+  { message = "^(chore|docs|refactor|test|build|ci|style)", skip = true },
+  { message = ".", group = "<!-- 0 -->New" },
+]
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"

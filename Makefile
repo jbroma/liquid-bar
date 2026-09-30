@@ -63,30 +63,24 @@ uninstall:
 	rm -f $(AGENT)
 	rm -rf /Applications/LiquidBar.app
 
-# Bump CFBundleShortVersionString and CFBundleVersion in Support/Info.plist first. Notarizes and staples the app, tags
-# the committed tree as v$(VERSION) and publishes the app as that GitHub release. The printed sha256 is what a Nix
-# package pins. No resource forks or extended attributes: plain `unzip` turns them into ._ files inside the bundle,
-# which breaks its signature. Only once the zip is on GitHub does the new appcast entry land on main, so the feed never
-# names a missing file. generate_appcast signs the zip with the EdDSA key in the login keychain (see generate_keys)
-# and keeps the appcast's older entries.
+# Bump CFBundleShortVersionString and CFBundleVersion in Support/Info.plist and push main first. The Mac does what
+# needs its keychain: notarizes and staples the app, tags main as v$(VERSION), uploads the zip to a draft release, and
+# signs the zip with the Sparkle EdDSA key (see generate_keys). .github/workflows/release.yml does the rest: the notes,
+# publishing, CHANGELOG.md and appcast.xml. No resource forks or extended attributes in the zip: plain `unzip` turns
+# them into ._ files inside the bundle, which breaks its signature. The printed hash is what a Nix package pins.
 release: app
 	test -z "$$(git status --porcelain)"
+	test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)"
 	ditto -c -k --keepParent $(APP) build/notarize.zip
 	xcrun notarytool submit build/notarize.zip --keychain-profile $(NOTARY) --wait
 	xcrun stapler staple $(APP)
 	ditto -c -k --keepParent --norsrc --noextattr --noacl $(APP) $(ZIP)
 	git tag -s v$(VERSION) -m "v$(VERSION)"
 	git push origin v$(VERSION)
-	gh release create v$(VERSION) $(ZIP) --verify-tag --title "v$(VERSION)" --generate-notes
-	rm -rf build/appcast
-	mkdir build/appcast
-	cp appcast.xml $(ZIP) build/appcast/
-	{ gh release view v$(VERSION) --json body --jq .body; echo; echo "[LiquidBar $(VERSION) on GitHub]($(REPO)/releases/tag/v$(VERSION))"; } > build/appcast/LiquidBar-$(VERSION).md
-	$(SPARKLE)/bin/generate_appcast --download-url-prefix $(REPO)/releases/download/v$(VERSION)/ --embed-release-notes --maximum-versions 0 build/appcast
-	cp build/appcast/appcast.xml appcast.xml
-	git commit -m "chore: appcast v$(VERSION)" appcast.xml
-	git push origin HEAD:main
-	shasum -a 256 $(ZIP)
+	gh release create v$(VERSION) $(ZIP) --verify-tag --draft --title "v$(VERSION)" --notes ""
+	gh workflow run release.yml -f tag=v$(VERSION) -f enclosure="$$($(SPARKLE)/bin/sign_update $(ZIP))"
+	@echo "GitHub publishes the release: $(REPO)/actions/workflows/release.yml"
+	@echo "Nix hash: $$(nix hash file --type sha256 --sri $(ZIP) 2>/dev/null || shasum -a 256 $(ZIP))"
 
 clean:
 	rm -rf .build build
