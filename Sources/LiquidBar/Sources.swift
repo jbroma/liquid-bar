@@ -491,7 +491,12 @@ final class ConfigWatcher {
         watches.forEach { $0.cancel() }
         let dir = configURL.deletingLastPathComponent()
         // Watch the directory for atomic saves, the file for in-place writes, and ~/.config until the directory exists.
-        watches = [configURL, dir, dir.deletingLastPathComponent()].lazy.compactMap(watch).prefix(2).map { $0 }
+        // Not lazily: a lazy chain runs `watch` again for each pass over it, and every extra source it made leaked
+        // its file descriptor, until the bar had none left and stopped following the file.
+        watches = []
+        for url in [configURL, dir, dir.deletingLastPathComponent()] where watches.count < 2 {
+            if let source = watch(url) { watches.append(source) }
+        }
         do {
             let data = try Data(contentsOf: configURL)
             onChange(try Config.decode(data))
