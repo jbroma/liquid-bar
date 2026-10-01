@@ -408,7 +408,8 @@ private struct AppearancePane: View {
                 }
                 LabeledContent("Glass blur") {
                     HStack(spacing: 8) {
-                        Slider(value: saving(config.glassBlur, Setting.glassBlur), in: 0...1, step: 0.05).frame(width: 200)
+                        // Rounded, or the slider's steps reach the file as 0.30000000000000004.
+                        Slider(value: saving(config.glassBlur) { .glassBlur(($0 * 100).rounded() / 100) }, in: 0...1, step: 0.05).frame(width: 200)
                         Text(config.glassBlur, format: .percent.precision(.fractionLength(0)))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
