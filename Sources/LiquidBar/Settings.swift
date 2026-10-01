@@ -396,6 +396,7 @@ private struct AppearancePane: View {
                     Text("None").tag(PillLayout.none)
                 }
                 .pickerStyle(.segmented)
+                Toggle("Bar background", isOn: saving(config.showsBackground, Setting.background))
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {

@@ -33,6 +33,7 @@ extension Config {
             var clockSeconds: Bool?
             var batteryPercent: Bool?
             var pills: PillsName?
+            var background: Bool?
             var glassStyle: String?
             var barStyle: String?
             var dropdownStyle: String?
@@ -56,6 +57,7 @@ extension Config {
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
         config.pills = try choice(PillLayout.self, "pills", raw.pills?.name) ?? config.pills
+        config.background = raw.background
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
@@ -105,6 +107,7 @@ public enum Setting: Equatable, Sendable {
     case clockSeconds(Bool)
     case batteryPercent(Bool)
     case pills(PillLayout)
+    case background(Bool)
     case nowPlaying(Bool)
     case pinned(String, Bool)
     /// The whole pinned list, in its new order.
@@ -130,6 +133,7 @@ public enum Setting: Equatable, Sendable {
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
         case .pills(let layout): json["pills"] = layout.rawValue
+        case .background(let on): json["background"] = on
         case .glassStyle(let style):
             json["glassStyle"] = style.rawValue
             json["barStyle"] = nil

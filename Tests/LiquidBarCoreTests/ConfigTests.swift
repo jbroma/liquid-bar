@@ -31,6 +31,11 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"pills": false}"#).pills == PillLayout.none)
     #expect(try decode(#"{"pills": true}"#).pills == .separate)
     #expect(throws: ConfigError.self) { try decode(#"{"pills": "round"}"#) }
+    // Grouped pills go without the bar's background unless the config asks for it.
+    #expect(Config().showsBackground)
+    #expect(try !decode(#"{"pills": "grouped"}"#).showsBackground)
+    #expect(try decode(#"{"pills": "grouped", "background": true}"#).showsBackground)
+    #expect(try !decode(#"{"background": false}"#).showsBackground)
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")

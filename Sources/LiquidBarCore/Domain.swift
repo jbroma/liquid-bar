@@ -140,6 +140,10 @@ public struct Config: Equatable, Sendable {
     public var clockSeconds = false
     public var batteryPercent = false
     public var pills = PillLayout.separate
+    /// The glass strip behind the whole bar. Nil follows the pills: grouped pills go without it, since each side
+    /// already has its capsule. Read the result through `showsBackground`.
+    public var background: Bool?
+    public var showsBackground: Bool { background ?? (pills != .grouped) }
     /// The preset. `barStyle` and `dropdownStyle` override its half; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?
