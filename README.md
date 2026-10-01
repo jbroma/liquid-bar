@@ -45,7 +45,7 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has three sections. General holds the workspace source, now playing, the battery percentage, the clock format, each permission's status, the config file, and the version. Appearance sets the pills as separate, grouped, or none, picks the glass style from seven cards with a live preview, and Customize sets the bar's style and the dropdowns' style apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag.
 
 <p align="center">
-  <img src="docs/images/settings-v0100.webp" width="480" alt="The Settings window on its Appearance pane, with the General, Appearance, and Menu Bar Items panes in the sidebar: the pills setting, seven glass style cards over a busy preview backdrop, and under Customize, separate style swatches for the bar and the dropdowns">
+  <img src="docs/images/settings-v0110.webp" width="480" alt="The Settings window on its Appearance pane, with the General, Appearance, and Menu Bar Items panes in the sidebar: the Pills picker and the Bar background switch, seven glass style cards over a busy preview backdrop, and under Customize, separate style swatches for the bar and the dropdowns">
 </p>
 
 Everything else, like widget order, click commands, and script widgets, lives in `~/.config/liquid-bar/config.json`. See [Configuration](docs/configuration.md).
