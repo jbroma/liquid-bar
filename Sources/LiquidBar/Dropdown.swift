@@ -42,8 +42,13 @@ struct DropdownView: View {
     @Environment(ExpansionSlot.self) private var slot
     @Environment(\.bar) private var bar
     @State private var heights: [Dropdown: CGFloat] = [:]
-    /// The pill the dropdown last hung from, where it shrinks back into while closing.
+    /// The pill the dropdown last hung from.
     @State private var anchor = CGRect.zero
+    /// The open dropdown's frame, which the glass keeps while closed, so it is not resized for the next opening.
+    @State private var last = Geometry(x: 0, width: 1, height: 1)
+    @State private var wasOpen = false
+    /// The dropdown that just closed, still drawn while its window fades out.
+    @State private var lingering: Dropdown?
 
     static let corner: CGFloat = 18
 
@@ -54,13 +59,20 @@ struct DropdownView: View {
     }
 
     var body: some View {
-        let open = slot.owner.flatMap { $0.isLeft == left && hasContent($0) ? $0 : nil }
-        let pill = open.flatMap { slot.frames[$0] } ?? anchor
+        let target = slot.owner.flatMap { $0.isLeft == left && hasContent($0) ? $0 : nil }
+        let open = target ?? lingering
+        let pill = target.flatMap { slot.frames[$0] } ?? anchor
         GeometryReader { proxy in
-            let geometry = geometry(open, pill: pill, panel: proxy.size)
+            let geometry = open == nil ? last : geometry(open, pill: pill, panel: proxy.size)
+            // Glass redraws its insides on every animated frame, which made an opening cost half a second of CPU.
+            // So the opening and the closing are the window's own fade (`WindowFade`), and SwiftUI animates only a
+            // move from one item to the next.
+            let morph = wasOpen && target != nil ? spring : nil
             // In the bar's coordinates, reaching up over the gap to the bar so a pointer crossing it stays inside.
-            let area = open.map { _ in CGRect(x: originX + geometry.x, y: bar.height, width: geometry.width, height: geometry.height + 6) }
+            let area = target.map { _ in CGRect(x: originX + geometry.x, y: bar.height, width: geometry.width, height: geometry.height + 6) }
             let shape = RoundedRectangle(cornerRadius: Self.corner, style: .continuous)
+            // Closed, the glass has no height, so it takes no clicks. It is never made clear: glass that turns
+            // visible shows up a few frames after the text on it.
             OverlayGlass(corner: Self.corner)
                 .frame(width: geometry.width, height: geometry.height)
                 .overlay(alignment: .top) {
@@ -86,16 +98,26 @@ struct DropdownView: View {
                 .onContinuousHover { phase in
                     if case .active = phase { slot.hold(true) } else { slot.hold(false) }
                 }
-                // Closed, the panel shrinks to a flat strip whose edge and shadow would still draw a line.
-                .opacity(open == nil ? 0 : 1)
                 .offset(x: geometry.x, y: 6)
-                .animation(spring, value: geometry)
-                .animation(.easeOut(duration: 0.18), value: open == nil)
+                .animation(morph, value: geometry)
+                // An opening or a closing inherits the bar's animation of the open item, which is taken off here.
+                .transaction { if morph == nil { $0.animation = nil } }
+                .background { WindowFade(visible: target != nil) }
                 .onChange(of: area, initial: true) { slot.dropdowns[left] = area }
+                .onChange(of: geometry) { if target != nil { last = geometry } }
+                .onChange(of: target) { old, new in
+                    wasOpen = new != nil
+                    lingering = new == nil ? old : nil
+                    guard new == nil else { return }
+                    Task {
+                        try? await Task.sleep(for: .seconds(WindowFade.out))
+                        if slot.owner?.isLeft != left { lingering = nil }
+                    }
+                }
         }
         .font(.system(size: 13))
         .foregroundStyle(Color.barWhite)
-        .onChange(of: pill) { if open != nil { anchor = pill } }
+        .onChange(of: pill) { if target != nil { anchor = pill } }
     }
 
     /// A workspace with one app or none has nothing to list, and neither has a status item without a menu.
@@ -125,6 +147,43 @@ struct DropdownView: View {
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
+        }
+    }
+}
+
+/// Fades the dropdown's window in and out and drops it into place as it appears. The window server blends the
+/// window and the render server moves its layer, so the bar draws nothing per frame.
+private struct WindowFade: NSViewRepresentable {
+    let visible: Bool
+    /// Seconds the fade out takes, which the closed dropdown stays drawn for.
+    static let out = 0.12
+
+    final class Coordinator { var visible: Bool? }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        // The window is there only after the first update.
+        DispatchQueue.main.async {
+            guard let window = view.window, context.coordinator.visible != visible else { return }
+            // The first time, the window starts clear rather than fading out from opaque.
+            if context.coordinator.visible == nil { window.alphaValue = 0 }
+            context.coordinator.visible = visible
+            NSAnimationContext.runAnimationGroup { animation in
+                animation.duration = visible ? 0.16 : Self.out
+                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                window.animator().alphaValue = visible ? 1 : 0
+            }
+            guard visible, let layer = window.contentView?.layer else { return }
+            let drop = CASpringAnimation(keyPath: "transform.translation.y")
+            // Up is the positive direction of an unflipped layer and the negative one of a flipped one.
+            drop.fromValue = layer.isGeometryFlipped ? -8 : 8
+            drop.toValue = 0
+            drop.damping = 18
+            drop.stiffness = 260
+            drop.duration = drop.settlingDuration
+            layer.add(drop, forKey: "drop")
         }
     }
 }

@@ -102,7 +102,8 @@ final class ExpansionSlot {
         if nextInline != inline { withAnimation(spring) { inline = nextInline } }
         if next != owner {
             trace("owner \(owner.map { "\($0)" } ?? "-") -> \(next.map { "\($0)" } ?? "-")")
-            withAnimation(spring) { owner = next }
+            // A short spring: the bar redraws on every frame of it, and the longer one cost twice the CPU.
+            withAnimation(.spring(duration: 0.22, bounce: 0.2)) { owner = next }
             if next == nil {
                 escape.map(NSEvent.removeMonitor)
                 escape = nil
