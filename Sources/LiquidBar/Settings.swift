@@ -406,6 +406,15 @@ private struct AppearancePane: View {
                 if config.shownBackground != .none, NSScreen.screens.contains(where: { $0.auxiliaryTopLeftArea != nil }) {
                     Toggle("Curve into the notch", isOn: saving(config.notchCurve, Setting.notchCurve))
                 }
+                LabeledContent("Glass blur") {
+                    HStack(spacing: 8) {
+                        Slider(value: saving(config.glassBlur, Setting.glassBlur), in: 0...1, step: 0.05).frame(width: 200)
+                        Text(config.glassBlur, format: .percent.precision(.fractionLength(0)))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                }
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
@@ -509,10 +518,6 @@ private struct CustomizeGroup: View {
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
             if config.shownBackground == .glass {
                 StylePicker(title: "Background", selected: config.glass.background, part: .background) { Setting.backgroundStyle($0).save() }
-            }
-            LabeledContent("Blur") {
-                Slider(value: saving(config.glassBlur, Setting.glassBlur), in: 0...1, step: 0.05)
-                    .frame(width: 220)
             }
             if config.glassIsCustom {
                 LabeledContent("Custom mix") {
