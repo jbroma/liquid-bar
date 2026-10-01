@@ -144,6 +144,8 @@ public struct Config: Equatable, Sendable {
     /// already has its capsule, and the other layouts have the glass. Read the result through `shownBackground`.
     public var background: BarBackgroundKind?
     public var shownBackground: BarBackgroundKind { background ?? (pills == .grouped ? .none : .glass) }
+    /// On a screen with a notch, the background's lower edge curves up into the notch's sides.
+    public var notchCurve = false
     /// The preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` override its part; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?

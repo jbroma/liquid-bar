@@ -34,6 +34,7 @@ extension Config {
             var batteryPercent: Bool?
             var pills: NameOrBool?
             var background: NameOrBool?
+            var notchCurve: Bool?
             var glassStyle: String?
             var barStyle: String?
             var dropdownStyle: String?
@@ -60,6 +61,7 @@ extension Config {
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
         config.pills = try choice(PillLayout.self, "pills", raw.pills?.name(on: "separate", off: "none")) ?? config.pills
         config.background = try choice(BarBackgroundKind.self, "background", raw.background?.name(on: "glass", off: "none"))
+        config.notchCurve = raw.notchCurve ?? config.notchCurve
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
@@ -113,6 +115,7 @@ public enum Setting: Equatable, Sendable {
     case batteryPercent(Bool)
     case pills(PillLayout)
     case background(BarBackgroundKind)
+    case notchCurve(Bool)
     case nowPlaying(Bool)
     case pinned(String, Bool)
     /// The whole pinned list, in its new order.
@@ -140,6 +143,7 @@ public enum Setting: Equatable, Sendable {
         case .batteryPercent(let on): json["batteryPercent"] = on
         case .pills(let layout): json["pills"] = layout.rawValue
         case .background(let kind): json["background"] = kind.rawValue
+        case .notchCurve(let on): json["notchCurve"] = on
         case .glassStyle(let style):
             json["glassStyle"] = style.rawValue
             json["barStyle"] = nil

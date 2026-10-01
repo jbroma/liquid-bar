@@ -26,7 +26,6 @@ struct BarView: View {
     let model: BarModel
     @Environment(\.bar) private var bar
     @State private var menuMode = MenuMode()
-
     var body: some View {
         let config = model.config
         HStack(spacing: 0) {
@@ -42,11 +41,34 @@ struct BarView: View {
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
         .frame(height: bar.height)
-        .background {
-            switch config.shownBackground {
-            case .glass: BarBackground(style: config.glass.background)
-            case .black: Color.black
-            case .none: EmptyView()
+        .background(alignment: .top) {
+            if config.notchCurve, config.shownBackground != .none, let left = bar.left, let right = bar.right {
+                // The background's lower edge rises into the notch's sides, so the bar is slimmer beside it.
+                let outline = BarOutline(notch: left...(bar.screen.width - right), top: bar.height)
+                Group {
+                    if config.shownBackground == .black {
+                        outline.fill(.black)
+                    } else {
+                        let style = config.glass.background
+                        // The glass's own rim is straight, so it runs out of sight below, and the styles with a lit
+                        // rim get one drawn along the curve.
+                        BarBackground(style: style, below: 16)
+                            .overlay {
+                                if let lit = style.blend?.liquid, lit > 0 {
+                                    let rim = BarOutline(notch: outline.notch, top: outline.top, edgeOnly: true)
+                                    rim.stroke(.white.opacity(0.4 * lit), lineWidth: 7).blur(radius: 3)
+                                    rim.stroke(.white.opacity(0.95 * lit), lineWidth: 1.5)
+                                }
+                            }
+                            .mask { outline }
+                    }
+                }
+            } else {
+                switch config.shownBackground {
+                case .glass: BarBackground(style: config.glass.background)
+                case .black: Color.black
+                case .none: EmptyView()
+                }
             }
         }
         .contentShape(Rectangle())
@@ -506,5 +528,33 @@ enum AppIcons {
         NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.localizedName
             ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map { $0.deletingPathExtension().lastPathComponent }
             ?? bundleID
+    }
+}
+
+/// The bar's background, `top` tall, whose lower edge curves up into the notch's sides, so the notch stands a little
+/// proud of it. `edgeOnly` is that lower edge alone, for a rim.
+nonisolated struct BarOutline: Shape {
+    let notch: ClosedRange<CGFloat>
+    let top: CGFloat
+    var edgeOnly = false
+
+    func path(in rect: CGRect) -> Path {
+        // How far the edge rises, over an S-curve this wide on each side of the notch.
+        let (rise, run): (CGFloat, CGFloat) = (5, 28)
+        let (from, to, high) = (notch.lowerBound, notch.upperBound, top - rise)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX - 20, y: top))
+        path.addLine(to: CGPoint(x: from - run, y: top))
+        path.addCurve(to: CGPoint(x: from, y: high), control1: CGPoint(x: from - run / 2, y: top), control2: CGPoint(x: from - run / 2, y: high))
+        // Behind the notch, where a rim must not show.
+        if edgeOnly { path.move(to: CGPoint(x: to, y: high)) } else { path.addLine(to: CGPoint(x: to, y: high)) }
+        path.addCurve(to: CGPoint(x: to + run, y: top), control1: CGPoint(x: to + run / 2, y: high), control2: CGPoint(x: to + run / 2, y: top))
+        path.addLine(to: CGPoint(x: rect.maxX + 20, y: top))
+        if !edgeOnly {
+            path.addLine(to: CGPoint(x: rect.maxX + 20, y: -20))
+            path.addLine(to: CGPoint(x: rect.minX - 20, y: -20))
+            path.closeSubpath()
+        }
+        return path
     }
 }

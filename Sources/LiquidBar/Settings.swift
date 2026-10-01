@@ -402,6 +402,10 @@ private struct AppearancePane: View {
                     Text("None").tag(BarBackgroundKind.none)
                 }
                 .pickerStyle(.segmented)
+                // Only a background has an edge to curve, and only a notch gives it somewhere to go.
+                if config.shownBackground != .none, NSScreen.screens.contains(where: { $0.auxiliaryTopLeftArea != nil }) {
+                    Toggle("Curve into the notch", isOn: saving(config.notchCurve, Setting.notchCurve))
+                }
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {

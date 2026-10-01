@@ -344,12 +344,15 @@ struct OverlayGlass: View {
 struct BarBackground: View {
     let style: GlassStyle
     var preview = false
+    /// How far it also runs past the lower edge, for a caller that cuts its own.
+    var below: CGFloat = 0
 
     var body: some View {
         StyledGlass(corner: 0, style: style, preview: preview)
             .id(style)
             .padding(.horizontal, -12)
             .padding(.top, -12)
+            .padding(.bottom, -below)
     }
 }
 
