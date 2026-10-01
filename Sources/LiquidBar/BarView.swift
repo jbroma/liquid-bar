@@ -391,7 +391,13 @@ struct WorkspaceStrip: View {
         .background(alignment: .leading) {
             if let focusedFrame {
                 let droplet = DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
-                if pills != .none {
+                if pills != .none, model.config.pillGlass {
+                    // Glass cannot take the droplet's shape, so its frame follows the same edges and squish.
+                    // A light wash, so it stands out from a grouped pill of the same glass under it.
+                    PillBackground(height: bar.item)
+                        .overlay(Capsule().fill(.white.opacity(0.08)))
+                        .modifier(DropletFrame(lead: lead, trail: trail, rest: focusedFrame.width, height: bar.item))
+                } else if pills != .none {
                     PillFill(shape: droplet).frame(height: bar.item)
                 } else {
                     // Without pills, a line under the focused workspace that flows the same way.
@@ -448,6 +454,27 @@ struct WorkspaceButton: View {
             .background { hoverFill(open && !focused) }
         }
         .onTapGesture(perform: action)
+    }
+}
+
+/// Frames a view as `DropletShape` draws its capsule: from `lead` to `trail`, flatter while it is stretched.
+nonisolated struct DropletFrame: ViewModifier, Animatable {
+    var lead: CGFloat
+    var trail: CGFloat
+    let rest: CGFloat
+    let height: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lead, trail) }
+        set { (lead, trail) = (newValue.first, newValue.second) }
+    }
+
+    func body(content: Content) -> some View {
+        let width = max(trail - lead, 1)
+        content
+            .frame(width: width, height: height * min(1, max(0.72, (rest / width).squareRoot())))
+            .offset(x: lead)
+            .frame(height: height)
     }
 }
 

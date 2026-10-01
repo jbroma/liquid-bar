@@ -140,8 +140,8 @@ public struct Config: Equatable, Sendable {
     public var clockSeconds = false
     public var batteryPercent = false
     public var pills = PillLayout.separate
-    /// The pills are the bar style's real glass, as the dropdowns are, in place of its flat fill.
-    public var pillGlass = false
+    /// The pills and the focused workspace are the bar style's real glass. Off, they are its flat fill.
+    public var pillGlass = true
     /// What is behind the whole bar. Nil follows the pills: grouped pills go without a background, since each side
     /// already has its capsule, and the other layouts have the glass. Read the result through `shownBackground`.
     public var background: BarBackgroundKind?

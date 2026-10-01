@@ -22,7 +22,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `clockSeconds` | boolean | `false` | Shows seconds in the clock. |
 | `batteryPercent` | boolean | `false` | `true` shows the percentage next to the battery symbol. |
 | `pills` | string | `"separate"` | `"separate"` draws each right-side item in its own capsule. `"grouped"` draws one capsule behind each side of the bar: the Apple logo and the workspaces on the left, the pinned items and the widgets on the right. `"none"` draws everything straight on the bar, with a line under the focused workspace. Without a capsule of its own, the item under the pointer gets a faint highlight. `true` and `false`, from before the grouped layout, still read as `"separate"` and `"none"`. |
-| `pillGlass` | boolean | `false` | `true` draws the pills in the bar style's real glass, the same glass as the dropdowns, in place of the style's flat fill. The focused workspace keeps the flat fill. `glassBlur` applies to them too. |
+| `pillGlass` | boolean | `true` | The pills and the focused workspace are the bar style's real glass, in a version of each style made for a pill's height. `false` draws the style's flat fill. `glassBlur` applies to the glass. |
 | `background` | string | follows `pills` | What is behind the whole bar: `"glass"` is a strip in the background style, `"black"` is solid black, and `"none"` leaves the items over the wallpaper and the windows behind the bar. Without the key, grouped pills have none and the other layouts have glass. `true` and `false`, from before it could be black, still read as `"glass"` and `"none"`. |
 | `notchCurve` | boolean | `false` | On a screen with a notch, the background's lower edge curves up 2 points into the notch's sides, so the bar is slimmer beside the notch and the notch stands out of it. A lit rim follows the curve. It needs a background. |
 | `glassStyle` | string | `"liquid"` | The glass of the dropdowns, the pills, the bar's menu, and the Accessibility window: `"liquid"`, `"dew"`, `"pearl"`, `"crystal"`, `"frost"`, `"mist"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
@@ -40,15 +40,15 @@ The default clicks open the Sound, Network, and Battery settings panes for `volu
 
 ## Glass styles
 
-| Style | Dropdowns, the bar's menu, the Accessibility window | Pills and the focused workspace |
-| --- | --- | --- |
-| `liquid` | Glass with a bright lit rim, like macOS's volume overlay. | A flat 14% white fill. |
-| `dew` | A third of the way from `liquid` to `crystal`: `liquid` at 67% opacity over `crystal`. | An 11% white fill with a 10% white outline. |
-| `pearl` | Two thirds of the way: `liquid` at 33% opacity over `crystal`. | An 8% white fill with a 20% white outline. |
-| `crystal` | The clearest glass, showing the most of what is behind. | A 5% white fill with a 30% white outline. |
-| `frost` | Heavy frosted glass that blurs away what is behind. | Liquid Glass. |
-| `mist` | Soft, light glass with gentle contrast. | A brighter 26% white fill. |
-| `obsidian` | Dark tinted glass. | A dark fill. |
+| Style | Dropdowns, the bar's menu, the Accessibility window | Pills and the focused workspace | With `pillGlass` off |
+| --- | --- | --- | --- |
+| `liquid` | Glass with a bright lit rim, like macOS's volume overlay. | Rich glass with a fine bright edge. | A flat 14% white fill. |
+| `dew` | A third of the way from `liquid` to `crystal`: `liquid` at 67% opacity over `crystal`. | Lighter glass with the fine edge. | An 11% white fill with a 10% white outline. |
+| `pearl` | Two thirds of the way: `liquid` at 33% opacity over `crystal`. | Soft glass with a faint edge. | An 8% white fill with a 20% white outline. |
+| `crystal` | The clearest glass, showing the most of what is behind. | Clear glass, only its edge. | A 5% white fill with a 30% white outline. |
+| `frost` | Heavy frosted glass that blurs away what is behind. | Smooth glass with no edge. | Liquid Glass. |
+| `mist` | Soft, light glass with gentle contrast. | Light, milky glass with the fine edge. | A brighter 26% white fill. |
+| `obsidian` | Dark tinted glass. | Dark glass with the fine edge. | A dark fill. |
 
 `glassStyle` is the preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` each override their part of it, so `{"glassStyle": "liquid", "barStyle": "crystal"}` gives crystal pills over a liquid background, with liquid dropdowns. A missing override follows `glassStyle`. An unknown name in any of the four is a config error.
 

@@ -410,7 +410,7 @@ struct PillBackground: View {
         let config = delegate.model.config
         if config.pillGlass {
             let shown = style ?? config.glass.bar
-            StyledGlass(corner: height / 2, style: shown, preview: preview, blur: config.glassBlur).id(shown)
+            StyledGlass(corner: height / 2, style: shown, preview: preview, blur: config.glassBlur, pill: true).id(shown)
         } else {
             PillFill(shape: Capsule(), style: style)
         }
@@ -462,6 +462,8 @@ private struct StyledGlass: NSViewRepresentable {
     let preview: Bool
     /// The config's `glassBlur`.
     let blur: Double
+    /// A pill of the bar rather than a dropdown: glass that reads at 25 points tall.
+    var pill = false
 
     /// Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it, and
     /// Crystal is clear glass. Dew and Pearl fade Liquid over Crystal. Mist is the private light variant 6 with its
@@ -481,7 +483,49 @@ private struct StyledGlass: NSViewRepresentable {
         (view as? BlurTunedView)?.blur = blur
     }
 
+    /// A pill's glass, as layers from the bottom up: a private variant of the glass (nil is regular glass) and its
+    /// opacity. A dropdown's glass is too heavy at a pill's height, where Liquid's lit rim fills the whole pill.
+    /// Variant 19 is clear glass with a fine bright edge, which most styles get as their rim. Under it, Liquid is
+    /// regular glass, Dew and Pearl the lighter variants 21 and 14, Frost the smooth variant 12, Mist the light
+    /// variant 6, and Obsidian the dark variant 16.
+    private var pillLayers: [(variant: Int?, opacity: CGFloat)] {
+        switch style {
+        case .liquid: [(nil, 1), (19, 0.6)]
+        case .dew: [(21, 1), (19, 0.7)]
+        case .pearl: [(14, 1), (19, 0.5)]
+        case .crystal: [(19, 1)]
+        case .frost: [(12, 1)]
+        case .mist: [(19, 1), (6, 0.55)]
+        case .obsidian: [(16, 1), (19, 0.5)]
+        }
+    }
+
+    private func makePill() -> NSView {
+        let probe = NSGlassEffectView()
+        guard ["set_variant:", "set_backdropGroupName:"].allSatisfy({ probe.responds(to: Selector($0)) }) else {
+            // Without the private setters, the public glass nearest the style.
+            probe.cornerRadius = corner
+            if style == .pearl || style == .crystal || style == .obsidian { probe.style = .clear }
+            if style == .obsidian { probe.tintColor = .black.withAlphaComponent(0.55) }
+            return probe
+        }
+        // In one backdrop group each layer samples what is behind the window, not the layer under it.
+        let group = UUID().uuidString
+        let stack = NSView()
+        for layer in pillLayers {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = corner
+            if let variant = layer.variant { glass.setValue(variant, forKey: "_variant") }
+            glass.setValue(group, forKey: "_backdropGroupName")
+            glass.alphaValue = layer.opacity
+            glass.autoresizingMask = [.width, .height]
+            stack.addSubview(glass)
+        }
+        return stack
+    }
+
     private func makeGlass() -> NSView {
+        if pill { return makePill() }
         if style == .frost {
             let frost = NSVisualEffectView()
             frost.material = .popover
