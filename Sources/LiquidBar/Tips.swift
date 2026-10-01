@@ -138,14 +138,14 @@ private extension View {
         let separate = Demo.pills == .separate
         return self.padding(.horizontal, separate ? padding : 7)
             .frame(height: Demo.bar.pill)
-            .background { if separate { PillFill(shape: Capsule()) } }
+            .background { if separate { PillBackground(height: Demo.bar.pill, style: delegate.model.config.glass.bar, preview: true) } }
             .padding(.horizontal, itemGap / 2)
     }
 
     /// One side of the demo bar, in one capsule when the pills are grouped.
     func demoIsland() -> some View {
         background {
-            if Demo.pills == .grouped { PillFill(shape: Capsule()).frame(height: Demo.bar.pill).padding(.horizontal, itemGap / 2 - 4) }
+            if Demo.pills == .grouped { PillBackground(height: Demo.bar.pill, style: delegate.model.config.glass.bar, preview: true).frame(height: Demo.bar.pill).padding(.horizontal, itemGap / 2 - 4) }
         }
     }
 

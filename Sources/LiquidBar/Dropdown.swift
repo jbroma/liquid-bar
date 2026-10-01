@@ -398,6 +398,25 @@ struct OverlayGlass: View {
     }
 }
 
+/// A pill's background in the bar style, or in `style` for a preview: the style's real glass, the same as the
+/// dropdowns', when the config's `pillGlass` is on, and otherwise its flat fill.
+struct PillBackground: View {
+    let height: CGFloat
+    var style: GlassStyle?
+    /// A preview blurs what its own window draws under it.
+    var preview = false
+
+    var body: some View {
+        let config = delegate.model.config
+        if config.pillGlass {
+            let shown = style ?? config.glass.bar
+            StyledGlass(corner: height / 2, style: shown, preview: preview, blur: config.glassBlur).id(shown)
+        } else {
+            PillFill(shape: Capsule(), style: style)
+        }
+    }
+}
+
 /// The strip behind the whole bar, in the same glass as the dropdowns. It runs past the bar's top and sides, so of
 /// the glass's rim only the lower edge shows.
 struct BarBackground: View {

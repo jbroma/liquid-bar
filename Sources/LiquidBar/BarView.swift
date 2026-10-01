@@ -108,7 +108,7 @@ struct BarView: View {
             if model.config.pills == .grouped, !(shown.isEmpty && pinned.isEmpty) {
                 // One capsule behind the whole island. The items' hit areas run half a gap past them, and the
                 // outermost one's on to the screen edge; the capsule ends 4 points past the items themselves.
-                PillFill(shape: Capsule())
+                PillBackground(height: bar.pill)
                     .frame(height: bar.pill)
                     .padding(.horizontal, itemGap / 2 - 4)
                     .padding(leading ? .leading : .trailing, reach)
@@ -146,7 +146,7 @@ private struct Pill: ViewModifier {
             .frame(height: height)
             .contentShape(Capsule())
             .background {
-                if pills { PillFill(shape: Capsule()) }
+                if pills { PillBackground(height: height) }
                 hoverFill(lit)
             }
     }

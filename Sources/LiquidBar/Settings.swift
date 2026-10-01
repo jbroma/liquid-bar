@@ -396,6 +396,9 @@ private struct AppearancePane: View {
                     Text("None").tag(PillLayout.none)
                 }
                 .pickerStyle(.segmented)
+                if config.pills != .none {
+                    Toggle("Glass pills", isOn: saving(config.pillGlass, Setting.pillGlass))
+                }
                 Picker("Bar background", selection: saving(config.shownBackground, Setting.background)) {
                     Text("Glass").tag(BarBackgroundKind.glass)
                     Text("Black").tag(BarBackgroundKind.black)
@@ -568,7 +571,7 @@ private struct StyleSwatch: View {
                     .font(.system(size: 11, weight: .semibold))
                     .padding(.horizontal, 8)
                     .frame(height: 18)
-                    .background(PillFill(shape: Capsule(), style: style))
+                    .background(PillBackground(height: 18, style: style, preview: true))
             case .dropdown:
                 Text("Sound")
                     .font(.system(size: 11, weight: .semibold))
@@ -603,7 +606,7 @@ private struct StyleCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 8)
                         .frame(height: 18)
-                        .background(PillFill(shape: Capsule(), style: style))
+                        .background(PillBackground(height: 18, style: style, preview: true))
                         .padding(.horizontal, 6)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .frame(height: 22)
