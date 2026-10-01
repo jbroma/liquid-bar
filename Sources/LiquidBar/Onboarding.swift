@@ -1,9 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Asks for Accessibility access and follows the grant, which macOS gives no notification for.
+/// Asks for Accessibility access and follows the grant, which macOS gives no notification for. With access it shows
+/// what is easy to miss on the bar, once.
 @Observable
 final class AccessWindow {
+    /// The defaults key set once the tips have been on screen.
+    static let welcomed = "welcomed"
+
     private(set) var granted = AXIsProcessTrusted()
     /// The request is out; the window shows a waiting state until the grant arrives.
     private(set) var waiting = false
@@ -76,7 +80,6 @@ final class AccessWindow {
         granted = true
         poll?.invalidate()
         onGranted()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.close() }
     }
 
     /// The poll keeps going until the grant arrives, so a grant made later still restarts what needed it.
@@ -88,11 +91,17 @@ final class AccessWindow {
 private struct AccessView: View {
     let state: AccessWindow
     let close: () -> Void
-    private let uses: [(symbol: String, tint: Color, text: String)] = [
+    private typealias Row = (symbol: String, tint: Color, text: String)
+    private let uses: [Row] = [
         ("menubar.rectangle", .blue, "Show the front app's menus in the bar"),
         ("square.grid.2x2.fill", .orange, "Show other apps' menu bar items"),
         ("switch.2", .gray, "Use Control Center's Focus, AirDrop, and Bluetooth"),
         ("rectangle.3.group.fill", .purple, "Switch desktops from the bar"),
+    ]
+    private let tips: [Row] = [
+        ("shift.fill", .blue, "Hold Shift over the bar to see the front app's menus"),
+        ("pin.fill", .orange, "Pin other apps' menu bar items to the bar from Control Center"),
+        ("cursorarrow.click.2", .gray, "Right-click the bar for Settings"),
     ]
 
     var body: some View {
@@ -119,16 +128,7 @@ private struct AccessView: View {
 
     @ViewBuilder private var requestBody: some View {
         heading("LiquidBar Needs Accessibility Access", "LiquidBar covers the menu bar, so it needs Accessibility access to read and press what is under it.")
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(uses, id: \.text) { use in
-                HStack(spacing: 12) {
-                    IconTile(symbol: use.symbol, tint: use.tint, size: 28)
-                    Text(use.text)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 8)
+        list(uses)
         HStack {
             Spacer()
             Button("Not Now", action: close).keyboardShortcut(.cancelAction).focusEffectDisabled()
@@ -147,7 +147,26 @@ private struct AccessView: View {
         }
     }
 
-    private var grantedBody: some View {
-        heading("You're All Set", "LiquidBar has Accessibility access.")
+    @ViewBuilder private var grantedBody: some View {
+        heading("Getting Around LiquidBar", "Three things that are easy to miss.")
+        list(tips)
+        HStack {
+            Spacer()
+            Button("Done", action: close).keyboardShortcut(.defaultAction).focusEffectDisabled()
+        }
+        .onAppear { UserDefaults.standard.set(true, forKey: AccessWindow.welcomed) }
+    }
+
+    private func list(_ rows: [Row]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(rows, id: \.text) { row in
+                HStack(spacing: 12) {
+                    IconTile(symbol: row.symbol, tint: row.tint, size: 28)
+                    Text(row.text).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
     }
 }

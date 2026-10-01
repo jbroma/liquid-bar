@@ -39,6 +39,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AXIsProcessTrusted() {
             log.notice("no Accessibility access: app menus, status items and Focus are unavailable")
             access.show()
+        } else if !UserDefaults.standard.bool(forKey: AccessWindow.welcomed) {
+            access.show()
         }
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
