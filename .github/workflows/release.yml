@@ -35,7 +35,8 @@ jobs:
       - run: pipx install git-cliff==2.14.2
       - name: Write the notes and the changelog
         run: |
-          git-cliff --latest --strip all --output notes.md
+          # The notes are the version's changelog section without its heading, which the release already shows.
+          git-cliff --latest --strip all | sed '/^## /d' | sed '/./,$!d' > notes.md
           git-cliff --output CHANGELOG.md
       - name: Publish the release
         run: gh release edit "$TAG" --notes-file notes.md --draft=false --latest

@@ -1,10 +1,10 @@
 # Changelog
 
-What changed in each release, from the commit messages.
+All notable changes to LiquidBar, in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
-## 0.11.0 (2026-10-01)
+## [0.11.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.11.0) - 2026-10-01
 
-### New
+### Added
 
 - A one-time tips window shows Shift for app menus, pinning, and the right-click menu
 - The tips window demos each tip with an animation and ticks it off when done on the bar
@@ -12,9 +12,9 @@ What changed in each release, from the commit messages.
 - The bar's background strip is a setting, off by default with grouped pills
 - The bar's background has its own glass style, picked like the pills' and the dropdowns'
 
-## 0.10.0 (2026-09-30)
+## [0.10.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.10.0) - 2026-09-30
 
-### New
+### Added
 
 - Settings icons are white symbols on System Settings style tiles, with dot status and small buttons on permissions
 - Add an option to hide bar item backgrounds (thanks rudrankriyam)
@@ -23,7 +23,7 @@ What changed in each release, from the commit messages.
 - Settings looks and behaves like System Settings
 - Settings shows System Settings' own icons, drawn by macOS
 
-### Fixes
+### Fixed
 
 - The workspace strip follows windows moved without focus and stays on AeroSpace when another app quits
 - The Accessibility and update windows come forward when LiquidBar runs in the background
@@ -33,23 +33,23 @@ What changed in each release, from the commit messages.
 - Settings panes start right under the toolbar and use System Settings' sidebar icons
 - The Settings sidebar keeps its width when switching panes
 
-## 0.9.0 (2026-09-30)
+## [0.9.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.9.0) - 2026-09-30
 
-### New
+### Added
 
 - Settings is a standard macOS settings window, whatever the glass style
 - A Show Pills option draws the bar's items straight on the bar
 - The clock follows the system's 24-hour setting unless clock24Hour is set
 - Settings folds About and Advanced into General and shows permissions as icons
 
-### Fixes
+### Fixed
 
 - Each permission is asked for only on first use, one at a time, with its live status in Settings
 - Without pills the bar's items sit as close as native status items
 
-## 0.8.0 (2026-09-30)
+## [0.8.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.8.0) - 2026-09-30
 
-### New
+### Added
 
 - Builds sign with the Developer ID and releases are notarized
 - The Accessibility window steps into the corner while System Settings is open
@@ -66,7 +66,7 @@ What changed in each release, from the commit messages.
 - Dew and Pearl, even steps between Liquid and Crystal
 - Pick the bar's and the dropdowns' glass style apart
 
-### Fixes
+### Fixed
 
 - The bar stays put when Mission Control opens and closes
 - Dropdowns sit as close to the screen edge as they hang below the bar
@@ -78,15 +78,15 @@ What changed in each release, from the commit messages.
 - The Accessibility request is one flow with macOS's own prompt
 - Settings header stays clear of scrolled content, presets fit four to a row
 
-## 0.7.1 (2026-09-30)
+## [0.7.1](https://github.com/jbroma/liquid-bar/releases/tag/v0.7.1) - 2026-09-30
 
-### New
+### Added
 
 - The right side's pills take the focused workspace's fill
 
-## 0.7.0 (2026-09-30)
+## [0.7.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.7.0) - 2026-09-30
 
-### New
+### Added
 
 - Bluetooth and AirDrop lists open like Control Center's modules, with a switch in the header
 - Menu Bar Items fold into a module that opens collapsed, with each row's pin at its start
@@ -102,15 +102,15 @@ What changed in each release, from the commit messages.
 - The clock dropdown opens Calendar, and marks today in the accent colour
 - The battery pill shows the percentage only when asked
 
-### Fixes
+### Fixed
 
 - Volume changes no longer pulse the Sound dropdown open, since macOS shows its own overlay
 - Dropdowns close 0.15 s after the pointer leaves, checked against the real pointer while open
 - About drops the AeroSpace line and shows its GitHub link as a link
 
-## 0.6.0 (2026-09-29)
+## [0.6.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.6.0) - 2026-09-29
 
-### New
+### Added
 
 - A compact Control Center in the glass idiom
 - The dropdowns have a lit edge and a shadow
@@ -129,7 +129,7 @@ What changed in each release, from the commit messages.
 - Control Center is laid out in modules like macOS's own
 - Pinned apps' menu bar items share one pill, each icon opening its own dropdown
 
-### Fixes
+### Fixed
 
 - Release zips carry no ._ files that break the app's signature
 - The time sits just left of the privacy dot, not far from it
@@ -139,9 +139,9 @@ What changed in each release, from the commit messages.
 - The Focus tile switches Do Not Disturb with its keyboard shortcut instead of opening Control Center
 - A closing dropdown leaves no line behind
 
-## 0.5.0 (2026-09-28)
+## [0.5.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.5.0) - 2026-09-28
 
-### New
+### Added
 
 - Glass bar panel per screen with static layout
 - AeroSpace workspaces, focus, occupancy and mode
@@ -210,7 +210,7 @@ What changed in each release, from the commit messages.
 - The clock pill makes room for the privacy dot only while it shows
 - The LiquidBar submenu is last in the Apple menu, after a divider
 
-### Fixes
+### Fixed
 
 - Grow a black band out of the notch instead of two glass slabs
 - One expanded pill per bar, and details yield instead of overflowing

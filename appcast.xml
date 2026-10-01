@@ -9,9 +9,7 @@
             <sparkle:shortVersionString>0.11.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[## 0.11.0 (2026-10-01)
-
-### New
+            <description sparkle:format="markdown"><![CDATA[### Added
 
 - A one-time tips window shows Shift for app menus, pinning, and the right-click menu
 - The tips window demos each tip with an animation and ticks it off when done on the bar
@@ -30,7 +28,7 @@
             <sparkle:shortVersionString>0.10.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[### New
+            <description sparkle:format="markdown"><![CDATA[### Added
 
 - Settings icons are white symbols on System Settings style tiles, with dot status and small buttons on permissions
 - Add an option to hide bar item backgrounds (thanks rudrankriyam)
@@ -39,7 +37,7 @@
 - Settings looks and behaves like System Settings
 - Settings shows System Settings' own icons, drawn by macOS
 
-### Fixes
+### Fixed
 
 - The workspace strip follows windows moved without focus and stays on AeroSpace when another app quits
 - The Accessibility and update windows come forward when LiquidBar runs in the background
