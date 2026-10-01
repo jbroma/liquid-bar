@@ -540,7 +540,7 @@ nonisolated struct BarOutline: Shape {
 
     func path(in rect: CGRect) -> Path {
         // How far the edge rises, over an S-curve this wide on each side of the notch.
-        let (rise, run): (CGFloat, CGFloat) = (5, 28)
+        let (rise, run): (CGFloat, CGFloat) = (3, 24)
         let (from, to, high) = (notch.lowerBound, notch.upperBound, top - rise)
         var path = Path()
         path.move(to: CGPoint(x: rect.minX - 20, y: top))
