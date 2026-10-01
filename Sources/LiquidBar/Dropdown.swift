@@ -475,6 +475,8 @@ private struct StyledGlass: NSViewRepresentable {
         glass.frame = tuned.bounds
         glass.autoresizingMask = [.width, .height]
         tuned.addSubview(glass)
+        // A pill's clear variants have no blur of their own, and get the clear style's.
+        tuned.floor = pill ? 5 : 0
         tuned.blur = blur
         return tuned
     }
@@ -486,13 +488,13 @@ private struct StyledGlass: NSViewRepresentable {
     /// A pill's glass, as layers from the bottom up: a private variant of the glass (nil is regular glass) and its
     /// opacity. A dropdown's glass is too heavy at a pill's height, where Liquid's lit rim fills the whole pill.
     /// Variant 19 is clear glass with a fine bright edge, which most styles get as their rim. Under it, Liquid is
-    /// regular glass, Dew and Pearl the lighter variants 21 and 14, Frost the smooth variant 12, Mist the light
+    /// regular glass, Dew the lighter variant 21, Pearl has the soft sheen of variant 14 over it, Frost the smooth variant 12, Mist the light
     /// variant 6, and Obsidian the dark variant 16.
     private var pillLayers: [(variant: Int?, opacity: CGFloat)] {
         switch style {
         case .liquid: [(nil, 1), (19, 0.6)]
         case .dew: [(21, 1), (19, 0.7)]
-        case .pearl: [(14, 1), (19, 0.5)]
+        case .pearl: [(19, 1), (14, 0.7)]
         case .crystal: [(19, 1)]
         case .frost: [(12, 1)]
         case .mist: [(19, 1), (6, 0.55)]
@@ -584,11 +586,19 @@ private struct StyledGlass: NSViewRepresentable {
 /// observed and the radius set again. Where the filter is missing the glass stays as macOS draws it.
 private final class BlurTunedView: NSView {
     var blur = 1.0 { didSet { if blur != oldValue { apply() } } }
-    /// Each backdrop layer's own radius, read before the first change.
-    private var radii: [ObjectIdentifier: Double] = [:]
+    /// The radius given to glass that has no blur of its own, so `blur` has something to scale. 0 leaves it clear.
+    var floor = 0.0
+    /// Each filter input's own value, read before the first change.
+    private var radii: [Input: Double] = [:]
     private var observations: [ObjectIdentifier: NSKeyValueObservation] = [:]
-    /// The blur's input on the glass's filter and on the classic material's.
-    private static let inputs = ["glassBackground": "inputBlurRadius", "gaussianBlur": "inputRadius"]
+    /// The blur inputs of the glass's filter, the second one a wider, fainter blur under the first, and the classic
+    /// material's.
+    private static let inputs = ["glassBackground": ["inputBlurRadius", "inputBlurFillBlurRadius"], "gaussianBlur": ["inputRadius"]]
+
+    private struct Input: Hashable {
+        let layer: ObjectIdentifier
+        let name: String
+    }
 
     override func layout() {
         super.layout()
@@ -602,31 +612,40 @@ private final class BlurTunedView: NSView {
     }
 
     private func apply() {
-        guard blur < 1 || !radii.isEmpty, let layer else { return }
+        guard blur < 1 || floor > 0 || !radii.isEmpty, let layer else { return }
+        // No implicit animation: the blur would visibly ease from macOS's radius to this one.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         tune(layer)
+        CATransaction.commit()
     }
 
     private func tune(_ layer: CALayer) {
         if NSStringFromClass(type(of: layer)) == "CABackdropLayer" {
             for filter in layer.filters as? [NSObject] ?? [] {
-                guard let name = filter.value(forKey: "name") as? String, let input = Self.inputs[name],
-                      let radius = filter.value(forKey: input) as? Double
-                else { continue }
-                let id = ObjectIdentifier(layer)
-                let own = radii[id] ?? radius
-                radii[id] = own
-                // A filter on a layer changes only through the layer's key path. Setting it only when it differs
-                // keeps the observation below from looping.
-                if abs(radius - own * blur) > 0.001 {
-                    // No implicit animation: the blur would visibly ease from macOS's radius to this one.
-                    CATransaction.begin()
-                    CATransaction.setDisableActions(true)
-                    layer.setValue(own * blur, forKeyPath: "filters.\(name).\(input)")
-                    CATransaction.commit()
+                guard let name = filter.value(forKey: "name") as? String, let inputs = Self.inputs[name] else { continue }
+                // A filter on a layer changes only through the layer's key path.
+                func set(_ input: String, _ value: Double) {
+                    guard let now = filter.value(forKey: input) as? Double, abs(now - value) > 0.001 else { return }
+                    layer.setValue(value, forKeyPath: "filters.\(name).\(input)")
                 }
-                if observations[id] == nil {
+                for input in inputs {
+                    guard let radius = filter.value(forKey: input) as? Double else { continue }
+                    let id = Input(layer: ObjectIdentifier(layer), name: input)
+                    let own = radii[id] ?? radius
+                    radii[id] = own
+                    if own == 0, floor > 0, input == "inputBlurRadius" {
+                        // Clear glass also has the blur's opacity at 0, across the pill.
+                        for step in 0...3 { set("inputBlurOpacity\(step)", 1) }
+                        set(input, floor * blur)
+                    } else {
+                        // Setting it only when it differs keeps the observation below from looping.
+                        set(input, own * blur)
+                    }
+                }
+                if observations[ObjectIdentifier(layer)] == nil {
                     // In the same pass as macOS's own change, so no frame shows its radius.
-                    observations[id] = layer.observe(\.filters) { [weak self] _, _ in
+                    observations[ObjectIdentifier(layer)] = layer.observe(\.filters) { [weak self] _, _ in
                         guard Thread.isMainThread else { return DispatchQueue.main.async { self?.apply() } }
                         MainActor.assumeIsolated { self?.apply() }
                     }
