@@ -495,10 +495,18 @@ private final class BlurTunedView: NSView {
                 radii[id] = own
                 // A filter on a layer changes only through the layer's key path. Setting it only when it differs
                 // keeps the observation below from looping.
-                if abs(radius - own * blur) > 0.001 { layer.setValue(own * blur, forKeyPath: "filters.\(name).\(input)") }
+                if abs(radius - own * blur) > 0.001 {
+                    // No implicit animation: the blur would visibly ease from macOS's radius to this one.
+                    CATransaction.begin()
+                    CATransaction.setDisableActions(true)
+                    layer.setValue(own * blur, forKeyPath: "filters.\(name).\(input)")
+                    CATransaction.commit()
+                }
                 if observations[id] == nil {
+                    // In the same pass as macOS's own change, so no frame shows its radius.
                     observations[id] = layer.observe(\.filters) { [weak self] _, _ in
-                        DispatchQueue.main.async { self?.apply() }
+                        guard Thread.isMainThread else { return DispatchQueue.main.async { self?.apply() } }
+                        MainActor.assumeIsolated { self?.apply() }
                     }
                 }
             }
