@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       - name: Check that the tag is main's latest
         run: test "$(git describe --tags --abbrev=0 --match 'v*')" = "$TAG"
-      - run: pipx install git-cliff==2.14.1
+      - run: pipx install git-cliff==2.14.2
       - name: Write the notes and the changelog
         run: |
           git-cliff --latest --strip all --output notes.md
