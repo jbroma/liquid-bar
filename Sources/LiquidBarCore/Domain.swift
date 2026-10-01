@@ -139,8 +139,7 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour: Bool?
     public var clockSeconds = false
     public var batteryPercent = false
-    /// Off, the bar's items sit straight on the bar strip with no capsule behind them.
-    public var pills = true
+    public var pills = PillLayout.separate
     /// The preset. `barStyle` and `dropdownStyle` override its half; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?
@@ -157,6 +156,12 @@ public struct Config: Equatable, Sendable {
     ]
 
     public init() {}
+}
+
+/// How the bar's items sit on it: each in its own capsule, each side's items in one shared capsule, or straight on
+/// the bar.
+public enum PillLayout: String, CaseIterable, Sendable {
+    case separate, grouped, none
 }
 
 /// The glass of the dropdowns, the bar's pills, the bar's menu, and the Accessibility window.

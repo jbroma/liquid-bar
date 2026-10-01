@@ -390,10 +390,12 @@ private struct AppearancePane: View {
     var body: some View {
         Form {
             Section {
-                Toggle(isOn: saving(config.pills, Setting.pills)) {
-                    Text("Show pills")
-                    Text("Off, the items sit straight on the bar.")
+                Picker("Pills", selection: saving(config.pills, Setting.pills)) {
+                    Text("Separate").tag(PillLayout.separate)
+                    Text("Grouped").tag(PillLayout.grouped)
+                    Text("None").tag(PillLayout.none)
                 }
+                .pickerStyle(.segmented)
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {

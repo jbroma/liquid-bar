@@ -32,7 +32,7 @@ extension Config {
             var clock24Hour: Bool?
             var clockSeconds: Bool?
             var batteryPercent: Bool?
-            var pills: Bool?
+            var pills: PillsName?
             var glassStyle: String?
             var barStyle: String?
             var dropdownStyle: String?
@@ -55,7 +55,7 @@ extension Config {
         config.clock24Hour = raw.clock24Hour
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
-        config.pills = raw.pills ?? config.pills
+        config.pills = try choice(PillLayout.self, "pills", raw.pills?.name) ?? config.pills
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
@@ -70,6 +70,20 @@ extension Config {
             }
         }
         return config
+    }
+}
+
+/// `pills` was a boolean before it had the grouped layout: true reads as "separate" and false as "none".
+private struct PillsName: Decodable {
+    let name: String
+
+    init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer()
+        if let on = try? value.decode(Bool.self) {
+            name = on ? PillLayout.separate.rawValue : PillLayout.none.rawValue
+        } else {
+            name = try value.decode(String.self)
+        }
     }
 }
 
@@ -90,7 +104,7 @@ public enum Setting: Equatable, Sendable {
     case clock24Hour(Bool?)
     case clockSeconds(Bool)
     case batteryPercent(Bool)
-    case pills(Bool)
+    case pills(PillLayout)
     case nowPlaying(Bool)
     case pinned(String, Bool)
     /// The whole pinned list, in its new order.
@@ -115,7 +129,7 @@ public enum Setting: Equatable, Sendable {
         case .clock24Hour(let on): json["clock24Hour"] = on
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
-        case .pills(let on): json["pills"] = on
+        case .pills(let layout): json["pills"] = layout.rawValue
         case .glassStyle(let style):
             json["glassStyle"] = style.rawValue
             json["barStyle"] = nil

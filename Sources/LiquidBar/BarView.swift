@@ -76,6 +76,16 @@ struct BarView: View {
                     .environment(\.edgeReach, widget == outer ? edgeReach : EdgeInsets())
             }
         }
+        .background {
+            if model.config.pills == .grouped, !(shown.isEmpty && pinned.isEmpty) {
+                // One capsule behind the whole island. The items' hit areas run half a gap past them, and the
+                // outermost one's on to the screen edge; the capsule ends 4 points past the items themselves.
+                PillFill(shape: Capsule())
+                    .frame(height: bar.pill)
+                    .padding(.horizontal, itemGap / 2 - 4)
+                    .padding(leading ? .leading : .trailing, reach)
+            }
+        }
         .animation(spring, value: model.nowPlaying == nil)
         .animation(spring, value: pinned.map(\.bundleID))
         // Islands get a finite width beside the notch. Each item's hit area already reaches half a gap past it.
@@ -86,8 +96,8 @@ struct BarView: View {
 }
 
 extension View {
-    /// A capsule in the style's pill fill, which the focused workspace shares, a step brighter while `lit`. Without
-    /// pills only the lit step shows.
+    /// A capsule in the style's pill fill, which the focused workspace shares, a step brighter while `lit`. Unless
+    /// the pills are separate, only the lit step shows.
     func pill(height: CGFloat, padding: CGFloat = 10, lit: Bool = false) -> some View {
         modifier(Pill(height: height, padding: padding, lit: lit))
     }
@@ -99,9 +109,10 @@ private struct Pill: ViewModifier {
     let lit: Bool
     @Environment(\.pills) private var pills
 
-    /// Without pills, items sit as close as the native menu bar's status items, about 20pt apart with the gap, and do
-    /// not widen when lit, which would shift their neighbours.
+    /// Without a pill of its own, an item sits as close as the native menu bar's status items, about 20pt apart with
+    /// the gap, and does not widen when lit, which would shift its neighbours.
     func body(content: Content) -> some View {
+        let pills = pills == .separate
         content
             .padding(.horizontal, pills ? padding + (lit ? 3 : 0) : 7)
             .frame(height: height)
@@ -196,10 +207,10 @@ struct WidgetView: View {
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             // While macOS shows its privacy dot, the pill makes room for it, so the dot sits inside the pill after the time.
-            // Without pills the clock's inset is 7 points smaller, so the room grows by as much.
+            // Without a pill of its own the clock's inset is 7 points smaller, so the room grows by as much.
             MenuPill(id: .clock, pulse: 0, padding: 14) {
                 Text(clockText(model.now, hour24: model.config.clock24Hour ?? uses24HourClock(), seconds: model.config.clockSeconds))
-                    .padding(.trailing, model.privacyDot ? (model.config.pills ? 4 : 11) : 0)
+                    .padding(.trailing, model.privacyDot ? (model.config.pills == .separate ? 4 : 11) : 0)
             }
                 .animation(spring, value: model.privacyDot)
         case .script(let script):
@@ -287,8 +298,8 @@ struct BarMetrics {
 
 extension EnvironmentValues {
     @Entry var bar = BarMetrics()
-    /// The config's `pills`: whether items sit in capsules or straight on the bar.
-    @Entry var pills = true
+    /// The config's `pills`: whether items sit in their own capsules, in one per side, or straight on the bar.
+    @Entry var pills = PillLayout.separate
 }
 
 struct AppleButton: View {
@@ -352,7 +363,7 @@ struct WorkspaceStrip: View {
         .background(alignment: .leading) {
             if let focusedFrame {
                 let droplet = DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
-                if pills {
+                if pills != .none {
                     PillFill(shape: droplet).frame(height: bar.item)
                 } else {
                     // Without pills, a line under the focused workspace that flows the same way.

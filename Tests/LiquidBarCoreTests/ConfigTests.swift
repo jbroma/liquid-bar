@@ -10,7 +10,8 @@ private func decode(_ json: String) throws -> Config {
     let config = try decode("{}")
     #expect(config == Config())
     #expect(config.clock24Hour == nil)
-    #expect([config.clockSeconds, config.batteryPercent, config.pills] == [false, false, true])
+    #expect([config.clockSeconds, config.batteryPercent] == [false, false])
+    #expect(config.pills == .separate)
 }
 
 @Test func overridesOnlyTheKeysGiven() throws {
@@ -25,7 +26,11 @@ private func decode(_ json: String) throws -> Config {
     #expect(display.clock24Hour == false)
     #expect([display.clockSeconds, display.batteryPercent] == [true, false])
     #expect(try decode(#"{"clock24Hour": true}"#).clock24Hour == true)
-    #expect(try decode(#"{"pills": false}"#).pills == false)
+    #expect(try decode(#"{"pills": "grouped"}"#).pills == .grouped)
+    // The boolean it was before the grouped layout.
+    #expect(try decode(#"{"pills": false}"#).pills == PillLayout.none)
+    #expect(try decode(#"{"pills": true}"#).pills == .separate)
+    #expect(throws: ConfigError.self) { try decode(#"{"pills": "round"}"#) }
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")
@@ -85,10 +90,10 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
           "margin" : 4
         }
         """)
-    #expect(try apply(.pills(false), to: #"{"glassStyle": "dew"}"#) == """
+    #expect(try apply(.pills(.grouped), to: #"{"glassStyle": "dew"}"#) == """
         {
           "glassStyle" : "dew",
-          "pills" : false
+          "pills" : "grouped"
         }
         """)
     #expect(throws: (any Error).self) { try apply(.clockSeconds(true), to: "[]") }

@@ -1,3 +1,4 @@
+import LiquidBarCore
 import SwiftUI
 
 /// What is easy to miss on the bar. Each has a looping demo in the tips window and is ticked off there once the user
@@ -85,23 +86,38 @@ struct TipsView: View {
     }
 }
 
-/// A demo is a small bar over a backdrop, drawn with the bar's own glass, that steps through a short loop.
+/// A demo is the bar at its real size over a backdrop, in the user's pill layout and glass, stepping through a short
+/// loop. The pointer follows the target named for each step.
 private enum Demo {
     static let size = CGSize(width: 416, height: 150)
-    static let font = Font.system(size: 11, weight: .semibold)
+    static let bar = BarMetrics()
+    static var pills: PillLayout { delegate.model.config.pills }
 }
 
 /// Counts through `steps` at a steady pace, animating each change.
 private struct Loop<Content: View>: View {
     let steps: Int
-    @ViewBuilder let content: (Int) -> Content
+    /// Where the pointer's tip is at each step.
+    let pointer: (Int) -> String
+    @ViewBuilder let content: (Int, Namespace.ID) -> Content
     @State private var step = 0
+    @Namespace private var targets
 
     var body: some View {
-        content(step)
-            .font(Demo.font)
+        content(step, targets)
+            .font(.system(size: 12, weight: .semibold))
+            .monospacedDigit()
             .foregroundStyle(.white)
-            .frame(width: Demo.size.width, height: Demo.size.height, alignment: .topLeading)
+            .frame(width: Demo.size.width, height: Demo.size.height, alignment: .top)
+            .background(alignment: .bottom) { Color.clear.frame(width: 1, height: 1).target("rest", targets).padding(.bottom, 44) }
+            .overlay(alignment: .topLeading) {
+                Image(systemName: "cursorarrow")
+                    .font(.system(size: 16, weight: .semibold))
+                    .shadow(color: .black.opacity(0.6), radius: 1.5, y: 1)
+                    // The arrow's tip, not its middle, goes on the target.
+                    .offset(x: 5, y: 8)
+                    .matchedGeometryEffect(id: pointer(step), in: targets, properties: .position, isSource: false)
+            }
             .task {
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(1.1))
@@ -111,53 +127,108 @@ private struct Loop<Content: View>: View {
     }
 }
 
-/// The arrow, with its tip at `at`.
-private struct Pointer: View {
-    let at: CGPoint
-
-    var body: some View {
-        Image(systemName: "cursorarrow")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.6), radius: 1.5, y: 1)
-            .position(x: at.x + 5, y: at.y + 8)
-    }
-}
-
 private extension View {
-    /// A pill of the demo bar, in the user's bar style.
-    func demoPill() -> some View {
-        padding(.horizontal, 10).frame(height: 22).background { PillFill(shape: Capsule()) }
+    /// Names this view's middle as a place the pointer can go.
+    func target(_ name: String, _ targets: Namespace.ID) -> some View {
+        background { Color.clear.frame(width: 1, height: 1).matchedGeometryEffect(id: name, in: targets, properties: .position) }
+    }
+
+    /// An item of the demo bar: in its own pill only when the pills are separate, like the real one.
+    func demoItem(padding: CGFloat = 10) -> some View {
+        let separate = Demo.pills == .separate
+        return self.padding(.horizontal, separate ? padding : 7)
+            .frame(height: Demo.bar.pill)
+            .background { if separate { PillFill(shape: Capsule()) } }
+            .padding(.horizontal, itemGap / 2)
+    }
+
+    /// One side of the demo bar, in one capsule when the pills are grouped.
+    func demoIsland() -> some View {
+        background {
+            if Demo.pills == .grouped { PillFill(shape: Capsule()).frame(height: Demo.bar.pill).padding(.horizontal, itemGap / 2 - 4) }
+        }
     }
 
     /// A dropdown of the demo bar, in the user's dropdown style.
     func demoDropdown(width: CGFloat) -> some View {
-        padding(6).frame(width: width, alignment: .leading)
-            .background(OverlayGlass(corner: 10, style: delegate.model.config.glass.dropdown))
+        font(.system(size: 12))
+            .padding(6)
+            .frame(width: width, alignment: .leading)
+            .background(OverlayGlass(corner: 12, style: delegate.model.config.glass.dropdown))
     }
 }
 
-private struct Workspaces: View {
+/// The demo bar: the Apple logo and the workspaces, or the front app's menus, on the left, and the status items on
+/// the right.
+private struct DemoBar: View {
+    var menus = false
+    var workspaces = 4
+    var pinned = false
+    /// Without Wi-Fi and the battery, which leaves room for the menus.
+    var short = false
+    let targets: Namespace.ID
+    /// Apps every Mac has, the first of each workspace in front.
+    private let apps = [["com.apple.mail"], ["com.apple.Safari", "com.apple.Notes"], ["com.apple.Music"], []]
+
     var body: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "apple.logo")
-            ForEach(1...4, id: \.self) { number in
-                Text("\(number)")
-                    .frame(width: 18, height: 16)
-                    .background { if number == 2 { PillFill(shape: Capsule()) } }
-                    .opacity(number == 4 ? 0.5 : 1)
+        HStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Image(systemName: "apple.logo")
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(.horizontal, 3 + itemGap / 2)
+                if menus {
+                    HStack(spacing: 0) {
+                        Text("Safari").fontWeight(.bold).padding(.horizontal, 7)
+                        ForEach(["File", "Edit", "View", "History"], id: \.self) { Text($0).fontWeight(.medium).padding(.horizontal, 7) }
+                    }
+                    .padding(.horizontal, itemGap / 2)
+                    .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
+                } else {
+                    HStack(spacing: 0) { ForEach(0..<workspaces, id: \.self, content: workspace) }
+                        .padding(.horizontal, itemGap / 2)
+                        .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
+                }
+            }
+            .fixedSize()
+            .demoIsland()
+            Color.clear.frame(width: 1, height: 1).target("bar", targets).frame(maxWidth: .infinity)
+            HStack(spacing: 0) {
+                if pinned {
+                    Image(nsImage: AppIcons.icon("com.apple.Passwords")).resizable().frame(width: 16, height: 16)
+                        .demoItem()
+                        .transition(.scale(0.6).combined(with: .opacity))
+                }
+                if !short {
+                    Image(systemName: "wifi").frame(width: 16).demoItem()
+                    Image(systemName: "battery.75percent").font(.system(size: 15)).demoItem()
+                }
+                Image(systemName: "switch.2").frame(width: 16).target("controlCenter", targets).demoItem()
+                Text("9:41").demoItem(padding: 14)
+            }
+            .fixedSize()
+            .demoIsland()
+        }
+        .padding(.horizontal, 10 - itemGap / 2)
+        .frame(height: Demo.bar.height)
+    }
+
+    /// A workspace as the bar draws it: its number and its apps' icons, with the fill or the line on the focused one.
+    private func workspace(_ index: Int) -> some View {
+        let focused = index == 1
+        return HStack(spacing: 4) {
+            Text("\(index + 1)")
+                .font(.system(size: 10, weight: .semibold))
+                .opacity(focused ? 0.9 : apps[index].isEmpty ? 0.35 : 0.6)
+            if !apps[index].isEmpty {
+                IconStack(apps: apps[index].map { WorkspaceApp(bundleID: $0, windowID: 0, focused: false) }, more: 0)
             }
         }
-    }
-}
-
-private struct StatusItems: View {
-    var body: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "wifi")
-            Image(systemName: "battery.75percent")
-            Image(systemName: "switch.2")
-            Text("9:41")
+        .padding(.horizontal, apps[index].isEmpty ? 7 : 6)
+        .frame(minWidth: Demo.bar.item, minHeight: Demo.bar.item)
+        .background(alignment: .bottom) {
+            if focused {
+                if Demo.pills == .none { Capsule().fill(.white.opacity(0.85)).frame(height: 2).offset(y: 2) } else { PillFill(shape: Capsule()) }
+            }
         }
     }
 }
@@ -165,31 +236,19 @@ private struct StatusItems: View {
 /// The pointer goes to the bar, Shift goes down, and the workspaces turn into menus until it is let go.
 private struct ShiftDemo: View {
     var body: some View {
-        Loop(steps: 5) { step in
+        Loop(steps: 5) { $0 == 0 ? "rest" : "bar" } content: { step, targets in
             let held = step == 2 || step == 3
-            ZStack(alignment: .topLeading) {
-                Group {
-                    if held {
-                        HStack(spacing: 11) {
-                            Image(systemName: "apple.logo")
-                            Text("Safari").fontWeight(.bold)
-                            ForEach(["File", "Edit", "View", "Window", "Help"], id: \.self) { Text($0) }
-                        }
-                        .transition(.opacity)
-                    } else {
-                        Workspaces().transition(.opacity)
-                    }
-                }
-                .demoPill()
-                .padding(8)
+            VStack(spacing: 0) {
+                DemoBar(menus: held, short: true, targets: targets)
+                Spacer()
                 Text("\(Image(systemName: "shift")) shift")
                     .font(.system(size: 12, weight: .medium))
                     .frame(width: 84, height: 30)
                     .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(held ? 0.5 : 0.16)))
                     .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(.white.opacity(0.35)))
                     .scaleEffect(held ? 0.94 : 1)
-                    .position(x: Demo.size.width / 2, y: 112)
-                Pointer(at: step == 0 ? CGPoint(x: 290, y: 84) : CGPoint(x: 300, y: 18))
+                    .offset(x: -70)
+                    .padding(.bottom, 26)
             }
         }
     }
@@ -198,88 +257,79 @@ private struct ShiftDemo: View {
 /// Control Center opens, a pin is clicked under Menu Bar Items, and the item appears on the bar.
 private struct PinDemo: View {
     var body: some View {
-        Loop(steps: 6) { step in
+        Loop(steps: 6) { [0: "rest", 1: "controlCenter", 5: "rest"][$0] ?? "pin" } content: { step, targets in
             let pinned = step >= 3 && step < 5
-            ZStack(alignment: .topTrailing) {
-                HStack(spacing: 6) {
-                    if pinned {
-                        tile("timer", .orange).demoPill().transition(.scale.combined(with: .opacity))
+            DemoBar(workspaces: 3, pinned: pinned, targets: targets)
+                .overlay(alignment: .topTrailing) {
+                    if (1..<5).contains(step) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text("Menu Bar Items").fontWeight(.semibold)
+                                Spacer()
+                                Disclosure(open: true)
+                            }
+                            .padding(.horizontal, 4)
+                            .frame(height: 22)
+                            row("com.apple.Passwords", "Passwords", pinned: pinned, targets: targets)
+                            row("com.apple.shortcuts", "Shortcuts", pinned: false, targets: nil)
+                        }
+                        .demoDropdown(width: 176)
+                        .padding(.top, Demo.bar.height + 3)
+                        .padding(.trailing, 10)
+                        .transition(.opacity)
                     }
-                    StatusItems().demoPill()
                 }
-                .padding(8)
-                if (1..<5).contains(step) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Menu Bar Items").padding(.leading, 2)
-                        row("timer", .orange, "Timer", pinned: pinned)
-                        row("shield.lefthalf.filled", .blue, "VPN", pinned: false)
-                    }
-                    .demoDropdown(width: 150)
-                    .padding(.top, 36)
-                    .padding(.trailing, 8)
-                    .transition(.opacity)
-                }
-                Pointer(at: step == 0 || step == 5 ? CGPoint(x: 200, y: 96) : step == 1 ? CGPoint(x: 356, y: 20) : CGPoint(x: 271, y: 73))
-            }
-            .frame(width: Demo.size.width, height: Demo.size.height, alignment: .topTrailing)
         }
     }
 
-    private func tile(_ symbol: String, _ tint: Color) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 9, weight: .bold))
-            .frame(width: 15, height: 15)
-            .background(tint, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
-
-    private func row(_ symbol: String, _ tint: Color, _ name: String, pinned: Bool) -> some View {
+    /// A row of Control Center's Menu Bar Items; with `targets`, its pin is where the pointer goes.
+    private func row(_ bundleID: String, _ name: String, pinned: Bool, targets: Namespace.ID?) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: pinned ? "pin.fill" : "pin").font(.system(size: 9)).opacity(pinned ? 1 : 0.55).frame(width: 12)
-            tile(symbol, tint)
-            Text(name).fontWeight(.regular)
+            Image(systemName: pinned ? "pin.fill" : "pin").font(.system(size: 11)).opacity(pinned ? 1 : 0.55).frame(width: 16)
+                .background { if let targets { Color.clear.frame(width: 1, height: 1).target("pin", targets) } }
+            Image(nsImage: AppIcons.icon(bundleID)).resizable().frame(width: 18, height: 18)
+            Text(name)
+            Spacer()
         }
-        .frame(height: 20)
+        .padding(.horizontal, 4)
+        .frame(height: 24)
     }
 }
 
 /// The pointer goes to the bar, and a right-click opens LiquidBar's menu.
 private struct RightClickDemo: View {
     var body: some View {
-        Loop(steps: 5) { step in
+        Loop(steps: 5) { [0: "rest", 3: "settings"][$0] ?? "bar" } content: { step, targets in
             let open = step == 2 || step == 3
-            ZStack(alignment: .topLeading) {
-                HStack {
-                    Workspaces().demoPill()
-                    Spacer()
-                    StatusItems().demoPill()
+            DemoBar(workspaces: 3, targets: targets)
+                .overlay {
+                    Circle()
+                        .strokeBorder(.white.opacity(step == 1 ? 0.9 : 0), lineWidth: 1.5)
+                        .frame(width: 26, height: 26)
+                        .scaleEffect(step == 1 ? 1 : 0.3)
+                        .matchedGeometryEffect(id: "bar", in: targets, properties: .position, isSource: false)
                 }
-                .padding(8)
-                if open {
-                    VStack(alignment: .leading, spacing: 2) {
-                        entry("Check for Updates…", lit: false)
-                        entry("LiquidBar Settings…", lit: step == 3)
-                        Rectangle().fill(.white.opacity(0.2)).frame(height: 1).padding(.horizontal, 6).padding(.vertical, 2)
-                        entry("Quit LiquidBar", lit: false)
+                .overlay(alignment: .top) {
+                    if open {
+                        VStack(alignment: .leading, spacing: 0) {
+                            entry("Check for Updates…", lit: false)
+                            entry("LiquidBar Settings…", lit: step == 3).target("settings", targets)
+                            Rectangle().fill(.white.opacity(0.2)).frame(height: 1).padding(.horizontal, 8).padding(.vertical, 4)
+                            entry("Quit LiquidBar", lit: false)
+                        }
+                        .demoDropdown(width: 176)
+                        .padding(.top, Demo.bar.height + 3)
+                        .padding(.leading, 148)
+                        .transition(.opacity)
                     }
-                    .fontWeight(.regular)
-                    .demoDropdown(width: 150)
-                    .offset(x: 196, y: 36)
-                    .transition(.opacity)
                 }
-                Circle()
-                    .strokeBorder(.white.opacity(step == 1 ? 0.9 : 0), lineWidth: 1.5)
-                    .frame(width: 26, height: 26)
-                    .scaleEffect(step == 1 ? 1 : 0.3)
-                    .position(x: 208, y: 20)
-                Pointer(at: step == 0 ? CGPoint(x: 280, y: 100) : step == 3 ? CGPoint(x: 290, y: 64) : CGPoint(x: 208, y: 20))
-            }
         }
     }
 
     private func entry(_ title: String, lit: Bool) -> some View {
         Text(title)
-            .padding(.horizontal, 6)
-            .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(.white.opacity(lit ? 0.18 : 0)))
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(lit ? 0.14 : 0)))
     }
 }
