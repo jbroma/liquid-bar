@@ -339,6 +339,20 @@ struct OverlayGlass: View {
     }
 }
 
+/// The strip behind the whole bar, in the same glass as the dropdowns. It runs past the bar's top and sides, so of
+/// the glass's rim only the lower edge shows.
+struct BarBackground: View {
+    let style: GlassStyle
+    var preview = false
+
+    var body: some View {
+        StyledGlass(corner: 0, style: style, preview: preview)
+            .id(style)
+            .padding(.horizontal, -12)
+            .padding(.top, -12)
+    }
+}
+
 /// The fill of a bar pill or of the focused workspace in the config's bar style. Liquid keeps the flat fill:
 /// pills in the volume overlay's glass drew heavy white rims at bar height.
 struct PillFill<S: Shape>: View {

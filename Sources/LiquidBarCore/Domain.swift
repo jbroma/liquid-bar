@@ -144,10 +144,11 @@ public struct Config: Equatable, Sendable {
     /// already has its capsule. Read the result through `showsBackground`.
     public var background: Bool?
     public var showsBackground: Bool { background ?? (pills != .grouped) }
-    /// The preset. `barStyle` and `dropdownStyle` override its half; read the result through `glass`.
+    /// The preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` override its part; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?
     public var dropdownStyle: GlassStyle?
+    public var backgroundStyle: GlassStyle?
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
@@ -198,22 +199,26 @@ public enum GlassStyle: String, CaseIterable, Sendable {
     }
 }
 
-/// The effective style of each part: the bar's pills and the dropdowns' and windows' glass.
-public struct GlassPair: Equatable, Sendable {
+/// The effective style of each part: the bar's pills, the dropdowns' and windows' glass, and the strip behind the bar.
+public struct GlassParts: Equatable, Sendable {
     public let bar: GlassStyle
     public let dropdown: GlassStyle
+    public let background: GlassStyle
 
-    public init(bar: GlassStyle, dropdown: GlassStyle) {
+    public init(bar: GlassStyle, dropdown: GlassStyle, background: GlassStyle) {
         self.bar = bar
         self.dropdown = dropdown
+        self.background = background
     }
 }
 
 extension Config {
-    public var glass: GlassPair { GlassPair(bar: barStyle ?? glassStyle, dropdown: dropdownStyle ?? glassStyle) }
+    public var glass: GlassParts {
+        GlassParts(bar: barStyle ?? glassStyle, dropdown: dropdownStyle ?? glassStyle, background: backgroundStyle ?? glassStyle)
+    }
 
     /// The overrides pick something other than the preset, so no preset card describes the look.
-    public var glassIsCustom: Bool { glass != GlassPair(bar: glassStyle, dropdown: glassStyle) }
+    public var glassIsCustom: Bool { glass != GlassParts(bar: glassStyle, dropdown: glassStyle, background: glassStyle) }
 }
 
 /// A point `t` from Liquid (0) to Crystal (1), every trait moving together.

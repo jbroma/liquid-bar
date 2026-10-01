@@ -7,7 +7,7 @@ liquid-bar reads `~/.config/liquid-bar/config.json`. Every key is optional. A mi
 A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu below the pointer, in the dropdown glass: **LiquidBar Settings…** and **Quit LiquidBar**. A click outside it or Esc closes it. Opening LiquidBar again while it runs (from Finder, or `open -a LiquidBar`) also opens the Settings window. It is a standard macOS settings window that follows the system appearance, whatever the glass style. Every control in it edits the config file, and an edit to the file shows in the window right away. Its sections:
 
 - **General**: Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as System, 24-Hour, or 12-Hour (`clock24Hour`; System removes the key), and Show Seconds (`clockSeconds`). Permissions: each grant the bar can use, with an icon for its live status (green allowed, orange not asked yet, red not allowed; the words are in the tooltip) and a button that asks or opens its Privacy & Security list (see [Permissions](details.md#permissions)). Configuration: the config file's path, whether a launch agent started the bar, **Open Config File…**, which creates the file as `{}` first when it is missing, and **Reload Config**. Last, the version, a link to the GitHub repository, and the license.
-- **Appearance**: Pills, as Separate, Grouped, or None (`pills`), and Bar background (`background`). Then the seven glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one and clears both overrides. Below them, Customize picks the style of the bar (`barStyle`) and of the dropdowns (`dropdownStyle`) apart, each from the same seven. While they differ from the preset, no card is selected, Customize reads Custom, and Reset to Preset removes both keys.
+- **Appearance**: Pills, as Separate, Grouped, or None (`pills`), and Bar background (`background`). Then the seven glass styles (`glassStyle`) as cards, each with a preview of a bar pill and a dropdown. A click picks one and clears the overrides. Below them, Customize picks the style of the bar's pills (`barStyle`), of the dropdowns (`dropdownStyle`), and of the bar's background (`backgroundStyle`) apart, each from the same seven. The background row shows only while Bar background is on. While any differs from the preset, no card is selected, and Reset removes the three keys.
 - **Menu Bar Items**: the pinned apps in bar order (`pinned`). Drag a row to reorder, and its checkbox unpins it. Below them, the other apps' menu bar items, each with a checkbox that pins it.
 
 Each change rewrites the file with sorted keys and keeps every other key.
@@ -26,6 +26,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `glassStyle` | string | `"liquid"` | The glass of the dropdowns, the pills, the bar's menu, and the Accessibility window: `"liquid"`, `"dew"`, `"pearl"`, `"crystal"`, `"frost"`, `"mist"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
 | `barStyle` | string | follows `glassStyle` | The style of the bar's pills, the pinned pill, and the workspace fills. Same names as `glassStyle`. |
 | `dropdownStyle` | string | follows `glassStyle` | The style of the dropdowns, the bar's menu, and the Accessibility window. Same names. |
+| `backgroundStyle` | string | follows `glassStyle` | The style of the strip behind the bar, drawn in that style's dropdown glass. Same names. It shows only while `background` is on. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
@@ -46,7 +47,7 @@ The default clicks open the Sound, Network, and Battery settings panes for `volu
 | `mist` | Soft, light glass with gentle contrast. | A brighter 26% white fill. |
 | `obsidian` | Dark tinted glass. | A dark fill. |
 
-`glassStyle` is the preset. `barStyle` and `dropdownStyle` each override their half of it, so `{"glassStyle": "liquid", "barStyle": "crystal"}` gives crystal pills in liquid dropdowns. A missing override follows `glassStyle`. An unknown name in any of the three is a config error.
+`glassStyle` is the preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` each override their part of it, so `{"glassStyle": "liquid", "barStyle": "crystal"}` gives crystal pills over a liquid background, with liquid dropdowns. A missing override follows `glassStyle`. An unknown name in any of the four is a config error.
 
 `liquid`, `dew`, `pearl`, and `mist` use private parts of macOS's glass. If a later macOS drops them, they fall back to plain Liquid Glass.
 

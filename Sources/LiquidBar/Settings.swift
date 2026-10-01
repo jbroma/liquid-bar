@@ -490,7 +490,7 @@ private struct PreviewBackdrop: View {
     }
 }
 
-/// Bar and dropdown styles picked apart, from the same seven styles as the presets.
+/// The styles of the bar's pills, the dropdowns, and the bar's background picked apart, from the same seven styles as the presets.
 private struct CustomizeGroup: View {
     let config: Config
 
@@ -498,6 +498,9 @@ private struct CustomizeGroup: View {
         Section {
             StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
+            if config.showsBackground {
+                StylePicker(title: "Background", selected: config.glass.background, part: .background) { Setting.backgroundStyle($0).save() }
+            }
             if config.glassIsCustom {
                 LabeledContent("Custom mix") {
                     Button("Reset to \(config.glassStyle.title)") { Setting.glassStyle(config.glassStyle).save() }
@@ -509,7 +512,7 @@ private struct CustomizeGroup: View {
     }
 }
 
-private enum StylePart { case bar, dropdown }
+private enum StylePart { case bar, dropdown, background }
 
 private struct StylePicker: View {
     let title: String
@@ -552,6 +555,14 @@ private struct StyleSwatch: View {
                     .font(.system(size: 11, weight: .semibold))
                     .frame(width: 44, height: 24)
                     .background(OverlayGlass(corner: 8, style: style))
+            case .background:
+                Text("9:41")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 6)
+                    .frame(height: 16)
+                    .background { BarBackground(style: style, preview: true) }
+                    .frame(maxHeight: .infinity, alignment: .top)
             }
         }
         .foregroundStyle(Color.barWhite)
