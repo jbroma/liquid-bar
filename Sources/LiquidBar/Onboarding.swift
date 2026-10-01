@@ -13,6 +13,8 @@ final class AccessWindow {
     private(set) var waiting = false
     /// macOS's own prompt is up, so the window points at its button rather than at the list.
     private(set) var prompted = false
+    /// The tips the user has done on the bar while the window is up.
+    private(set) var tried: Set<Tip> = []
     @ObservationIgnored private var window: NSWindow?
     @ObservationIgnored private var poll: Timer?
     /// Runs once when the grant arrives while the window is open or a request waits, to restart what needed it.
@@ -47,9 +49,15 @@ final class AccessWindow {
         waiting = !granted
     }
 
+    /// The bar reports what the user did, which ticks off the matching tip.
+    func did(_ tip: Tip) {
+        if window?.isVisible == true { tried.insert(tip) }
+    }
+
     func show() {
         granted = AXIsProcessTrusted()
         waiting = false
+        tried = []
         if window == nil {
             let content = NSHostingController(rootView: AccessView(state: self, close: { [weak self] in self?.close() }))
             let window = AppWindow(contentViewController: content)
@@ -98,16 +106,15 @@ private struct AccessView: View {
         ("switch.2", .gray, "Use Control Center's Focus, AirDrop, and Bluetooth"),
         ("rectangle.3.group.fill", .purple, "Switch desktops from the bar"),
     ]
-    private let tips: [Row] = [
-        ("shift.fill", .blue, "Hold Shift over the bar to see the front app's menus"),
-        ("pin.fill", .orange, "Pin other apps' menu bar items to the bar from Control Center"),
-        ("cursorarrow.click.2", .gray, "Right-click the bar for Settings"),
-    ]
 
     var body: some View {
         VStack(spacing: 14) {
-            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
-            if state.granted { grantedBody } else if state.waiting { waitingBody } else { requestBody }
+            if state.granted {
+                TipsView(state: state, close: close)
+            } else {
+                Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 64, height: 64)
+                if state.waiting { waitingBody } else { requestBody }
+            }
         }
         .padding(.horizontal, 32)
         .padding(.top, 8)
@@ -145,16 +152,6 @@ private struct AccessView: View {
             Spacer()
             Button("Close", action: close).keyboardShortcut(.cancelAction).focusEffectDisabled()
         }
-    }
-
-    @ViewBuilder private var grantedBody: some View {
-        heading("Getting Around LiquidBar", "Three things that are easy to miss.")
-        list(tips)
-        HStack {
-            Spacer()
-            Button("Done", action: close).keyboardShortcut(.defaultAction).focusEffectDisabled()
-        }
-        .onAppear { UserDefaults.standard.set(true, forKey: AccessWindow.welcomed) }
     }
 
     private func list(_ rows: [Row]) -> some View {

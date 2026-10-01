@@ -91,7 +91,10 @@ struct MenuExtrasSection: View {
                     Text("\(model.menuExtras.count)").foregroundStyle(secondary).monospacedDigit()
                     Disclosure(open: shown)
                 }
-                .hoverButton { withAnimation(spring) { shown.toggle() } }
+                .hoverButton {
+                    withAnimation(spring) { shown.toggle() }
+                    if shown { delegate.access.did(.pin) }
+                }
                 if shown {
                     ForEach(Array(model.menuExtras.enumerated()), id: \.offset) { _, extra in row(extra) }
                         .transition(.opacity)

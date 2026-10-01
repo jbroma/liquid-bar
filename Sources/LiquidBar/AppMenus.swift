@@ -282,6 +282,7 @@ final class MenuMode {
     private func shift(_ down: Bool) {
         if down, !active, let app, show(app) {
             peeking = true
+            delegate.access.did(.shift)
         } else if !down, peeking, !dropdownOpen {
             end()
         }

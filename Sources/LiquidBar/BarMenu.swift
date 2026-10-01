@@ -10,6 +10,7 @@ final class BarMenu {
     /// `point` is the pointer in screen coordinates, `barBottom` the bar's lower edge.
     func show(at point: NSPoint, below barBottom: CGFloat) {
         close()
+        delegate.access.did(.rightClick)
         let screen = NSScreen.screens.first { $0.frame.contains(point) }?.frame ?? .zero
         // Each row is 24pt; the padding and the separator take 26pt.
         let size = NSSize(width: 220, height: delegate.updates.updater == nil ? 74 : 98)
