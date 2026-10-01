@@ -162,7 +162,8 @@ public enum Setting: Equatable, Sendable {
         case .barStyle(let style): json["barStyle"] = style?.rawValue
         case .dropdownStyle(let style): json["dropdownStyle"] = style?.rawValue
         case .backgroundStyle(let style): json["backgroundStyle"] = style?.rawValue
-        case .glassBlur(let blur): json["glassBlur"] = blur
+        // As a decimal: JSONSerialization writes the double 0.95 as 0.94999999999999996.
+        case .glassBlur(let blur): json["glassBlur"] = NSDecimalNumber(string: String(blur))
         case .pinnedOrder(let pinned): json["pinned"] = pinned
         case .nowPlaying(let on):
             let name = Widget.nowPlaying.name
