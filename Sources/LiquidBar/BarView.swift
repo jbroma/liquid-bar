@@ -546,8 +546,8 @@ nonisolated struct BarOutline: Shape {
         path.move(to: CGPoint(x: rect.minX - 20, y: top))
         path.addLine(to: CGPoint(x: from - run, y: top))
         path.addCurve(to: CGPoint(x: from, y: high), control1: CGPoint(x: from - run / 2, y: top), control2: CGPoint(x: from - run / 2, y: high))
-        // Behind the notch, where a rim must not show.
-        if edgeOnly { path.move(to: CGPoint(x: to, y: high)) } else { path.addLine(to: CGPoint(x: to, y: high)) }
+        // Straight on behind the notch, whose round corners show a little of it.
+        path.addLine(to: CGPoint(x: to, y: high))
         path.addCurve(to: CGPoint(x: to + run, y: top), control1: CGPoint(x: to + run / 2, y: high), control2: CGPoint(x: to + run / 2, y: top))
         path.addLine(to: CGPoint(x: rect.maxX + 20, y: top))
         if !edgeOnly {
