@@ -2,6 +2,16 @@
 
 What changed in each release, from the commit messages.
 
+## 0.11.0 (2026-10-01)
+
+### New
+
+- A one-time tips window shows Shift for app menus, pinning, and the right-click menu
+- The tips window demos each tip with an animation and ticks it off when done on the bar
+- A grouped pill layout, and the tips demo the real bar with app icons in the workspaces
+- The bar's background strip is a setting, off by default with grouped pills
+- The bar's background has its own glass style, picked like the pills' and the dropdowns'
+
 ## 0.10.0 (2026-09-30)
 
 ### New

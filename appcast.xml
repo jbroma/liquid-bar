@@ -3,6 +3,27 @@
     <channel>
         <title>LiquidBar</title>
         <item>
+            <title>0.11.0</title>
+            <pubDate>Thu, 01 Oct 2026 20:00:46 GMT</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.11.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[## 0.11.0 (2026-10-01)
+
+### New
+
+- A one-time tips window shows Shift for app menus, pinning, and the right-click menu
+- The tips window demos each tip with an animation and ticks it off when done on the bar
+- A grouped pill layout, and the tips demo the real bar with app icons in the workspaces
+- The bar's background strip is a setting, off by default with grouped pills
+- The bar's background has its own glass style, picked like the pills' and the dropdowns'
+
+[LiquidBar 0.11.0 on GitHub](https://github.com/jbroma/liquid-bar/releases/tag/v0.11.0)
+]]></description>
+            <enclosure url="https://github.com/jbroma/liquid-bar/releases/download/v0.11.0/LiquidBar-0.11.0.zip" sparkle:edSignature="aStUYgm4Zwr0Dwp1UbcV5sl9ZbsqhCuJmZZarI0aXb0ZEm8ip1Mdt8FUnMmU0ju6BB+JjDrAGZBnBy0sxf6TDg==" length="3255786" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>0.10.0</title>
             <pubDate>Wed, 30 Sep 2026 23:26:32 +0200</pubDate>
             <sparkle:version>11</sparkle:version>
