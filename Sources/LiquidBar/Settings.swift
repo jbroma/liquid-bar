@@ -510,6 +510,10 @@ private struct CustomizeGroup: View {
             if config.shownBackground == .glass {
                 StylePicker(title: "Background", selected: config.glass.background, part: .background) { Setting.backgroundStyle($0).save() }
             }
+            LabeledContent("Blur") {
+                Slider(value: saving(config.glassBlur, Setting.glassBlur), in: 0...1, step: 0.05)
+                    .frame(width: 220)
+            }
             if config.glassIsCustom {
                 LabeledContent("Custom mix") {
                     Button("Reset to \(config.glassStyle.title)") { Setting.glassStyle(config.glassStyle).save() }

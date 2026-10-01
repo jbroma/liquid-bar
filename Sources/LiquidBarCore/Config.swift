@@ -39,6 +39,7 @@ extension Config {
             var barStyle: String?
             var dropdownStyle: String?
             var backgroundStyle: String?
+            var glassBlur: Double?
             var workspaces: [Workspace]?
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
@@ -56,6 +57,10 @@ extension Config {
         config.barStyle = try choice(GlassStyle.self, "barStyle", raw.barStyle)
         config.dropdownStyle = try choice(GlassStyle.self, "dropdownStyle", raw.dropdownStyle)
         config.backgroundStyle = try choice(GlassStyle.self, "backgroundStyle", raw.backgroundStyle)
+        if let blur = raw.glassBlur {
+            guard (0...1).contains(blur) else { throw ConfigError(description: "glassBlur must be from 0 to 1, got \(blur)") }
+            config.glassBlur = blur
+        }
         config.clock24Hour = raw.clock24Hour
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
@@ -126,6 +131,7 @@ public enum Setting: Equatable, Sendable {
     case barStyle(GlassStyle?)
     case dropdownStyle(GlassStyle?)
     case backgroundStyle(GlassStyle?)
+    case glassBlur(Double)
 
     /// The config file's contents (nil when missing) with this change applied. Every other key stays as written.
     public func applied(to data: Data?) throws -> Data {
@@ -152,6 +158,7 @@ public enum Setting: Equatable, Sendable {
         case .barStyle(let style): json["barStyle"] = style?.rawValue
         case .dropdownStyle(let style): json["dropdownStyle"] = style?.rawValue
         case .backgroundStyle(let style): json["backgroundStyle"] = style?.rawValue
+        case .glassBlur(let blur): json["glassBlur"] = blur
         case .pinnedOrder(let pinned): json["pinned"] = pinned
         case .nowPlaying(let on):
             let name = Widget.nowPlaying.name

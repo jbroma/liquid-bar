@@ -39,6 +39,9 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"pills": "grouped", "background": true}"#).shownBackground == .glass)
     #expect(try decode(#"{"background": false}"#).shownBackground == BarBackgroundKind.none)
     #expect(throws: ConfigError.self) { try decode(#"{"background": "white"}"#) }
+    #expect(Config().glassBlur == 1)
+    #expect(try decode(#"{"glassBlur": 0.4}"#).glassBlur == 0.4)
+    #expect(throws: ConfigError.self) { try decode(#"{"glassBlur": 2}"#) }
     #expect(!Config().notchCurve)
     #expect(try decode(#"{"notchCurve": true}"#).notchCurve)
     #expect(try apply(.background(.black), to: "{}") == """

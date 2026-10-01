@@ -151,6 +151,8 @@ public struct Config: Equatable, Sendable {
     public var barStyle: GlassStyle?
     public var dropdownStyle: GlassStyle?
     public var backgroundStyle: GlassStyle?
+    /// How much the glass blurs what is behind it, from 0 (none) to 1 (as macOS draws it).
+    public var glassBlur = 1.0
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]

@@ -335,7 +335,7 @@ struct OverlayGlass: View {
 
     var body: some View {
         let shown = style ?? delegate.model.config.glass.dropdown
-        StyledGlass(corner: corner, style: shown, preview: style != nil).id(shown)
+        StyledGlass(corner: corner, style: shown, preview: style != nil, blur: delegate.model.config.glassBlur).id(shown)
     }
 }
 
@@ -348,7 +348,7 @@ struct BarBackground: View {
     var below: CGFloat = 0
 
     var body: some View {
-        StyledGlass(corner: 0, style: style, preview: preview)
+        StyledGlass(corner: 0, style: style, preview: preview, blur: delegate.model.config.glassBlur)
             .id(style)
             .padding(.horizontal, -12)
             .padding(.top, -12)
@@ -382,12 +382,28 @@ private struct StyledGlass: NSViewRepresentable {
     let style: GlassStyle
     /// A preview blurs what its own window draws under it rather than what lies behind the window.
     let preview: Bool
+    /// The config's `glassBlur`.
+    let blur: Double
 
     /// Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it, and
     /// Crystal is clear glass. Dew and Pearl fade Liquid over Crystal. Mist is the private light variant 6 with its
     /// scrim. Without the private setters, all but Crystal fall back to regular.
     /// Frost is the classic popover material, whose blur is far heavier than any Liquid Glass.
     func makeNSView(context: Context) -> NSView {
+        let tuned = BlurTunedView()
+        let glass = makeGlass()
+        glass.frame = tuned.bounds
+        glass.autoresizingMask = [.width, .height]
+        tuned.addSubview(glass)
+        tuned.blur = blur
+        return tuned
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        (view as? BlurTunedView)?.blur = blur
+    }
+
+    private func makeGlass() -> NSView {
         if style == .frost {
             let frost = NSVisualEffectView()
             frost.material = .popover
@@ -438,6 +454,55 @@ private struct StyledGlass: NSViewRepresentable {
         }
         return glass
     }
+}
 
-    func updateNSView(_ view: NSView, context: Context) {}
+/// Scales the blur of the glass inside it. macOS draws glass with one fixed blur, a radius on a private filter of the
+/// glass's backdrop layer, which this multiplies by `blur`. The layers appear only once the glass is on screen, and
+/// macOS gives the filter its own radius back whenever it updates the glass, so each backdrop layer's filters are
+/// observed and the radius set again. Where the filter is missing the glass stays as macOS draws it.
+private final class BlurTunedView: NSView {
+    var blur = 1.0 { didSet { if blur != oldValue { apply() } } }
+    /// Each backdrop layer's own radius, read before the first change.
+    private var radii: [ObjectIdentifier: Double] = [:]
+    private var observations: [ObjectIdentifier: NSKeyValueObservation] = [:]
+    /// The blur's input on the glass's filter and on the classic material's.
+    private static let inputs = ["glassBackground": "inputBlurRadius", "gaussianBlur": "inputRadius"]
+
+    override func layout() {
+        super.layout()
+        apply()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // The glass builds its layers after it is first shown.
+        for delay in [0, 0.05, 0.3] { DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.apply() } }
+    }
+
+    private func apply() {
+        guard blur < 1 || !radii.isEmpty, let layer else { return }
+        tune(layer)
+    }
+
+    private func tune(_ layer: CALayer) {
+        if NSStringFromClass(type(of: layer)) == "CABackdropLayer" {
+            for filter in layer.filters as? [NSObject] ?? [] {
+                guard let name = filter.value(forKey: "name") as? String, let input = Self.inputs[name],
+                      let radius = filter.value(forKey: input) as? Double
+                else { continue }
+                let id = ObjectIdentifier(layer)
+                let own = radii[id] ?? radius
+                radii[id] = own
+                // A filter on a layer changes only through the layer's key path. Setting it only when it differs
+                // keeps the observation below from looping.
+                if abs(radius - own * blur) > 0.001 { layer.setValue(own * blur, forKeyPath: "filters.\(name).\(input)") }
+                if observations[id] == nil {
+                    observations[id] = layer.observe(\.filters) { [weak self] _, _ in
+                        DispatchQueue.main.async { self?.apply() }
+                    }
+                }
+            }
+        }
+        layer.sublayers?.forEach(tune)
+    }
 }
