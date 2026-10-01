@@ -42,7 +42,13 @@ struct BarView: View {
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
         .frame(height: bar.height)
-        .background { if config.showsBackground { BarBackground(style: config.glass.background) } }
+        .background {
+            switch config.shownBackground {
+            case .glass: BarBackground(style: config.glass.background)
+            case .black: Color.black
+            case .none: EmptyView()
+            }
+        }
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {

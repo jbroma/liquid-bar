@@ -140,10 +140,10 @@ public struct Config: Equatable, Sendable {
     public var clockSeconds = false
     public var batteryPercent = false
     public var pills = PillLayout.separate
-    /// The glass strip behind the whole bar. Nil follows the pills: grouped pills go without it, since each side
-    /// already has its capsule. Read the result through `showsBackground`.
-    public var background: Bool?
-    public var showsBackground: Bool { background ?? (pills != .grouped) }
+    /// What is behind the whole bar. Nil follows the pills: grouped pills go without a background, since each side
+    /// already has its capsule, and the other layouts have the glass. Read the result through `shownBackground`.
+    public var background: BarBackgroundKind?
+    public var shownBackground: BarBackgroundKind { background ?? (pills == .grouped ? .none : .glass) }
     /// The preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` override its part; read the result through `glass`.
     public var glassStyle = GlassStyle.liquid
     public var barStyle: GlassStyle?
@@ -167,6 +167,11 @@ public struct Config: Equatable, Sendable {
 /// the bar.
 public enum PillLayout: String, CaseIterable, Sendable {
     case separate, grouped, none
+}
+
+/// What is behind the whole bar: a strip of glass in the background style, solid black, or nothing.
+public enum BarBackgroundKind: String, CaseIterable, Sendable {
+    case glass, black, none
 }
 
 /// The glass of the dropdowns, the bar's pills, the bar's menu, and the Accessibility window.

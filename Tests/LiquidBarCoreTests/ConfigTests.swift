@@ -32,10 +32,18 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"pills": true}"#).pills == .separate)
     #expect(throws: ConfigError.self) { try decode(#"{"pills": "round"}"#) }
     // Grouped pills go without the bar's background unless the config asks for it.
-    #expect(Config().showsBackground)
-    #expect(try !decode(#"{"pills": "grouped"}"#).showsBackground)
-    #expect(try decode(#"{"pills": "grouped", "background": true}"#).showsBackground)
-    #expect(try !decode(#"{"background": false}"#).showsBackground)
+    #expect(Config().shownBackground == .glass)
+    #expect(try decode(#"{"pills": "grouped"}"#).shownBackground == BarBackgroundKind.none)
+    #expect(try decode(#"{"pills": "grouped", "background": "black"}"#).shownBackground == .black)
+    // The boolean it was before it could be black.
+    #expect(try decode(#"{"pills": "grouped", "background": true}"#).shownBackground == .glass)
+    #expect(try decode(#"{"background": false}"#).shownBackground == BarBackgroundKind.none)
+    #expect(throws: ConfigError.self) { try decode(#"{"background": "white"}"#) }
+    #expect(try apply(.background(.black), to: "{}") == """
+        {
+          "background" : "black"
+        }
+        """)
     #expect(config.workspaces == [Workspace(id: "1"), Workspace(id: "web")])
     #expect(config.clicks["clock"] == "open -a Fantastical")
     #expect(config.clicks["volume"] == "open 'x-apple.systempreferences:com.apple.Sound-Settings.extension'")

@@ -396,7 +396,12 @@ private struct AppearancePane: View {
                     Text("None").tag(PillLayout.none)
                 }
                 .pickerStyle(.segmented)
-                Toggle("Bar background", isOn: saving(config.showsBackground, Setting.background))
+                Picker("Bar background", selection: saving(config.shownBackground, Setting.background)) {
+                    Text("Glass").tag(BarBackgroundKind.glass)
+                    Text("Black").tag(BarBackgroundKind.black)
+                    Text("None").tag(BarBackgroundKind.none)
+                }
+                .pickerStyle(.segmented)
             }
             Section {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 4), spacing: 12) {
@@ -498,7 +503,7 @@ private struct CustomizeGroup: View {
         Section {
             StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
-            if config.showsBackground {
+            if config.shownBackground == .glass {
                 StylePicker(title: "Background", selected: config.glass.background, part: .background) { Setting.backgroundStyle($0).save() }
             }
             if config.glassIsCustom {

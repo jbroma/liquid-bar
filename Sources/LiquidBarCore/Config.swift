@@ -32,8 +32,8 @@ extension Config {
             var clock24Hour: Bool?
             var clockSeconds: Bool?
             var batteryPercent: Bool?
-            var pills: PillsName?
-            var background: Bool?
+            var pills: NameOrBool?
+            var background: NameOrBool?
             var glassStyle: String?
             var barStyle: String?
             var dropdownStyle: String?
@@ -58,8 +58,8 @@ extension Config {
         config.clock24Hour = raw.clock24Hour
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
-        config.pills = try choice(PillLayout.self, "pills", raw.pills?.name) ?? config.pills
-        config.background = raw.background
+        config.pills = try choice(PillLayout.self, "pills", raw.pills?.name(on: "separate", off: "none")) ?? config.pills
+        config.background = try choice(BarBackgroundKind.self, "background", raw.background?.name(on: "glass", off: "none"))
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
@@ -77,16 +77,19 @@ extension Config {
     }
 }
 
-/// `pills` was a boolean before it had the grouped layout: true reads as "separate" and false as "none".
-private struct PillsName: Decodable {
-    let name: String
+/// `pills` and `background` were booleans before they had named values, and a boolean still reads as the name it meant.
+private enum NameOrBool: Decodable {
+    case name(String), bool(Bool)
 
     init(from decoder: Decoder) throws {
         let value = try decoder.singleValueContainer()
-        if let on = try? value.decode(Bool.self) {
-            name = on ? PillLayout.separate.rawValue : PillLayout.none.rawValue
-        } else {
-            name = try value.decode(String.self)
+        if let on = try? value.decode(Bool.self) { self = .bool(on) } else { self = .name(try value.decode(String.self)) }
+    }
+
+    func name(on: String, off: String) -> String {
+        switch self {
+        case .name(let name): name
+        case .bool(let value): value ? on : off
         }
     }
 }
@@ -109,7 +112,7 @@ public enum Setting: Equatable, Sendable {
     case clockSeconds(Bool)
     case batteryPercent(Bool)
     case pills(PillLayout)
-    case background(Bool)
+    case background(BarBackgroundKind)
     case nowPlaying(Bool)
     case pinned(String, Bool)
     /// The whole pinned list, in its new order.
@@ -136,7 +139,7 @@ public enum Setting: Equatable, Sendable {
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
         case .pills(let layout): json["pills"] = layout.rawValue
-        case .background(let on): json["background"] = on
+        case .background(let kind): json["background"] = kind.rawValue
         case .glassStyle(let style):
             json["glassStyle"] = style.rawValue
             json["barStyle"] = nil
