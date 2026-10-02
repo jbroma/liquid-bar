@@ -3,6 +3,30 @@
     <channel>
         <title>LiquidBar</title>
         <item>
+            <title>0.14.0</title>
+            <pubDate>Fri, 02 Oct 2026 11:07:19 GMT</pubDate>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.14.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[### Added
+
+- The Apple button and the workspaces grow a little under the pointer, like the pills on the right
+- Workspace numbers are the size and weight of the text on the right of the bar
+- Only the focused workspace shows its number, and empty workspaces are dots
+- Four presets, Crystal, Liquid, Frost, and Obsidian, with Crystal the default
+- Frost and Graphite replace the milky and navy presets, and glass pills are a wash on a bar with a background
+- The battery stays white while charging, and its dropdown has a wide bar with a charging animation
+
+### Fixed
+
+- A workspace keeps its width when the focus moves, so the strip stays still under the selection
+
+[LiquidBar 0.14.0 on GitHub](https://github.com/jbroma/liquid-bar/releases/tag/v0.14.0)
+]]></description>
+            <enclosure url="https://github.com/jbroma/liquid-bar/releases/download/v0.14.0/LiquidBar-0.14.0.zip" sparkle:edSignature="2tjD4OvVCbg6Wu/YOpW3D5UXdvCFh383EFkbz7fgN2Yo20KkOX8I3NQnBq36M7SGsb555AtUThh+PYpkh1uyBQ==" length="3315087" type="application/octet-stream"/>
+        </item>
+        <item>
             <title>0.13.0</title>
             <pubDate>Fri, 02 Oct 2026 01:56:46 GMT</pubDate>
             <sparkle:version>14</sparkle:version>

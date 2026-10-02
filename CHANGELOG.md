@@ -2,6 +2,21 @@
 
 All notable changes to LiquidBar, in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.14.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.14.0) - 2026-10-02
+
+### Added
+
+- The Apple button and the workspaces grow a little under the pointer, like the pills on the right
+- Workspace numbers are the size and weight of the text on the right of the bar
+- Only the focused workspace shows its number, and empty workspaces are dots
+- Four presets, Crystal, Liquid, Frost, and Obsidian, with Crystal the default
+- Frost and Graphite replace the milky and navy presets, and glass pills are a wash on a bar with a background
+- The battery stays white while charging, and its dropdown has a wide bar with a charging animation
+
+### Fixed
+
+- A workspace keeps its width when the focus moves, so the strip stays still under the selection
+
 ## [0.13.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.13.0) - 2026-10-02
 
 ### Added
