@@ -36,13 +36,9 @@ Or download `LiquidBar-<version>.zip` from [Releases](https://github.com/jbroma/
 
 A copy from Homebrew or from the zip updates itself. It checks for a new release once a day and asks before installing it. "Check for Updates…" in the bar's right-click menu checks right away, and Settings, General turns the daily check off. A copy installed with Nix leaves updates to your Nix configuration. [Updates](docs/details.md#releases-and-updates) has the details.
 
-To start it at login, copy [`Support/dev.liquidbar.plist`](Support/dev.liquidbar.plist) to `~/Library/LaunchAgents/` and run:
+To start it at login, turn on **Open at login** in Settings, General.
 
-```sh
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.liquidbar.plist
-```
-
-To build from source instead, run `make install` (needs Xcode 26). It installs the app and the launch agent. [Building from source](docs/details.md#build-from-source) lists the other `make` targets.
+To build from source instead, run `make install` (needs Xcode 26). It installs the app and a launch agent, which starts the bar at login and restarts it after a crash. [Building from source](docs/details.md#build-from-source) lists the other `make` targets.
 
 ## Requirements
 
@@ -53,7 +49,7 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 ## Settings
 
-Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has four sections. General holds the workspace source, now playing, the battery percentage, the clock format, each permission's status, the config file, and the version. Appearance sets the pills as separate, grouped, or none, in real glass or flat, the bar's background, and how much the glass blurs. It picks the look from four presets with a live preview, and Customize sets the glass of the pills, the dropdowns, and the background apart. Control Center chooses the controls in the Control Center dropdown. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag.
+Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has four sections. General holds Open at login, the workspace source, now playing, the battery percentage, the clock format, each permission's status, the config file, and the version. Appearance sets the pills as separate, grouped, or none, in real glass or flat, the bar's background, and how much the glass blurs. It picks the look from four presets with a live preview, and Customize sets the glass of the pills, the dropdowns, and the background apart. Control Center chooses the controls in the Control Center dropdown. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag.
 
 <p align="center">
   <img src="docs/images/settings-v0150.webp" width="480" alt="The Settings window on its Appearance pane, with the General, Appearance, Control Center, and Menu Bar Items panes in the sidebar: the Pills picker, the Glass pills switch, the Bar background picker, the Glass blur slider, and four glass preset cards over a busy preview backdrop, with Crystal marked as the default">

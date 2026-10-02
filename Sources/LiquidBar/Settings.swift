@@ -1,5 +1,6 @@
 import AppKit
 import LiquidBarCore
+import ServiceManagement
 import Sparkle
 import SwiftUI
 
@@ -147,6 +148,8 @@ private struct GeneralPane: View {
     var body: some View {
         Form {
             Section {
+                // A launch agent already starts the bar at login, and a login item beside it would start a second one.
+                if agent == nil { LoginToggle() }
                 Picker("Workspaces", selection: saving(config.workspaceSource, Setting.workspaceSource)) {
                     Text("Automatic").tag(WorkspaceSource.auto)
                     Text("AeroSpace").tag(WorkspaceSource.aerospace)
@@ -181,10 +184,12 @@ private struct GeneralPane: View {
                 } label: {
                     Label { Text("Config file") } icon: { IconTile(symbol: "doc.text.fill", tint: .gray) }
                 }
-                LabeledContent {
-                    Text(launcher).foregroundStyle(.secondary)
-                } label: {
-                    Label { Text("Started by") } icon: { IconTile(symbol: "power", tint: .green) }
+                if let agent {
+                    LabeledContent {
+                        Text("Launch agent \(agent)").foregroundStyle(.secondary)
+                    } label: {
+                        Label { Text("Started by") } icon: { IconTile(symbol: "power", tint: .green) }
+                    }
                 }
                 HStack {
                     Spacer()
@@ -215,10 +220,30 @@ private struct GeneralPane: View {
         .formStyle(.grouped)
     }
 
-    /// launchd names a launch agent's job after its label, and an app opened from Finder or `open` "application.…".
-    private var launcher: String {
+    /// The launch agent that started the bar. launchd names an agent's job after its label, and an app opened from
+    /// Finder, `open`, or the login items "application.…".
+    private var agent: String? {
         let job = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? ""
-        return job.isEmpty || job == "0" || job.hasPrefix("application.") ? "Opened by hand" : "Launch agent \(job)"
+        return job.isEmpty || job == "0" || job.hasPrefix("application.") ? nil : job
+    }
+}
+
+/// macOS keeps the login item, under Login Items in System Settings, so the switch reads and writes it there.
+private struct LoginToggle: View {
+    @State private var on = SMAppService.mainApp.status == .enabled
+
+    var body: some View {
+        Toggle("Open at login", isOn: Binding(get: { on }, set: { wanted in
+            do {
+                if wanted { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            } catch {
+                log.error("cannot change the login item: \(String(describing: error), privacy: .public)")
+            }
+            on = SMAppService.mainApp.status == .enabled
+            // Turned off under Login Items, the item comes back only there.
+            if wanted, !on { SMAppService.openSystemSettingsLoginItems() }
+        }))
+        .onAppear { on = SMAppService.mainApp.status == .enabled }
     }
 }
 
