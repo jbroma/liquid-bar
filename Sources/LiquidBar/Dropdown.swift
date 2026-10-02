@@ -411,8 +411,40 @@ struct PillBackground: View {
         if config.pillGlass {
             let shown = style ?? config.glass.bar
             StyledGlass(corner: height / 2, style: shown, preview: preview, blur: config.glassBlur, pill: true).id(shown)
+                .overlay { PillSheen(strength: shown.pillSheen) }
         } else {
             PillFill(shape: Capsule(), style: style)
+        }
+    }
+}
+
+/// The light on a glass pill: a lit edge, brightest along the top, and a soft glow under it. The glass's own edge
+/// takes its light from what is behind it, so over a dark wallpaper it goes dark and the pill looks flat.
+private struct PillSheen: View {
+    let strength: Double
+
+    var body: some View {
+        Capsule()
+            .fill(LinearGradient(stops: [.init(color: .white.opacity(0.16 * strength), location: 0),
+                                         .init(color: .white.opacity(0.03 * strength), location: 0.55),
+                                         .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+        Capsule()
+            .strokeBorder(LinearGradient(stops: [.init(color: .white.opacity(0.7 * strength), location: 0),
+                                                 .init(color: .white.opacity(0.18 * strength), location: 0.5),
+                                                 .init(color: .white.opacity(0.32 * strength), location: 1)],
+                                         startPoint: .top, endPoint: .bottom), lineWidth: 1)
+    }
+}
+
+extension GlassStyle {
+    /// How strongly a glass pill is lit, from the brightest styles to the clearest.
+    fileprivate var pillSheen: Double {
+        switch self {
+        case .liquid: 1
+        case .dew, .mist: 0.85
+        case .pearl: 0.65
+        case .frost, .obsidian: 0.5
+        case .crystal: 0.4
         }
     }
 }
