@@ -212,18 +212,17 @@ private struct DemoBar: View {
         .frame(height: Demo.bar.height)
     }
 
-    /// A workspace as the bar draws it: its number and its apps' icons, with the selection on the focused one.
+    /// A workspace as the bar draws it: its apps' icons or a dot, and the number and the selection on the focused one.
     private func workspace(_ index: Int) -> some View {
         let focused = index == 1
         return HStack(spacing: 4) {
-            Text("\(index + 1)")
-                .font(.system(size: 10, weight: .semibold))
-                .opacity(focused ? 0.9 : apps[index].isEmpty ? 0.35 : 0.6)
+            if focused { Text("\(index + 1)") }
+            if apps[index].isEmpty, !focused { Circle().fill(.white.opacity(0.35)).frame(width: 4, height: 4) }
             if !apps[index].isEmpty {
                 IconStack(apps: apps[index].map { WorkspaceApp(bundleID: $0, windowID: 0, focused: false) }, more: 0)
             }
         }
-        .padding(.horizontal, apps[index].isEmpty ? 7 : 6)
+        .padding(.horizontal, 7)
         .frame(minWidth: Demo.bar.item, minHeight: Demo.bar.item)
         .background(alignment: .bottom) {
             if focused {

@@ -441,7 +441,7 @@ struct WorkspaceStrip: View {
     }
 }
 
-/// A workspace shows its number (apps have none) beside a card stack of its apps' icons, or only the number when it has no windows.
+/// A workspace shows a card stack of its apps' icons, or a dot when it has no windows, and the focused one also its number (apps have none).
 /// It never changes width on hover, so the strip never shifts under the pointer; its apps show in a dropdown instead.
 struct WorkspaceButton: View {
     let id: String
@@ -453,15 +453,13 @@ struct WorkspaceButton: View {
 
     var body: some View {
         LivePill(id: .workspace(id), pulse: 0, gap: 0) { open in
+            // Like a tab of iOS's tab bar, only the focused workspace carries its label, the number. The others show
+            // their apps, or a dot when they have no windows.
+            let empty = stack.apps.isEmpty
             HStack(spacing: 4) {
-                if numbered {
-                    // The bar's own text size, so the left side reads at the weight of the right.
-                    Text(id)
-                        .foregroundStyle(Color.barWhite.opacity(focused ? 1 : stack.apps.isEmpty ? 0.4 : 0.75))
-                }
-                if !stack.apps.isEmpty {
-                    IconStack(apps: stack.apps, more: stack.more)
-                }
+                if numbered, focused { Text(id) }
+                if numbered, empty, !focused { Circle().fill(Color.barWhite.opacity(0.35)).frame(width: 4, height: 4) }
+                if !empty { IconStack(apps: stack.apps, more: stack.more) }
             }
             // Under the pointer it grows a little, as the pills on the right do, without moving its neighbours.
             .scaleEffect(open ? 1.12 : 1)
