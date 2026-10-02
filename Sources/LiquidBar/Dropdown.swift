@@ -412,10 +412,17 @@ struct PillBackground: View {
 
     var body: some View {
         let config = delegate.model.config
-        if config.pillGlass {
+        if config.pillGlass, preview || config.background == .none {
             let shown = style ?? config.glass.bar
             StyledGlass(corner: height / 2, style: shown, preview: preview, blur: blur ?? config.blur, pill: true).id(shown)
                 .overlay { PillSheen(strength: shown.pillSheen) }
+        } else if config.pillGlass {
+            // Glass never sits on glass: on a bar with a background a pill is a wash and the lit edge. A second
+            // layer of glass turned grey over the black bar and doubled the glass one.
+            let shown = style ?? config.glass.bar
+            // On black every style is the same faint wash: anything stronger reads as a grey slab.
+            Capsule().fill(config.background == .black ? Color.white.opacity(0.05) : shown.wash)
+            PillSheen(strength: config.background == .black ? min(shown.pillSheen, 0.6) : shown.pillSheen)
         } else {
             PillFill(shape: Capsule(), style: style)
         }
@@ -445,9 +452,19 @@ extension GlassStyle {
     var pillSheen: Double {
         switch self {
         case .liquid: 1
-        case .frost: 0.85
-        case .obsidian: 0.5
+        case .frost: 0.7
+        case .graphite: 0.5
         case .crystal: 0.4
+        }
+    }
+
+    /// A pill's wash on a bar that has a background.
+    fileprivate var wash: Color {
+        switch self {
+        case .crystal: .white.opacity(0.04)
+        case .liquid: .white.opacity(0.07)
+        case .frost: .white.opacity(0.12)
+        case .graphite: .black.opacity(0.3)
         }
     }
 }
@@ -495,8 +512,8 @@ struct PillFill<S: Shape>: View {
         case .crystal:
             shape.fill(.white.opacity(0.05))
             shape.stroke(.white.opacity(0.3), lineWidth: 1)
-        case .frost: shape.fill(.white.opacity(0.26))
-        case .obsidian: shape.fill(.black.opacity(0.32))
+        case .frost: shape.fill(.white.opacity(0.2))
+        case .graphite: shape.fill(.black.opacity(0.32))
         }
     }
 }
@@ -527,16 +544,34 @@ private struct StyledGlass: NSViewRepresentable {
         (view as? BlurTunedView)?.blur = blur
     }
 
+    /// A wash over the glass: Graphite's darkens it and Frost's lightens it. The glass's own tint colours regular
+    /// glass without darkening it.
+    private var wash: NSView? {
+        let color: NSColor
+        switch style {
+        case .graphite: color = NSColor(white: 0, alpha: 0.42)
+        case .frost: color = NSColor(white: 1, alpha: 0.09)
+        default: return nil
+        }
+        let view = NSView()
+        view.wantsLayer = true
+        view.layer?.backgroundColor = color.cgColor
+        view.layer?.cornerRadius = corner
+        view.layer?.cornerCurve = .continuous
+        view.autoresizingMask = [.width, .height]
+        return view
+    }
+
     /// A pill's glass, as layers from the bottom up: a private variant of the glass (nil is regular glass) and its
     /// opacity. A dropdown's glass is too heavy at a pill's height, where Liquid's lit rim fills the whole pill.
-    /// Variant 19 is clear glass with a fine bright edge: Crystal is that alone, and it is the rim of Liquid's regular
-    /// glass and of Obsidian's dark variant 16. Frost has the light, milky variant 6 over it.
+    /// Variant 19 is clear glass with a fine bright edge: Crystal is that alone, and it is the rim of Liquid's and
+    /// Graphite's regular glass. Frost is regular glass with no rim.
     private var pillLayers: [(variant: Int?, opacity: CGFloat)] {
         switch style {
         case .crystal: [(19, 1)]
         case .liquid: [(nil, 1), (19, 0.6)]
-        case .frost: [(19, 1), (6, 0.55)]
-        case .obsidian: [(16, 1), (19, 0.5)]
+        case .frost: [(nil, 1)]
+        case .graphite: [(nil, 1), (19, 0.4)]
         }
     }
 
@@ -545,13 +580,18 @@ private struct StyledGlass: NSViewRepresentable {
         guard ["set_variant:", "set_backdropGroupName:"].allSatisfy({ probe.responds(to: Selector($0)) }) else {
             // Without the private setters, the public glass nearest the style.
             probe.cornerRadius = corner
-            if style == .crystal || style == .obsidian { probe.style = .clear }
-            if style == .obsidian { probe.tintColor = .black.withAlphaComponent(0.55) }
-            return probe
+            if style == .crystal { probe.style = .clear }
+            guard let wash else { return probe }
+            let stack = FillStack()
+            for view in [probe, wash] {
+                view.autoresizingMask = [.width, .height]
+                stack.addSubview(view)
+            }
+            return stack
         }
         // In one backdrop group each layer samples what is behind the window, not the layer under it.
         let group = UUID().uuidString
-        let stack = NSView()
+        let stack = FillStack()
         for layer in pillLayers {
             let glass = NSGlassEffectView()
             glass.cornerRadius = corner
@@ -561,6 +601,7 @@ private struct StyledGlass: NSViewRepresentable {
             glass.autoresizingMask = [.width, .height]
             stack.addSubview(glass)
         }
+        if let wash { stack.addSubview(wash) }
         return stack
     }
 
@@ -568,43 +609,45 @@ private struct StyledGlass: NSViewRepresentable {
         if pill { return makePill() }
         let glass = NSGlassEffectView()
         glass.cornerRadius = corner
-        switch style {
-        case .frost:
-            // The light variant 6 with its scrim: milky glass, which the preset blurs heavily.
-            if ["set_variant:", "set_scrimState:"].allSatisfy({ glass.responds(to: Selector($0)) }) {
-                glass.setValue(6, forKey: "_variant")
-                glass.setValue(1, forKey: "_scrimState")
-            }
-            return glass
-        case .obsidian:
-            glass.style = .clear
-            glass.tintColor = .black.withAlphaComponent(0.55)
-            return glass
-        case .crystal, .liquid:
-            let crystal = NSGlassEffectView()
-            crystal.cornerRadius = corner
-            crystal.style = .clear
-            guard ["set_variant:", "set_backdropGroupName:"].allSatisfy({ glass.responds(to: Selector($0)) }) else {
-                return style == .crystal ? crystal : glass
-            }
-            // Liquid is the lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it.
-            let rim = NSGlassEffectView()
-            rim.cornerRadius = corner
+        let privateKeys = ["set_variant:", "set_backdropGroupName:"].allSatisfy { glass.responds(to: Selector($0)) }
+        let base = NSGlassEffectView()
+        base.cornerRadius = corner
+        if style == .crystal { base.style = .clear }
+        // The lit rim of the private variant 11 around regular glass, as macOS's volume overlay draws it. Liquid is
+        // that rim at full strength.
+        let rim = NSGlassEffectView()
+        rim.cornerRadius = corner
+        if privateKeys {
             rim.setValue(11, forKey: "_variant")
             rim.contentView = glass
             if style == .liquid { return rim }
-            // Crystal is clear glass with a third of that rim over it, which keeps a menu's text readable. In one
-            // backdrop group the upper glass samples what is behind the window, not the glass under it.
+            // In one backdrop group the upper glass samples what is behind the window, not the glass under it.
             let group = UUID().uuidString
-            for view in [crystal, glass, rim] { view.setValue(group, forKey: "_backdropGroupName") }
-            rim.alphaValue = 0.33
-            let stack = NSView()
-            for view in [crystal, rim] {
-                view.autoresizingMask = [.width, .height]
-                stack.addSubview(view)
-            }
-            return stack
+            for view in [base, glass, rim] { view.setValue(group, forKey: "_backdropGroupName") }
         }
+        // Crystal is clear glass with a third of the rim over it. Frost is regular glass, as macOS draws its own
+        // menus, lightened, with no rim. Graphite is regular glass darkened, with half of the rim.
+        let stack = FillStack()
+        var layers: [NSView] = [base]
+        if let wash { layers.append(wash) }
+        if privateKeys, style != .frost {
+            rim.alphaValue = style == .graphite ? 0.5 : 0.33
+            layers.append(rim)
+        }
+        for view in layers {
+            view.autoresizingMask = [.width, .height]
+            stack.addSubview(view)
+        }
+        return stack
+    }
+}
+
+/// Layers of glass on top of each other, each as large as the stack. Autoresizing alone left a layer added at zero
+/// size, like Graphite's dark wash, at zero size.
+private final class FillStack: NSView {
+    override func layout() {
+        super.layout()
+        for view in subviews where view.frame != bounds { view.frame = bounds }
     }
 }
 

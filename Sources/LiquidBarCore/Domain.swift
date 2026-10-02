@@ -182,7 +182,7 @@ public enum BarBackgroundKind: String, CaseIterable, Sendable {
 /// A glass look, for the bar's pills, the dropdowns, the bar's background, the bar's menu, and the Accessibility
 /// window. As `glassStyle` it is the preset: every part in that glass, at the preset's blur.
 public enum GlassStyle: String, CaseIterable, Sendable {
-    case crystal, liquid, frost, obsidian
+    case crystal, liquid, frost, graphite
 
     public var title: String { rawValue.capitalized }
 
@@ -190,8 +190,8 @@ public enum GlassStyle: String, CaseIterable, Sendable {
         switch self {
         case .crystal: "Clear glass with a fine lit edge"
         case .liquid: "Rich glass with a bright lit rim"
-        case .frost: "Light, milky glass that softens what is behind"
-        case .obsidian: "Dark glass, calm over busy windows"
+        case .frost: "Light frosted glass that blurs away what is behind"
+        case .graphite: "Dark frosted glass with a soft rim, calm over busy windows"
         }
     }
 
@@ -200,8 +200,8 @@ public enum GlassStyle: String, CaseIterable, Sendable {
         switch self {
         case .crystal: 0.2
         case .liquid: 0.5
-        case .frost: 0.8
-        case .obsidian: 0.4
+        case .frost: 1
+        case .graphite: 1
         }
     }
 
@@ -211,6 +211,7 @@ public enum GlassStyle: String, CaseIterable, Sendable {
         case "dew": self = .liquid
         case "pearl": self = .crystal
         case "mist": self = .frost
+        case "obsidian": self = .graphite
         default: return nil
         }
     }

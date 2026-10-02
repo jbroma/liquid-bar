@@ -25,11 +25,11 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `pillGlass` | boolean | `true` | The pills and the focused workspace are the bar style's real glass, in a version of each style made for a pill's height. `false` draws the style's flat fill. `glassBlur` applies to the glass. |
 | `background` | string | `"none"` | What is behind the whole bar: `"none"` leaves the items over the wallpaper and the windows behind the bar, `"glass"` is a strip in the background style, and `"black"` is solid black. `true` and `false`, from before it could be black, still read as `"glass"` and `"none"`. |
 | `notchCurve` | boolean | `true` | On a screen with a notch, a background's lower edge curves up 2 points into the notch's sides, so the bar is slimmer beside the notch. The lit line along the edge follows the curve. It shows only with a background. |
-| `glassStyle` | string | `"crystal"` | The preset: the glass of the pills, the dropdowns, the bar's background, the bar's menu, and the Accessibility window, and how much it blurs. `"crystal"`, `"liquid"`, `"frost"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
+| `glassStyle` | string | `"crystal"` | The preset: the glass of the pills, the dropdowns, the bar's background, the bar's menu, and the Accessibility window, and how much it blurs. `"crystal"`, `"liquid"`, `"frost"`, or `"graphite"`. See [Glass styles](#glass-styles). |
 | `barStyle` | string | follows `glassStyle` | The style of the bar's pills, the pinned pill, and the workspace fills. Same names as `glassStyle`. |
 | `dropdownStyle` | string | follows `glassStyle` | The style of the dropdowns, the bar's menu, and the Accessibility window. Same names. |
 | `backgroundStyle` | string | follows `glassStyle` | The style of the strip behind the bar, in the same glass and light as that style's glass pills, with a lit line along its lower edge. Same names. It shows only while `background` is `"glass"`. |
-| `glassBlur` | number, 0 to 1 | follows `glassStyle` | How much the glass blurs what is behind it. `1` is the blur macOS draws, and lower values show more of what is behind. Each preset has its own: `crystal` 0.2, `liquid` 0.5, `frost` 0.8, `obsidian` 0.4. |
+| `glassBlur` | number, 0 to 1 | follows `glassStyle` | How much the glass blurs what is behind it. `1` is the blur macOS draws, and lower values show more of what is behind. Each preset has its own: `crystal` 0.2, `liquid` 0.5, `frost` 1, `graphite` 1. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
@@ -44,12 +44,14 @@ The default clicks open the Sound, Network, and Battery settings panes for `volu
 | --- | --- | --- | --- | --- |
 | `crystal` | Clear glass with a faint lit rim, which keeps a menu's text readable. | Clear glass, only its fine lit edge. | A 5% white fill with a 30% white outline. | 20% |
 | `liquid` | Glass with a bright lit rim, like macOS's volume overlay. | Rich glass with a bright edge. | A flat 14% white fill. | 50% |
-| `frost` | Light, milky glass. | Light, milky glass with the fine edge. | A 26% white fill. | 80% |
-| `obsidian` | Dark tinted glass. | Dark glass with the fine edge. | A dark fill. | 40% |
+| `frost` | Lightened frosted glass with no rim, close to macOS's own menus. | Lightened frosted glass with a soft edge. | A 20% white fill. | 100% |
+| `graphite` | Dark frosted glass with a soft lit rim. | Dark frosted glass with the fine edge. | A dark fill. | 100% |
 
-`glassStyle` is the preset: it sets the glass of every part and the blur. `barStyle`, `dropdownStyle`, and `backgroundStyle` each override their part and `glassBlur` the blur, so `{"glassStyle": "liquid", "barStyle": "crystal"}` gives crystal pills with liquid dropdowns. A missing override follows the preset. An unknown name in any of the four is a config error. Versions up to 0.13 had seven styles: `dew` now reads as `liquid`, `pearl` as `crystal`, and `mist` as `frost`.
+`glassStyle` is the preset: it sets the glass of every part and the blur. `barStyle`, `dropdownStyle`, and `backgroundStyle` each override their part and `glassBlur` the blur, so `{"glassStyle": "liquid", "barStyle": "crystal"}` gives crystal pills with liquid dropdowns. A missing override follows the preset. An unknown name in any of the four is a config error. Versions up to 0.13 had seven styles: `dew` now reads as `liquid`, `pearl` as `crystal`, `mist` as `frost`, and `obsidian` as `graphite`.
 
-`crystal`, `liquid`, and `frost` use private parts of macOS's glass. If a later macOS drops them, they fall back to plain Liquid Glass. `glassBlur` changes a private setting of the glass too, and without it the glass keeps macOS's own blur.
+Glass does not sit on glass. On a bar with a background, glass or black, a glass pill is a light wash with the lit edge, and only without a background is it glass itself.
+
+`crystal`, `liquid`, and `graphite` use private parts of macOS's glass. If a later macOS drops them, they fall back to plain Liquid Glass. `glassBlur` changes a private setting of the glass too, and without it the glass keeps macOS's own blur.
 
 ## Widgets
 

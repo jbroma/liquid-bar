@@ -40,8 +40,8 @@ private func decode(_ json: String) throws -> Config {
     #expect(throws: ConfigError.self) { try decode(#"{"background": "white"}"#) }
     // Blur follows the preset until the config sets it.
     #expect(Config().blur == 0.2)
-    #expect(try decode(#"{"glassStyle": "frost"}"#).blur == 0.8)
-    #expect(try decode(#"{"glassStyle": "frost", "glassBlur": 0.4}"#).blur == 0.4)
+    #expect(try decode(#"{"glassStyle": "liquid"}"#).blur == 0.5)
+    #expect(try decode(#"{"glassStyle": "liquid", "glassBlur": 0.4}"#).blur == 0.4)
     #expect(try decode(#"{"glassBlur": 0.4}"#).glassIsCustom)
     #expect(throws: ConfigError.self) { try decode(#"{"glassBlur": 2}"#) }
     #expect(try apply(.glassBlur(0.95), to: "{}") == """
@@ -215,12 +215,12 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     #expect(Config().glass == GlassParts(bar: .crystal, dropdown: .crystal, background: .crystal))
     #expect(Config().blur == 0.2)
     #expect(!Config().glassIsCustom)
-    #expect(try decode(#"{"glassStyle": "obsidian"}"#).glassStyle == .obsidian)
-    #expect(GlassStyle.allCases.map(\.rawValue) == ["crystal", "liquid", "frost", "obsidian"])
-    #expect(GlassStyle.allCases.map(\.title) == ["Crystal", "Liquid", "Frost", "Obsidian"])
+    #expect(try decode(#"{"glassStyle": "graphite"}"#).glassStyle == .graphite)
+    #expect(GlassStyle.allCases.map(\.rawValue) == ["crystal", "liquid", "frost", "graphite"])
+    #expect(GlassStyle.allCases.map(\.title) == ["Crystal", "Liquid", "Frost", "Graphite"])
     // The three styles dropped after 0.13 read as the nearest of the four.
-    #expect(try decode(#"{"glassStyle": "dew", "barStyle": "pearl", "dropdownStyle": "mist"}"#).glass
-        == GlassParts(bar: .crystal, dropdown: .frost, background: .liquid))
+    #expect(try decode(#"{"glassStyle": "dew", "barStyle": "pearl", "dropdownStyle": "mist", "backgroundStyle": "obsidian"}"#).glass
+        == GlassParts(bar: .crystal, dropdown: .frost, background: .graphite))
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "Obsidian"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "volume"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": 1}"#) }
@@ -256,8 +256,8 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     let both = try decode(#"{"barStyle": "frost", "dropdownStyle": "liquid"}"#)
     #expect(both.glass == GlassParts(bar: .frost, dropdown: .liquid, background: .crystal))
     #expect(!(try decode(#"{"glassStyle": "liquid", "dropdownStyle": "liquid"}"#)).glassIsCustom)
-    let background = try decode(#"{"glassStyle": "liquid", "backgroundStyle": "obsidian"}"#)
-    #expect(background.glass.background == .obsidian)
+    let background = try decode(#"{"glassStyle": "liquid", "backgroundStyle": "graphite"}"#)
+    #expect(background.glass.background == .graphite)
     #expect(background.glassIsCustom)
     #expect(throws: (any Error).self) { try decode(#"{"barStyle": "Crystal"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"dropdownStyle": "volume"}"#) }
