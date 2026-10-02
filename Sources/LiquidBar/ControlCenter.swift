@@ -157,13 +157,11 @@ struct ControlCenterMenu: View {
                 BrightnessModule(state: state, controls: controls)
                 MenuSeparator()
                 tiles(controls, state)
-                MenuExtrasSection(model: model)
             }
         }
         // SwiftUI can keep this view's state from one opening to the next; like Control Center, each opens collapsed.
         .onChange(of: slot.owner == .controlCenter) { _, open in if !open { expanded = nil } }
         .task {
-            MenuExtras.refresh(model)
             controls.refresh()
             for await _ in DistributedNotificationCenter.default().notifications(named: .init("AppleInterfaceThemeChangedNotification")) {
                 controls.refresh()

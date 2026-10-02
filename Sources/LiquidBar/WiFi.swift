@@ -17,7 +17,7 @@ struct NetworkMenu: View {
     @State private var rates: (down: Double, up: Double)?
     @State private var scan: [WiFiNetwork] = []
     @State private var join = JoinState.idle
-    /// The network list starts folded, like Menu Bar Items; it folds again each time the dropdown closes.
+    /// The network list starts folded; it folds again each time the dropdown closes.
     @State private var listed = false
     @Environment(ExpansionSlot.self) private var slot
     private let location = LocationAccess.shared

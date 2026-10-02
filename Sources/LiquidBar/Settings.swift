@@ -18,8 +18,9 @@ final class SettingsWindow {
     /// Shows the window, on `section` when given.
     func show(_ section: SettingsSection? = nil) {
         if let section { self.section = section }
-        // One permission request at a time; the Accessibility row in General takes over.
-        delegate.access.close()
+        // One permission request at a time; the Accessibility row in General takes over. With access, that window
+        // shows the tips, which stay up: one of them is done here.
+        if !AXIsProcessTrusted() { delegate.access.close() }
         if window == nil {
             let window = AppWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 740, height: 560),
@@ -629,7 +630,7 @@ private struct StyleCard: View {
     }
 }
 
-/// Mirrors the pins of Control Center's Menu Bar Items: the pinned apps in bar order, which a drag reorders, then the
+/// The only place that pins: the pinned apps in bar order, which a drag reorders, then the
 /// other status items.
 private struct MenuBarItemsPane: View {
     let model: BarModel
@@ -676,7 +677,10 @@ private struct MenuBarItemsPane: View {
     /// System Settings' Menu Bar list: a checkbox, the app's icon and name.
     private func row(_ bundleID: String, label: String?, pinned: Bool) -> some View {
         HStack(spacing: 8) {
-            Toggle(AppIcons.name(bundleID), isOn: Binding(get: { pinned }, set: { Setting.pinned(bundleID, $0).save() }))
+            Toggle(AppIcons.name(bundleID), isOn: Binding(get: { pinned }, set: {
+                Setting.pinned(bundleID, $0).save()
+                if $0 { delegate.access.did(.pin) }
+            }))
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .help(pinned ? "Unpin from the Bar" : "Pin to the Bar")

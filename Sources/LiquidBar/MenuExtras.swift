@@ -70,76 +70,7 @@ final class MenuExtrasSource {
     }
 }
 
-/// The status items the bar covers, as a module of Control Center's dropdown that opens collapsed. A click on an item
-/// with a menu lists its entries inline, one item at a time; on one without, it presses the item, so its window or
-/// popover opens. The pin at a row's start moves the item onto the bar.
-struct MenuExtrasSection: View {
-    let model: BarModel
-    @State private var shown = false
-    @State private var expanded: AXUIElement?
-    @State private var hovered: AXUIElement?
-    @Environment(ExpansionSlot.self) private var slot
-
-    var body: some View {
-        if !AXIsProcessTrusted() {
-            MenuSeparator()
-            MenuButton { Permission.accessibility.request() } content: { Text("Allow Access to Menu Bar Items…").lineLimit(1) }
-                .frame(minHeight: 30)
-        } else if !model.menuExtras.isEmpty {
-            VStack(spacing: 0) {
-                MenuSeparator()
-                HeaderRow(title: "Menu Bar Items") {
-                    Text("\(model.menuExtras.count)").foregroundStyle(secondary).monospacedDigit()
-                    Disclosure(open: shown)
-                }
-                .hoverButton {
-                    withAnimation(spring) { shown.toggle() }
-                    if shown { delegate.access.did(.pin) }
-                }
-                if shown {
-                    ForEach(Array(model.menuExtras.enumerated()), id: \.offset) { _, extra in row(extra) }
-                        .transition(.opacity)
-                }
-            }
-            .onChange(of: slot.owner == .controlCenter) { _, open in if !open { (shown, expanded) = (false, nil) } }
-        }
-    }
-
-    @ViewBuilder private func row(_ extra: MenuExtra<AXUIElement>) -> some View {
-        let open = expanded == extra.handle
-        let pinned = model.config.pinned.contains(extra.bundleID)
-        MenuButton {
-            guard extra.hasMenu else {
-                slot.dismiss()
-                return AX.pressLater(extra.handle)
-            }
-            withAnimation(spring) { expanded = open ? nil : extra.handle }
-        } content: {
-            // A process without a bundle id has nothing to pin by.
-            let pinnable = !extra.bundleID.isEmpty
-            Image(systemName: pinned ? "pin.fill" : "pin")
-                .font(.system(size: 11))
-                .foregroundStyle(pinned ? Color.barWhite : secondary)
-                .frame(width: 16, height: 22)
-                .contentShape(Rectangle())
-                .opacity(pinnable && (pinned || hovered == extra.handle) ? 1 : 0)
-                .onTapGesture { Setting.pinned(extra.bundleID, !pinned).save() }
-                .allowsHitTesting(pinnable)
-                .help(pinned ? "Unpin from the Bar" : "Pin to the Bar")
-            Image(nsImage: AppIcons.icon(extra.bundleID))
-                .resizable()
-                .frame(width: 18, height: 18)
-            Text(extra.appName).lineLimit(1)
-            Spacer(minLength: 8)
-            if let label = extra.label { Text(label).foregroundStyle(secondary).lineLimit(1) }
-            if extra.hasMenu { Disclosure(open: open) }
-        }
-        .onHover { if $0 { hovered = extra.handle } else if hovered == extra.handle { hovered = nil } }
-        if open { MenuEntries(item: extra.handle, path: []) }
-    }
-}
-
-/// A pinned status item's dropdown: its menu, listed like the rows of Control Center's section.
+/// A pinned status item's dropdown: its menu.
 struct MenuExtraMenu: View {
     let extra: MenuExtra<AXUIElement>?
 
@@ -147,7 +78,7 @@ struct MenuExtraMenu: View {
         MenuBody {
             if let extra {
                 MenuTitle(title: extra.appName)
-                MenuEntries(item: extra.handle, path: [], inset: 0)
+                MenuEntries(item: extra.handle, path: [])
             }
         }
     }
@@ -192,8 +123,6 @@ struct PinnedGroup: View {
 struct MenuEntries: View {
     let item: AXUIElement
     let path: [String]
-    /// Where the top level's titles start; Control Center lines them up with its app names, after the pin and icon.
-    var inset: CGFloat = 50
     @State private var entries: [MenuEntry<AXUIElement>?] = []
     @State private var expanded: String?
     @Environment(ExpansionSlot.self) private var slot
@@ -218,7 +147,7 @@ struct MenuEntries: View {
                     .foregroundStyle(entry.enabled ? Color.barWhite : secondary)
                     .allowsHitTesting(entry.enabled)
                     .padding(.leading, indent)
-                    if open { MenuEntries(item: item, path: path + [entry.title], inset: inset) }
+                    if open { MenuEntries(item: item, path: path + [entry.title]) }
                 } else {
                     MenuSeparator().padding(.leading, indent)
                 }
@@ -231,7 +160,7 @@ struct MenuEntries: View {
     }
 
     /// Each submenu level steps in further.
-    private var indent: CGFloat { inset + 14 * CGFloat(path.count) }
+    private var indent: CGFloat { 14 * CGFloat(path.count) }
 }
 
 /// A chevron that turns down while its row is expanded.

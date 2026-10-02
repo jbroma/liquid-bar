@@ -33,7 +33,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
-| `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The pin button on a row of Control Center's Menu Bar Items section edits it, and so does the Settings window, which also reorders it. |
+| `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The Settings window's Menu Bar Items pane edits and reorders it. An item that is not pinned stays in the covered menu bar, out of reach until it is pinned. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
 The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. `clock` runs a command only if `clicks` sets one.

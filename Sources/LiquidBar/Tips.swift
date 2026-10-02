@@ -17,7 +17,7 @@ enum Tip: Int, CaseIterable {
     var detail: String {
         switch self {
         case .shift: "Hold Shift with the pointer on the bar. The workspaces turn into the menus of the app in front."
-        case .pin: "They are in Control Center, under Menu Bar Items. Pin the ones you want on the bar."
+        case .pin: "The bar covers them. Tick the ones you want on the bar in Settings, under Menu Bar Items."
         case .rightClick: "Right-click anywhere on the bar for LiquidBar's own menu."
         }
     }
@@ -25,7 +25,7 @@ enum Tip: Int, CaseIterable {
     var invitation: String {
         switch self {
         case .shift: "Try it now: hold Shift with the pointer on the bar"
-        case .pin: "Try it now: open Control Center and unfold Menu Bar Items"
+        case .pin: "Try it now: right-click the bar, open Settings, and tick an item"
         case .rightClick: "Try it now: right-click the bar"
         }
     }
@@ -202,7 +202,7 @@ private struct DemoBar: View {
                     Image(systemName: "wifi").frame(width: 16).demoItem()
                     Image(systemName: "battery.75percent").font(.system(size: 15)).demoItem()
                 }
-                Image(systemName: "switch.2").frame(width: 16).target("controlCenter", targets).demoItem()
+                Image(systemName: "switch.2").frame(width: 16).demoItem()
                 Text("9:41").demoItem(padding: 14)
             }
             .fixedSize()
@@ -254,45 +254,42 @@ private struct ShiftDemo: View {
     }
 }
 
-/// Control Center opens, a pin is clicked under Menu Bar Items, and the item appears on the bar.
+/// An item is ticked in Settings' Menu Bar Items, and it appears on the bar.
 private struct PinDemo: View {
     var body: some View {
-        Loop(steps: 6) { [0: "rest", 1: "controlCenter", 5: "rest"][$0] ?? "pin" } content: { step, targets in
-            let pinned = step >= 3 && step < 5
-            DemoBar(workspaces: 3, pinned: pinned, targets: targets)
-                .overlay(alignment: .topTrailing) {
-                    if (1..<5).contains(step) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text("Menu Bar Items").fontWeight(.semibold)
-                                Spacer()
-                                Disclosure(open: true)
-                            }
-                            .padding(.horizontal, 4)
-                            .frame(height: 22)
-                            row("com.apple.Passwords", "Passwords", pinned: pinned, targets: targets)
-                            row("com.apple.shortcuts", "Shortcuts", pinned: false, targets: nil)
-                        }
-                        .demoDropdown(width: 176)
-                        .padding(.top, Demo.bar.height + 3)
-                        .padding(.trailing, 10)
-                        .transition(.opacity)
-                    }
+        Loop(steps: 6) { [0: "rest", 5: "rest"][$0] ?? "pin" } content: { step, targets in
+            let pinned = step >= 2 && step < 5
+            VStack(spacing: 10) {
+                DemoBar(workspaces: 3, pinned: pinned, targets: targets)
+                // A corner of the Settings window.
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Menu Bar Items").font(.system(size: 11, weight: .bold)).padding(.bottom, 5)
+                    row("com.apple.Passwords", "Passwords", pinned: pinned, targets: targets)
+                    Rectangle().fill(.white.opacity(0.1)).frame(height: 1).padding(.leading, 26)
+                    row("com.apple.shortcuts", "Shortcuts", pinned: false, targets: nil)
                 }
+                .font(.system(size: 12))
+                .padding(10)
+                .frame(width: 200, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(white: 0.14)))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.12)))
+            }
         }
     }
 
-    /// A row of Control Center's Menu Bar Items; with `targets`, its pin is where the pointer goes.
+    /// A row of the Settings list; with `targets`, its checkbox is where the pointer goes.
     private func row(_ bundleID: String, _ name: String, pinned: Bool, targets: Namespace.ID?) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: pinned ? "pin.fill" : "pin").font(.system(size: 11)).opacity(pinned ? 1 : 0.55).frame(width: 16)
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                .fill(pinned ? Color.accentColor : .white.opacity(0.18))
+                .frame(width: 14, height: 14)
+                .overlay { if pinned { Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)) } }
                 .background { if let targets { Color.clear.frame(width: 1, height: 1).target("pin", targets) } }
             Image(nsImage: AppIcons.icon(bundleID)).resizable().frame(width: 18, height: 18)
             Text(name)
             Spacer()
         }
-        .padding(.horizontal, 4)
-        .frame(height: 24)
+        .frame(height: 26)
     }
 }
 
