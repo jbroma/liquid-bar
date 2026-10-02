@@ -14,6 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
     var fullscreenPoll: Timer?
+    /// The bars a window covers, whose top edge the pointer is followed to.
+    var coveredBars: [NSPanel] = []
+    var edgeMonitor: Any?
+    var edgePoll: Task<Void, Never>?
     var pendingRebuild: Task<Void, Never>?
     var missionControlSettle: Task<Void, Never>?
     /// Each screen's hover state, closed when the bar's menu opens.
@@ -178,22 +182,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Follows the on-screen windows. Hides a screen's bar while a normal window covers that whole screen: native
-    /// fullscreen on a screen without a notch, a game, a slideshow. A notched screen keeps fullscreen windows below the
-    /// camera, so its bar stays.
-    func followWindowList() {
+    /// fullscreen on a screen without a notch, a game, a slideshow. There the bar comes back with the native menu bar,
+    /// when the pointer reaches the top edge, and stays while one of its dropdowns or menus is open. A notched screen
+    /// keeps fullscreen windows below the camera, so its bar stays. Returns whether a bar shows under a covering window.
+    @discardableResult
+    func followWindowList() -> Bool {
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
-        let covering = windows.compactMap { window -> CGRect? in
-            guard window[kCGWindowLayer as String] as? Int == 0, let bounds = window[kCGWindowBounds as String] else { return nil }
-            return CGRect(dictionaryRepresentation: bounds as! CFDictionary)
+        func bounds(layer: CGWindowLevelKey, owner: String? = nil) -> [CGRect] {
+            windows.compactMap { window in
+                guard window[kCGWindowLayer as String] as? Int == Int(CGWindowLevelForKey(layer)), let bounds = window[kCGWindowBounds as String],
+                      owner == nil || window[kCGWindowOwnerName as String] as? String == owner else { return nil }
+                return CGRect(dictionaryRepresentation: bounds as! CFDictionary)
+            }
         }
+        let covering = bounds(layer: .normalWindow)
+        // In a fullscreen Space the native menu bar comes on screen when the pointer reaches the top edge, and leaves
+        // once the pointer has left it and the title bar.
+        let menuBars = bounds(layer: .mainMenuWindow, owner: "Window Server")
+        let menuOpen = NSApp.windows.contains { $0.isVisible && $0.level > barLevel && !($0 is BarPanel) }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-        for bar in panels where bar.parent == nil {
+        coveredBars = []
+        var revealed = false
+        for (bar, slot) in zip(panels.filter { $0.parent == nil }, slots) {
             guard let screen = NSScreen.screens.first(where: { $0.frame.contains(bar.frame) }) else { continue }
             // CoreGraphics measures from the top of the primary screen, AppKit from its bottom.
             let frame = CGRect(x: screen.frame.minX, y: primaryHeight - screen.frame.maxY, width: screen.frame.width, height: screen.frame.height)
             let covered = covering.contains { $0.contains(frame) }
-            if covered == bar.isVisible { covered ? bar.orderOut(nil) : bar.orderFrontRegardless() }
+            // Only a bar already showing is kept: a pulse, like the charger plugged in, must not bring a hidden one back.
+            let shown = menuBars.contains { $0.intersects(frame) } || bar.isVisible && (slot.owner != nil || menuOpen)
+            let hide = covered && !shown
+            if hide == bar.isVisible { hide ? bar.orderOut(nil) : bar.orderFrontRegardless() }
+            if covered { coveredBars.append(bar) }
+            revealed = revealed || covered && shown
         }
+        watchTopEdge(!coveredBars.isEmpty)
         // The privacy dot is a small WindowServer window at the top right, on screen only while the dot shows.
         let dot = windows.contains { window in
             guard window[kCGWindowOwnerName as String] as? String == "Window Server", (window[kCGWindowLayer as String] as? Int ?? 0) > 1000,
@@ -201,9 +223,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return rect.minY < 10 && rect.width < 40 && rect.height < 40
         }
         if model.privacyDot != dot { model.privacyDot = dot }
-        // While a fullscreen window hides a bar, the native menu bar is the way to that app's menus. Reapplied every
-        // tick, as yabai reapplies it on Space changes.
-        NativeMenuBar.setAlpha(panels.contains { $0.parent == nil && !$0.isVisible } ? 1 : 0)
+        // Reapplied every tick, as yabai reapplies it on Space changes.
+        NativeMenuBar.setAlpha(0)
+        return revealed
+    }
+
+    /// The 1s poll is too slow for the pointer reaching the top edge. While a window covers a bar, the pointer at that
+    /// screen's top edge starts a faster poll, which runs until the pointer has left the edge and the bar has hidden
+    /// again.
+    private func watchTopEdge(_ watch: Bool) {
+        if !watch {
+            edgeMonitor.map(NSEvent.removeMonitor)
+            edgeMonitor = nil
+        } else if edgeMonitor == nil {
+            edgeMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pollFromTopEdge() }
+            }
+        }
+    }
+
+    private func pollFromTopEdge() {
+        guard edgePoll == nil, pointerAtTopEdge else { return }
+        edgePoll = Task {
+            while followWindowList() || pointerAtTopEdge { try? await Task.sleep(for: .milliseconds(50)) }
+            edgePoll = nil
+        }
+    }
+
+    private var pointerAtTopEdge: Bool {
+        let pointer = NSEvent.mouseLocation
+        // NSMouseInRect counts the top edge as inside, where the pointer rests when pushed against it.
+        return coveredBars.contains { NSMouseInRect(pointer, $0.frame, false) && pointer.y >= $0.frame.maxY - 1 }
     }
 
     func apply(_ config: Config) {
