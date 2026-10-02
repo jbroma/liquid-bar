@@ -314,6 +314,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let (left, right) = (screen.auxiliaryTopLeftArea?.width, screen.auxiliaryTopRightArea?.width)
         let metrics = BarMetrics(screen: screen.frame, height: height, left: left, right: right)
         let bar = panel(frame, root: BarView(model: model).environment(slot).environment(\.bar, metrics))
+        // Set explicitly, the bar takes clicks over its whole strip, clear pixels included: a right-click beside the
+        // items opens the bar's menu rather than reaching the desktop under it.
+        bar.ignoresMouseEvents = false
         // One dropdown window on each side of the notch, from the bar down to the bottom of the screen. Their clear
         // pixels let the pointer through, as long as `ignoresMouseEvents` is never set.
         let (leftWidth, rightWidth) = (left ?? screen.frame.width / 2, right ?? screen.frame.width / 2)
