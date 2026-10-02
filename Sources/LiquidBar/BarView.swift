@@ -455,9 +455,9 @@ struct WorkspaceButton: View {
         LivePill(id: .workspace(id), pulse: 0, gap: 0) { open in
             HStack(spacing: 4) {
                 if numbered {
+                    // The bar's own text size, so the left side reads at the weight of the right.
                     Text(id)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color.barWhite.opacity(focused ? 0.9 : stack.apps.isEmpty ? 0.35 : 0.6))
+                        .foregroundStyle(Color.barWhite.opacity(focused ? 1 : stack.apps.isEmpty ? 0.4 : 0.75))
                 }
                 if !stack.apps.isEmpty {
                     IconStack(apps: stack.apps, more: stack.more)
@@ -465,7 +465,7 @@ struct WorkspaceButton: View {
             }
             // Under the pointer it grows a little, as the pills on the right do, without moving its neighbours.
             .scaleEffect(open ? 1.12 : 1)
-            .padding(.horizontal, stack.apps.isEmpty ? 7 : 6)
+            .padding(.horizontal, 7)
             .frame(minWidth: height, minHeight: height)
             .background { hoverFill(open && !focused) }
         }
