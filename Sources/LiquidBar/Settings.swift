@@ -8,7 +8,7 @@ import SwiftUI
 @Observable
 final class SettingsWindow {
     var section = SettingsSection.general
-    @ObservationIgnored private var window: AppWindow?
+    @ObservationIgnored private(set) var window: AppWindow?
 
     init() {
         DistributedNotificationCenter.default().addObserver(forName: .init("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
@@ -19,9 +19,6 @@ final class SettingsWindow {
     /// Shows the window, on `section` when given.
     func show(_ section: SettingsSection? = nil) {
         if let section { self.section = section }
-        // One permission request at a time; the Accessibility row in General takes over. With access, that window
-        // shows the tips, which stay up: one of them is done here.
-        if !AXIsProcessTrusted() { delegate.access.close() }
         if window == nil {
             let window = AppWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 740, height: 560),
@@ -215,6 +212,10 @@ private struct GeneralPane: View {
             }
             Section {
                 AboutLine()
+                HStack {
+                    Spacer()
+                    Button("Show Welcome and Tips…") { delegate.access.show() }
+                }
             }
         }
         .formStyle(.grouped)

@@ -22,7 +22,7 @@ Also in the bar:
 - The Apple logo opens a dropdown with the Apple menu's items.
 - A right-click anywhere along the top of the screen opens LiquidBar's menu: Check for Updates, Settings, and Quit.
 - The native menu bar stays hidden while the bar runs. In a fullscreen app the bar hides like the native one and slides back when the pointer reaches the top edge.
-- On first launch, three short tips with animated demos show the Shift menus, pinning, and the right-click menu, and a last page offers to open the bar at login.
+- On first launch, a welcome window asks for Accessibility access, shows the Shift menus, the right-click menu, and pinning with animated demos, and offers to open the bar at login.
 
 ## Install
 

@@ -45,12 +45,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Every Accessibility call waits at most 1s for a busy app instead of the default 6s.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
-        if !AXIsProcessTrusted() {
-            log.notice("no Accessibility access: app menus, status items and Focus are unavailable")
-            access.show()
-        } else if !UserDefaults.standard.bool(forKey: AccessWindow.welcomed) {
-            access.show()
-        }
+        if !AXIsProcessTrusted() { log.notice("no Accessibility access: app menus, status items and Focus are unavailable") }
+        // The welcome comes up once. After that a bar without access asks where its features are used.
+        if UserDefaults.standard.bool(forKey: AccessWindow.welcomed) { access.watch() } else { access.show() }
         scripts = ScriptRunner(model: model)
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         workspaces = WorkspacesSource(model: model)

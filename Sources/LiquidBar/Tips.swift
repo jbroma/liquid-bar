@@ -1,56 +1,78 @@
 import LiquidBarCore
 import SwiftUI
 
-/// What is easy to miss on the bar. Each has a looping demo in the tips window and is ticked off there once the user
-/// does it on the real bar. The last page has the Open at login switch in place of something to try.
-enum Tip: Int, CaseIterable {
-    case shift, pin, rightClick, login
+/// The pages of the first-launch window: the welcome, which asks for Accessibility access, then what is easy to miss
+/// on the bar, each with a looping demo and ticked off once the user does it on the real bar, and last the Open at
+/// login switch.
+enum Tip: CaseIterable {
+    case access, shift, rightClick, pin, login
 
-    /// A launch agent already starts the bar at login, so its page is left out.
-    static var pages: [Tip] { allCases.filter { $0 != .login || launchAgent == nil } }
+    /// The welcome leaves once access is granted, and the tips that need access come only with it. A launch agent
+    /// already starts the bar at login.
+    static func pages(granted: Bool) -> [Tip] {
+        allCases.filter {
+            switch $0 {
+            case .access: !granted
+            case .shift, .pin: granted
+            case .rightClick: true
+            case .login: launchAgent == nil
+            }
+        }
+    }
 
     var title: String {
         switch self {
+        case .access: "Welcome to LiquidBar"
         case .shift: "The Front App's Menus"
-        case .pin: "Other Apps' Menu Bar Items"
         case .rightClick: "Settings and Quit"
+        case .pin: "Other Apps' Menu Bar Items"
         case .login: "Start with Your Mac"
         }
     }
 
     var detail: String {
         switch self {
+        case .access: "Your menu bar is glass now. Allow Accessibility access and it also shows app menus and other apps' menu bar items."
         case .shift: "Hold Shift with the pointer on the bar. The workspaces turn into the menus of the app in front."
-        case .pin: "The bar covers them. Tick the ones you want on the bar in Settings, under Menu Bar Items."
         case .rightClick: "Right-click anywhere on the bar for LiquidBar's own menu."
+        case .pin: "The bar covers them. Tick the ones you want on the bar in Settings, under Menu Bar Items."
         case .login: "LiquidBar can open when you log in. You can change this later in Settings, under General."
         }
     }
 
+    /// What to do on the real bar to tick the tip off.
     var invitation: String {
         switch self {
         case .shift: "Try it now: hold Shift with the pointer on the bar"
-        case .pin: "Try it now: right-click the bar, open Settings, and tick an item"
         case .rightClick: "Try it now: right-click the bar"
-        case .login: ""
+        case .pin: "Try it now: tick an item in Settings"
+        case .access, .login: ""
         }
     }
 }
 
-/// One tip per page: its demo, what to do, and whether the user has done it yet.
+/// One page at a time, all the same size: a card, what the page is about, one line to act on, and the buttons.
 struct TipsView: View {
     let state: AccessWindow
     let close: () -> Void
-    @State private var tip = Tip.shift
+    @State private var tip: Tip
+
+    init(state: AccessWindow, close: @escaping () -> Void) {
+        self.state = state
+        self.close = close
+        _tip = State(initialValue: Tip.pages(granted: state.granted)[0])
+    }
 
     var body: some View {
-        let done = state.tried.contains(tip)
+        let pages = Tip.pages(granted: state.granted)
+        let index = pages.firstIndex(of: tip) ?? 0
         VStack(spacing: 14) {
             Group {
                 switch tip {
+                case .access: WelcomeCard()
                 case .shift: ShiftDemo()
-                case .pin: PinDemo()
                 case .rightClick: RightClickDemo()
+                case .pin: PinDemo()
                 case .login: LoginDemo()
                 }
             }
@@ -60,6 +82,7 @@ struct TipsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .environment(\.colorScheme, .dark)
             .id(tip)
+            .transition(.opacity)
             VStack(spacing: 6) {
                 Text(tip.title).font(.title2.bold())
                 Text(tip.detail)
@@ -67,37 +90,69 @@ struct TipsView: View {
                     .multilineTextAlignment(.center)
                     .frame(height: 34, alignment: .top)
             }
-            Group {
-                if tip == .login {
-                    LoginToggle().toggleStyle(.switch).controlSize(.small).fixedSize()
-                } else {
-                    Label(done ? "That's it" : tip.invitation, systemImage: done ? "checkmark.circle.fill" : "hand.point.up.left")
-                        .foregroundStyle(done ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
-                        .contentTransition(.symbolEffect(.replace))
-                        .animation(.easeOut(duration: 0.2), value: done)
-                }
-            }
-            // The switch is taller than the label, and no page may change the window's height.
-            .frame(height: 22)
+            .id(tip)
+            .transition(.opacity)
+            // The switch is taller than the labels, and no page may change the window's height.
+            action.frame(height: 22).id(tip).transition(.opacity)
             HStack {
-                Button("Back") { tip = Tip(rawValue: tip.rawValue - 1) ?? tip }
-                    .opacity(tip == Tip.pages.first ? 0 : 1)
+                Button(tip == .access ? "Not Now" : "Back") { tip = pages[tip == .access ? index + 1 : index - 1] }
+                    .opacity(index == 0 && tip != .access ? 0 : 1)
                 Spacer()
                 HStack(spacing: 6) {
-                    ForEach(Tip.pages, id: \.self) { page in
+                    ForEach(pages, id: \.self) { page in
                         Circle().fill(page == tip ? Color.primary : Color.secondary.opacity(0.4)).frame(width: 6, height: 6)
                     }
                 }
                 Spacer()
-                Button(tip == Tip.pages.last ? "Done" : "Next") {
-                    if tip == Tip.pages.last { close() } else { tip = Tip(rawValue: tip.rawValue + 1) ?? tip }
+                Button(tip == .access ? "Allow Access…" : tip == pages.last ? "Done" : "Next") {
+                    if tip == .access { state.request() } else if tip == pages.last { close() } else { tip = pages[index + 1] }
                 }
                 .keyboardShortcut(.defaultAction)
             }
             .focusEffectDisabled()
             .padding(.top, 4)
         }
+        .animation(.easeOut(duration: 0.2), value: tip)
+        .animation(.easeOut(duration: 0.2), value: state.waiting)
+        // The grant arrived: on to the first tip.
+        .onChange(of: state.granted) { if tip == .access { tip = .shift } }
         .onAppear { UserDefaults.standard.set(true, forKey: AccessWindow.welcomed) }
+    }
+
+    /// The page's one line: what happens next, what to try, or the switch.
+    @ViewBuilder private var action: some View {
+        let done = state.tried.contains(tip)
+        switch tip {
+        case .access:
+            if state.waiting {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Waiting for you to switch on LiquidBar in System Settings")
+                }
+                .foregroundStyle(.secondary)
+            } else {
+                Label("The bar works without it, with fewer features", systemImage: "info.circle").foregroundStyle(.secondary)
+            }
+        case .login:
+            LoginToggle().toggleStyle(.switch).controlSize(.small).fixedSize()
+        case .pin where !done:
+            Button("Open Menu Bar Items in Settings") { state.showSettings(.menuBarItems) }.buttonStyle(.link)
+        default:
+            Label(done ? "That's it" : tip.invitation, systemImage: done ? "checkmark.circle.fill" : "hand.point.up.left")
+                .foregroundStyle(done ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+                .contentTransition(.symbolEffect(.replace))
+                .animation(.easeOut(duration: 0.2), value: done)
+        }
+    }
+}
+
+/// The app's icon over the demos' backdrop.
+private struct WelcomeCard: View {
+    var body: some View {
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .frame(width: 84, height: 84)
+            .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
     }
 }
 

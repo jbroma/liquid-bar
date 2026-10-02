@@ -94,10 +94,9 @@ enum Permission: CaseIterable, Identifiable {
     static let askedAccessibility = "askedAccessibility"
 
     /// Shows macOS's prompt when it has not asked yet, and otherwise opens the Privacy & Security list where the user
-    /// changes the answer. Accessibility's own window steps aside first, so no two requests are on screen at once.
+    /// changes the answer.
     func request() {
         if self == .accessibility { return delegate.access.request() }
-        delegate.access.close()
         guard status == .notAsked else { return openSettings("com.apple.preference.security?\(pane)") }
         switch self {
         case .accessibility:
