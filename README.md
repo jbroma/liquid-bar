@@ -2,6 +2,8 @@
   <img src="docs/images/hero-v0150.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and the workspaces as a glass tab bar of app icons on the left, volume, Wi-Fi, battery, Control Center, and the clock as glass pills on the right, and the Control Center dropdown open below them">
 </p>
 
+LiquidBar replaces the macOS menu bar with one drawn in Liquid Glass. The left side shows your workspaces, from [AeroSpace](https://github.com/nikitabobko/AeroSpace), from macOS desktops, or as the running apps. The right side has volume, Wi-Fi, battery, Control Center, and the clock, each with a dropdown on hover. It is a native Swift and SwiftUI app with no config needed to start.
+
 ## What you get
 
 <img src="docs/images/workspaces-v0150.webp" width="100%" alt="Banner: Workspaces and menus. Workspace 4's dropdown lists T3 Code and Messages, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the top of the Edit menu open">
@@ -15,9 +17,12 @@
 Also in the bar:
 
 - Now playing for Spotify and Music. On a new track the pill slides out to show the title.
+- A Wi-Fi dropdown that lists the networks in range and joins them, and a Sound dropdown with a mute switch, the volume, and the output devices.
+- Other apps' menu bar items, pinned to the bar from Settings.
 - The Apple logo opens a dropdown with the Apple menu's items.
-- A right-click on the bar opens LiquidBar's menu: Settings and Quit.
-- The native menu bar stays hidden while the bar runs.
+- A right-click anywhere along the top of the screen opens LiquidBar's menu: Check for Updates, Settings, and Quit.
+- The native menu bar stays hidden while the bar runs. In a fullscreen app the bar hides like the native one and slides back when the pointer reaches the top edge.
+- On first launch, three short tips with animated demos show the Shift menus, pinning, and the right-click menu.
 
 ## Install
 
