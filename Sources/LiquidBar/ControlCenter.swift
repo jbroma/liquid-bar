@@ -235,13 +235,9 @@ struct ControlCenterMenu: View {
         }
     }
 
-    /// Like the Bluetooth module of macOS's Control Center: its switch, the paired devices, dimmed while Bluetooth is
-    /// off, and its settings.
+    /// The paired devices, dimmed while Bluetooth is off, and its settings. The circle on the Bluetooth row is the
+    /// switch.
     @ViewBuilder private func bluetoothDevices(_ controls: Controls, _ state: ControlState) -> some View {
-        HeaderRow(title: "Bluetooth") {
-            GlassSwitch(on: Bluetooth.canSwitch ? state.bluetooth : nil) { _ in controls.press(.bluetooth, dismiss: slot.dismiss) }
-        }
-        MenuSeparator()
         if Permission.bluetooth.status != .granted {
             MenuButton { Permission.bluetooth.request() } content: { Text("Allow Bluetooth Access…") }.frame(minHeight: 30)
         } else if state.devices.isEmpty {
@@ -259,12 +255,8 @@ struct ControlCenterMenu: View {
         SettingsButton(title: "Bluetooth Settings…", pane: "com.apple.BluetoothSettings")
     }
 
-    /// Like the AirDrop module of macOS's Control Center: its switch, and who can see this Mac while it is on.
+    /// Who can see this Mac while AirDrop is on. The circle on the AirDrop row is the switch.
     @ViewBuilder private func airDropModes(_ controls: Controls, _ state: ControlState) -> some View {
-        HeaderRow(title: "AirDrop") {
-            GlassSwitch(on: state.airDrop.map { $0 != .off }) { _ in controls.press(.airDrop, dismiss: slot.dismiss) }
-        }
-        MenuSeparator()
         ForEach([AirDropMode.contactsOnly, .everyone], id: \.self) { mode in
             ChoiceRow(symbol: mode == .everyone ? "person.2.fill" : "person.crop.circle", title: mode.rawValue, selected: state.airDrop == mode) {
                 controls.setAirDrop(mode)
