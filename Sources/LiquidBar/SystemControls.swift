@@ -170,6 +170,7 @@ enum NativeMenuBar {
         for event in events {
             _ = register({ event, _, _, context in
                 // Right here, on SkyLight's thread: a hop to the main thread costs the frames the menu bar flashes in.
+                NativeMenuBar.raiseBars()
                 NativeMenuBar.holdHidden()
                 DispatchQueue.main.async { NativeMenuBar.missionControlHandler?(context!, event == 1327) }
             }, event, context)
@@ -179,6 +180,19 @@ enum NativeMenuBar {
     nonisolated static func setAlpha(_ alpha: Float) {
         guard let connection, let set else { return }
         _ = set(connection(), 0, 1, alpha)
+    }
+
+    private nonisolated static let setLevel = systemFunction(framework, "SLSSetWindowLevel", as: (@convention(c) (Int32, UInt32, Int32) -> Int32).self)
+    /// The bars' window numbers and the level they take through Mission Control, set on the main thread whenever the
+    /// bars are built and read from SkyLight's.
+    nonisolated(unsafe) static var bars: (windows: [UInt32], level: Int32) = ([], 0)
+
+    /// Lifts the bars above the native menu bar straight through the window server, without waiting for AppKit's turn
+    /// on the main thread: until they are up, Mission Control's first frames show the native menu bar in their place.
+    nonisolated static func raiseBars() {
+        guard let connection, let setLevel else { return }
+        let bars = bars
+        for window in bars.windows { _ = setLevel(connection(), window, bars.level) }
     }
 
     private nonisolated static let holdQueue = DispatchQueue(label: "dev.liquidbar.menubar", qos: .userInteractive)

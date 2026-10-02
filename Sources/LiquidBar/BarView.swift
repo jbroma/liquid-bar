@@ -59,7 +59,7 @@ struct BarView: View {
                 case .none:
                     // While Mission Control is up, a frosted strip, as its own menu bar has: as it closes, macOS shows
                     // the native menu bar for a few frames, which a clear bar would let through.
-                    if model.missionControl { FrostedCover().transition(.opacity) }
+                    FrostedCover(shown: model.missionControl)
                 }
             }
         }
@@ -660,15 +660,25 @@ nonisolated struct BarOutline: Shape {
     }
 }
 
-/// The heaviest blur macOS has, of what is behind the window.
+/// The heaviest blur macOS has, of what is behind the window. It is always in the window, clear until `shown`: adding
+/// it then made the whole bar vanish for a frame. It appears at once and fades out.
 private struct FrostedCover: NSViewRepresentable {
+    let shown: Bool
+
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = .hudWindow
         view.blendingMode = .behindWindow
         view.state = .active
+        view.alphaValue = 0
         return view
     }
 
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        guard (view.alphaValue > 0.5) != shown else { return }
+        NSAnimationContext.runAnimationGroup { animation in
+            animation.duration = shown ? 0 : 0.12
+            view.animator().alphaValue = shown ? 1 : 0
+        }
+    }
 }

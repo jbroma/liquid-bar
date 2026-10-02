@@ -22,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var edgePoll: Task<Void, Never>?
     var pendingRebuild: Task<Void, Never>?
     var missionControlSettle: Task<Void, Never>?
+    /// Mission Control's window has been on screen since the bar was raised.
+    var missionControlSeen = false
     /// Each screen's hover state, closed when the bar's menu opens.
     var slots: [ExpansionSlot] = []
     let settings = SettingsWindow()
@@ -107,23 +109,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panels.forEach { $0.level = .init(rawValue: barLevel.rawValue + 5) }
         followWindowList()
         missionControlSettle?.cancel()
-        // The same events come with other things, like a switch of desktop, so the frosted cover waits for Mission
-        // Control's own window. It stays for a moment after that window has left, through the closing animation.
+        // Already up: this event is Mission Control closing.
+        let wasUp = missionControlSeen
+        // The frosted cover is up from the first event, since the native menu bar shows within a frame or two of it.
+        // The same events can come with other things, so it leaves again unless Mission Control's own window shows
+        // within 0.4 s, and otherwise stays until that window has left, through the closing animation.
+        model.missionControl = true
         missionControlSettle = Task {
             // Mission Control's window can take a moment to show, and is not in every reading of the window list.
-            var seen = model.missionControl, misses = 0
+            var seen = wasUp, misses = 0
             for tick in 0... {
                 guard !Task.isCancelled else { return }
                 let shown = missionControlShown()
-                if shown, !model.missionControl { model.missionControl = true }
                 seen = seen || shown
+                missionControlSeen = seen
                 misses = shown ? 0 : misses + 1
-                // Gone for three readings in a row, or never there in a second and a half: it was something else.
-                if seen ? misses >= 3 && tick > 30 : tick > 30 { break }
+                // Gone for three readings in a row once it has been up for a while, or never there.
+                if seen ? misses >= 3 && tick > 30 : tick > 8 { break }
                 try? await Task.sleep(for: .milliseconds(50))
             }
             guard !Task.isCancelled else { return }
             NativeMenuBar.stopHolding()
+            missionControlSeen = false
             model.missionControl = false
             panels.forEach { $0.level = barLevel }
         }
@@ -316,6 +323,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hiddenBars = []
         slots = NSScreen.screens.map { ExpansionSlot(screen: $0.frame) }
         panels = zip(NSScreen.screens, slots).flatMap { makePanels(for: $0, slot: $1) }
+        NativeMenuBar.bars = (panels.map { UInt32($0.windowNumber) }, Int32(barLevel.rawValue + 5))
     }
 
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {
