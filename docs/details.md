@@ -100,7 +100,10 @@ The [Release workflow](../.github/workflows/release.yml) then:
 1. Writes the release notes and `CHANGELOG.md` from the commit messages with [git-cliff](https://git-cliff.org) (`cliff.toml`). `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): `feat` commits go under Added, `fix` and `perf` under Fixed, and `chore`, `docs`, `refactor`, `test`, and `build` commits are left out, so a commit subject should read as a line of release notes.
 2. Publishes the release with the notes: the version's changelog section without its heading.
 3. Adds an entry to the top of `appcast.xml` with `scripts/appcast.py`: the version, build, and minimum macOS from `Support/Info.plist`, the zip's size and signature, and the notes.
-4. Commits `CHANGELOG.md` and `appcast.xml` to `main`. The feed changes only after the release is public, so it never points to a missing file.
+4. Writes the version and the zip's SHA-256 into the Homebrew cask, `Casks/liquid-bar.rb`.
+5. Commits `CHANGELOG.md`, `appcast.xml`, and the cask to `main`. The feed and the cask change only after the release is public, so they never point to a missing file.
+
+This repository is its own Homebrew tap: `brew tap jbroma/liquid-bar https://github.com/jbroma/liquid-bar` reads the cask from `Casks/`. The cask sets `auto_updates`, so Homebrew leaves updates to Sparkle, and `brew upgrade` skips the app unless run with `--greedy`.
 
 The [CI workflow](../.github/workflows/ci.yml) runs the tests and a release build on every push to `main` and every pull request.
 

@@ -1,6 +1,6 @@
 # The second half of `make release`. The Mac builds, notarizes, and uploads the zip to a draft release, because only it
 # holds the Developer ID and the Sparkle key. This writes the notes, publishes the release, and then adds it to
-# CHANGELOG.md and appcast.xml, so the update feed never points to a zip that is not public yet.
+# CHANGELOG.md, appcast.xml, and the Homebrew cask, so the update feed never points to a zip that is not public yet.
 name: Release
 
 on:
@@ -42,10 +42,16 @@ jobs:
         run: gh release edit "$TAG" --notes-file notes.md --draft=false --latest
       - name: Add it to the appcast
         run: python3 scripts/appcast.py "$TAG" "$ENCLOSURE" notes.md
+      - name: Point the Homebrew cask at it
+        run: |
+          gh release download "$TAG" --pattern '*.zip' --output "$RUNNER_TEMP/app.zip"
+          sha=$(sha256sum "$RUNNER_TEMP/app.zip" | cut -d' ' -f1)
+          sed -i -E "s/^  version \".*\"/  version \"${TAG#v}\"/; s/^  sha256 \".*\"/  sha256 \"$sha\"/" Casks/liquid-bar.rb
+          grep -q "sha256 \"$sha\"" Casks/liquid-bar.rb
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md appcast.xml
-          git commit --message "chore: changelog and appcast for $TAG"
+          git add CHANGELOG.md appcast.xml Casks/liquid-bar.rb
+          git commit --message "chore: changelog, appcast, and cask for $TAG"
           git push origin HEAD:main
