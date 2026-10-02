@@ -344,10 +344,14 @@ struct WorkspaceStrip: View {
     @State private var lead: CGFloat = 0
     @State private var trail: CGFloat = 0
     @State private var stripOrigin = CGPoint.zero
+    /// Where the selection last set off from, for the lens's lift.
+    @State private var origin = CGRect.zero
 
     var body: some View {
         let focused = model.workspaces.focused
         let focusedFrame = focused.flatMap { frames[$0] }
+        // In glass, the strip is a tab bar like iOS's: a glass capsule whose selection is a lens.
+        let lens = pills != .none && model.config.pillGlass
         HStack(spacing: 0) {
             ForEach(model.workspaces.ids, id: \.self) { id in
                 WorkspaceButton(
@@ -363,6 +367,7 @@ struct WorkspaceStrip: View {
                         model.focus(id)
                     }
                 }
+                .modifier(LensMagnify(lead: lead, trail: trail, from: origin, to: focusedFrame ?? .zero, frame: lens ? frames[id] : nil))
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("strip")) } action: { frames[id] = $0 }
             }
             if model.workspaces.mode != "main" {
@@ -380,12 +385,9 @@ struct WorkspaceStrip: View {
         .background(alignment: .leading) {
             if let focusedFrame {
                 let droplet = DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
-                if pills != .none, model.config.pillGlass {
-                    // Glass cannot take the droplet's shape, so its frame follows the same edges and squish.
-                    // A light wash, so it stands out from a grouped pill of the same glass under it.
+                if lens {
                     PillBackground(height: bar.item)
-                        .overlay(Capsule().fill(.white.opacity(0.08)))
-                        .modifier(DropletFrame(lead: lead, trail: trail, rest: focusedFrame.width, height: bar.item))
+                        .modifier(LensFrame(lead: lead, trail: trail, from: origin, to: focusedFrame, height: bar.item))
                 } else if pills != .none {
                     PillFill(shape: droplet).frame(height: bar.item)
                 } else {
@@ -395,6 +397,9 @@ struct WorkspaceStrip: View {
             }
         }
         .coordinateSpace(.named("strip"))
+        // The tab bar's capsule. Grouped pills already have one around the whole side.
+        .padding(.horizontal, lens && pills == .separate ? 4 : 0)
+        .background { if lens, pills == .separate { PillBackground(height: bar.pill).frame(height: bar.pill) } }
         .onGeometryChange(for: CGPoint.self) { $0.frame(in: .global).origin } action: { stripOrigin = $0 }
         .onChange(of: focusedFrame) { old, new in
             guard let new else { return }
@@ -402,10 +407,12 @@ struct WorkspaceStrip: View {
                 // Same workspace growing or shrinking (its first window arrived or its last left): both edges together.
                 return withAnimation(old == nil ? nil : spring) { (lead, trail) = (new.minX, new.maxX) }
             }
-            // A droplet: the edge in the direction of travel leaves first, the other follows 80ms later.
+            // A droplet: the edge in the direction of travel moves on a faster spring than the one behind it, so it
+            // stretches on the way, as the selection of iOS's tab bar does.
             let right = new.midX > old.midX
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) { if right { trail = new.maxX } else { lead = new.minX } }
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.8).delay(0.08)) { if right { lead = new.minX } else { trail = new.maxX } }
+            origin = CGRect(x: lead, y: 0, width: trail - lead, height: 0)
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { if right { trail = new.maxX } else { lead = new.minX } }
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { if right { lead = new.minX } else { trail = new.maxX } }
         }
         .opacity(model.workspacesConnected ? 1 : 0.4)
         .animation(spring, value: model.workspaces.mode)
@@ -446,11 +453,19 @@ struct WorkspaceButton: View {
     }
 }
 
-/// Frames a view as `DropletShape` draws its capsule: from `lead` to `trail`, flatter while it is stretched.
-nonisolated struct DropletFrame: ViewModifier, Animatable {
+/// How lifted the selection is on its way `from` one workspace `to` the next, from 0 at either end to 1 in between.
+nonisolated func lensLift(lead: CGFloat, trail: CGFloat, from: CGRect, to: CGRect) -> CGFloat {
+    let left = abs(lead - from.minX) + abs(trail - from.maxX), remaining = abs(lead - to.minX) + abs(trail - to.maxX)
+    return max(0, min(1, left / 16, remaining / 36))
+}
+
+/// Frames the glass selection of the workspaces like the lens of iOS's tab bar: from `lead` to `trail`, and on its
+/// way it lifts, growing past the strip with a brighter rim and a clearer face.
+nonisolated struct LensFrame: ViewModifier, Animatable {
     var lead: CGFloat
     var trail: CGFloat
-    let rest: CGFloat
+    let from: CGRect
+    let to: CGRect
     let height: CGFloat
 
     var animatableData: AnimatablePair<CGFloat, CGFloat> {
@@ -459,11 +474,33 @@ nonisolated struct DropletFrame: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        let width = max(trail - lead, 1)
+        let lift = lensLift(lead: lead, trail: trail, from: from, to: to)
         content
-            .frame(width: width, height: height * min(1, max(0.72, (rest / width).squareRoot())))
-            .offset(x: lead)
+            // A light wash at rest, so it stands out from the glass of the capsule under it.
+            .overlay(Capsule().fill(.white.opacity(0.08 * (1 - lift))))
+            .overlay(Capsule().strokeBorder(.white.opacity(0.45 * lift), lineWidth: 1))
+            .frame(width: max(trail - lead, 1) + 8 * lift, height: height * (1 + 0.26 * lift))
+            .offset(x: lead - 4 * lift)
             .frame(height: height)
+    }
+}
+
+/// Magnifies a workspace while the lifted lens passes over it. `frame` is the workspace's own, nil without a lens.
+nonisolated struct LensMagnify: ViewModifier, Animatable {
+    var lead: CGFloat
+    var trail: CGFloat
+    let from: CGRect
+    let to: CGRect
+    let frame: CGRect?
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lead, trail) }
+        set { (lead, trail) = (newValue.first, newValue.second) }
+    }
+
+    func body(content: Content) -> some View {
+        let under = frame.map { max(0, min(trail, $0.maxX) - max(lead, $0.minX)) / max($0.width, 1) } ?? 0
+        content.scaleEffect(1 + 0.18 * min(1, under) * lensLift(lead: lead, trail: trail, from: from, to: to))
     }
 }
 
