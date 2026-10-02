@@ -2,7 +2,7 @@
 // Run from the repo root with `make icon`.
 //
 // The icon is the workspace selector as the bar draws it: a capsule of glass with a workspace's app, the lens a few
-// points inside it around the focused workspace's app, two empty workspaces, and one more app. Glass is built
+// points inside it around the focused workspace's app, the second of four. Glass is built
 // from a mask of its shape: what is behind it is blurred and a little magnified, and light
 // catches the rim at the top left and the bottom right.
 import AppKit
@@ -135,7 +135,7 @@ func white(_ c: CGContext, _ path: CGPath, _ alpha: CGFloat = 1) { c.addPath(pat
 func fill(_ c: CGContext, _ path: CGPath) { c.addPath(path); c.fillPath() }
 
 
-let bar = CGRect(x: 112, y: 396, width: 800, height: 232), lens = CGRect(x: 312, y: 418, width: 220, height: 188)
+let bar = CGRect(x: 112, y: 396, width: 800, height: 232), lens = CGRect(x: 305, y: 418, width: 220, height: 188)
 let icon = render(aurora, [
     Glass(shapes: { c in fill(c, capsule(bar)) }),
     Glass(tint: 0.22, shapes: { c in fill(c, capsule(lens)) }),
@@ -146,8 +146,7 @@ let icon = render(aurora, [
     let size = bar.height * 0.44
     app(222, size, 0.8)
     app(lens.midX, size, 1)
-    white(c, circle(604, bar.midY, 15), 0.6)
-    white(c, circle(690, bar.midY, 15), 0.6)
+    app(608, size, 0.8)
     app(802, size, 0.8)
 }
 
