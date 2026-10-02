@@ -1,16 +1,16 @@
 <p align="center">
-  <img src="docs/images/hero-v080b.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and workspaces 1 to 9 on the left, pinned menu bar items, volume, Wi-Fi, battery, Control Center, and the clock on the right, and the top of the Control Center dropdown open below it">
+  <img src="docs/images/hero-v0150.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and the workspaces as a glass tab bar of app icons on the left, volume, Wi-Fi, battery, Control Center, and the clock as glass pills on the right, and the Control Center dropdown open below them">
 </p>
 
 ## What you get
 
-<img src="docs/images/workspaces-v080c.webp" width="100%" alt="Banner: Workspaces and menus. Workspace 2's dropdown lists Google Chrome, 1Password, and Xcode, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the top of the Edit menu open">
+<img src="docs/images/workspaces-v0150.webp" width="100%" alt="Banner: Workspaces and menus. Workspace 4's dropdown lists T3 Code and Messages, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the top of the Edit menu open">
 
-<img src="docs/images/control-center-v080c.webp" width="100%" alt="Banner: Control Center. Two Control Center dropdowns, one at rest and one with the AirDrop section unfolded to Contacts Only and Everyone, each showing Bluetooth, AirDrop, Focus, and the display and keyboard brightness sliders">
+<img src="docs/images/control-center-v0150.webp" width="100%" alt="Banner: Control Center. The top of the Control Center dropdown with Bluetooth, AirDrop, and Focus, and next to it the AirDrop section unfolded to Contacts Only, Everyone, and AirDrop Settings">
 
-<img src="docs/images/styles-v080c.webp" width="100%" alt="Banner: Seven glass styles. The top of the battery dropdown in four styles side by side, Liquid, Crystal, Mist, and Obsidian">
+<img src="docs/images/styles-v0150.webp" width="100%" alt="Banner: Four glass presets. The pills and the top of the battery dropdown in each preset side by side, Crystal, Liquid, Frost, and Graphite">
 
-<img src="docs/images/clock-battery-v080c.webp" width="100%" alt="Banner: Clock, battery, and Wi-Fi. The clock dropdown with the full date and a month calendar, and the battery dropdown with power source, status, condition, cycle count, and a Show Percentage switch">
+<img src="docs/images/clock-battery-v0150.webp" width="100%" alt="Banner: Calendar and battery. The clock dropdown with the weekday, the day number, the week, and the month, and the battery dropdown with the charge as a thick bar, its status, and the adapter">
 
 Also in the bar:
 
