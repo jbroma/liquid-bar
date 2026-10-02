@@ -311,16 +311,36 @@ private struct ShiftDemo: View {
             VStack(spacing: 0) {
                 DemoBar(menus: held, targets: targets)
                 Spacer()
-                Text("\(Image(systemName: "shift")) shift")
-                    .font(.system(size: 12, weight: .medium))
-                    .frame(width: 84, height: 30)
-                    .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(held ? 0.5 : 0.16)))
-                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(.white.opacity(0.35)))
-                    .scaleEffect(held ? 0.94 : 1)
+                ShiftKey(held: held)
                     .offset(x: -70)
-                    .padding(.bottom, 26)
+                    .padding(.bottom, 22)
             }
         }
+    }
+}
+
+/// A MacBook's Shift key: a dark keycap with its legend in the lower left corner. Held, it sinks and its legend lights
+/// up like a backlit key.
+private struct ShiftKey: View {
+    let held: Bool
+    private let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "shift").font(.system(size: 11, weight: .semibold))
+            Text("shift").font(.system(size: 12, weight: .medium))
+        }
+        .foregroundStyle(.white.opacity(held ? 1 : 0.8))
+        .shadow(color: .white.opacity(held ? 0.7 : 0), radius: 5)
+        .padding(.leading, 10)
+        .padding(.bottom, 7)
+        .frame(width: 104, height: 40, alignment: .bottomLeading)
+        .background(shape.fill(LinearGradient(colors: [Color(white: held ? 0.2 : 0.25), Color(white: held ? 0.1 : 0.14)], startPoint: .top, endPoint: .bottom)))
+        .overlay(shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.3), .white.opacity(0.05)], startPoint: .top, endPoint: .bottom)))
+        .offset(y: held ? 3 : 0)
+        // The key's side, which the cap covers as it goes down.
+        .background(shape.fill(Color(white: 0.04)).offset(y: 4))
+        .shadow(color: .black.opacity(0.4), radius: held ? 2 : 7, y: held ? 2 : 6)
     }
 }
 
