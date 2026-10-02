@@ -333,10 +333,11 @@ struct AppleButton: View {
                 // The logo's ink sits low and right of its box.
                 .offset(x: button ? -0.5 : 0, y: button ? -1 : 0)
                 .padding(.horizontal, 3)
-                .frame(width: button ? bar.pill : nil, height: button ? bar.pill : nil)
+                // Open, it widens by 3 points on each side, as the pills on the right do.
+                .frame(width: button ? bar.pill + (open ? 6 : 0) : nil, height: button ? bar.pill : nil)
                 .background {
                     if button { PillBackground(height: bar.pill) }
-                    hoverFill(open).frame(width: button ? bar.pill : bar.item, height: button ? bar.pill : bar.item)
+                    hoverFill(open).frame(width: button ? nil : bar.item, height: button ? bar.pill : bar.item)
                 }
         }
     }
@@ -462,6 +463,8 @@ struct WorkspaceButton: View {
                     IconStack(apps: stack.apps, more: stack.more)
                 }
             }
+            // Under the pointer it grows a little, as the pills on the right do, without moving its neighbours.
+            .scaleEffect(open ? 1.12 : 1)
             .padding(.horizontal, stack.apps.isEmpty ? 7 : 6)
             .frame(minWidth: height, minHeight: height)
             .background { hoverFill(open && !focused) }
