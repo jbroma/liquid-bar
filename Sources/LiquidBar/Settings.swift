@@ -149,7 +149,7 @@ private struct GeneralPane: View {
         Form {
             Section {
                 // A launch agent already starts the bar at login, and a login item beside it would start a second one.
-                if agent == nil { LoginToggle() }
+                if launchAgent == nil { LoginToggle() }
                 Picker("Workspaces", selection: saving(config.workspaceSource, Setting.workspaceSource)) {
                     Text("Automatic").tag(WorkspaceSource.auto)
                     Text("AeroSpace").tag(WorkspaceSource.aerospace)
@@ -184,9 +184,9 @@ private struct GeneralPane: View {
                 } label: {
                     Label { Text("Config file") } icon: { IconTile(symbol: "doc.text.fill", tint: .gray) }
                 }
-                if let agent {
+                if let launchAgent {
                     LabeledContent {
-                        Text("Launch agent \(agent)").foregroundStyle(.secondary)
+                        Text("Launch agent \(launchAgent)").foregroundStyle(.secondary)
                     } label: {
                         Label { Text("Started by") } icon: { IconTile(symbol: "power", tint: .green) }
                     }
@@ -220,16 +220,17 @@ private struct GeneralPane: View {
         .formStyle(.grouped)
     }
 
-    /// The launch agent that started the bar. launchd names an agent's job after its label, and an app opened from
-    /// Finder, `open`, or the login items "application.…".
-    private var agent: String? {
-        let job = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? ""
-        return job.isEmpty || job == "0" || job.hasPrefix("application.") ? nil : job
-    }
 }
 
+/// The launch agent that started the bar. launchd names an agent's job after its label, and an app opened from
+/// Finder, `open`, or the login items "application.…".
+let launchAgent: String? = {
+    let job = ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? ""
+    return job.isEmpty || job == "0" || job.hasPrefix("application.") ? nil : job
+}()
+
 /// macOS keeps the login item, under Login Items in System Settings, so the switch reads and writes it there.
-private struct LoginToggle: View {
+struct LoginToggle: View {
     @State private var on = SMAppService.mainApp.status == .enabled
 
     var body: some View {

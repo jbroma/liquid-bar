@@ -2,15 +2,19 @@ import LiquidBarCore
 import SwiftUI
 
 /// What is easy to miss on the bar. Each has a looping demo in the tips window and is ticked off there once the user
-/// does it on the real bar.
+/// does it on the real bar. The last page has the Open at login switch in place of something to try.
 enum Tip: Int, CaseIterable {
-    case shift, pin, rightClick
+    case shift, pin, rightClick, login
+
+    /// A launch agent already starts the bar at login, so its page is left out.
+    static var pages: [Tip] { allCases.filter { $0 != .login || launchAgent == nil } }
 
     var title: String {
         switch self {
         case .shift: "The Front App's Menus"
         case .pin: "Other Apps' Menu Bar Items"
         case .rightClick: "Settings and Quit"
+        case .login: "Start with Your Mac"
         }
     }
 
@@ -19,6 +23,7 @@ enum Tip: Int, CaseIterable {
         case .shift: "Hold Shift with the pointer on the bar. The workspaces turn into the menus of the app in front."
         case .pin: "The bar covers them. Tick the ones you want on the bar in Settings, under Menu Bar Items."
         case .rightClick: "Right-click anywhere on the bar for LiquidBar's own menu."
+        case .login: "LiquidBar can open when you log in. You can change this later in Settings, under General."
         }
     }
 
@@ -27,6 +32,7 @@ enum Tip: Int, CaseIterable {
         case .shift: "Try it now: hold Shift with the pointer on the bar"
         case .pin: "Try it now: right-click the bar, open Settings, and tick an item"
         case .rightClick: "Try it now: right-click the bar"
+        case .login: ""
         }
     }
 }
@@ -45,6 +51,7 @@ struct TipsView: View {
                 case .shift: ShiftDemo()
                 case .pin: PinDemo()
                 case .rightClick: RightClickDemo()
+                case .login: LoginDemo()
                 }
             }
             .frame(width: Demo.size.width, height: Demo.size.height)
@@ -60,22 +67,30 @@ struct TipsView: View {
                     .multilineTextAlignment(.center)
                     .frame(height: 34, alignment: .top)
             }
-            Label(done ? "That's it" : tip.invitation, systemImage: done ? "checkmark.circle.fill" : "hand.point.up.left")
-                .foregroundStyle(done ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
-                .contentTransition(.symbolEffect(.replace))
-                .animation(.easeOut(duration: 0.2), value: done)
+            Group {
+                if tip == .login {
+                    LoginToggle().toggleStyle(.switch).controlSize(.small).fixedSize()
+                } else {
+                    Label(done ? "That's it" : tip.invitation, systemImage: done ? "checkmark.circle.fill" : "hand.point.up.left")
+                        .foregroundStyle(done ? AnyShapeStyle(.green) : AnyShapeStyle(.secondary))
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(.easeOut(duration: 0.2), value: done)
+                }
+            }
+            // The switch is taller than the label, and no page may change the window's height.
+            .frame(height: 22)
             HStack {
                 Button("Back") { tip = Tip(rawValue: tip.rawValue - 1) ?? tip }
-                    .opacity(tip == Tip.allCases.first ? 0 : 1)
+                    .opacity(tip == Tip.pages.first ? 0 : 1)
                 Spacer()
                 HStack(spacing: 6) {
-                    ForEach(Tip.allCases, id: \.self) { page in
+                    ForEach(Tip.pages, id: \.self) { page in
                         Circle().fill(page == tip ? Color.primary : Color.secondary.opacity(0.4)).frame(width: 6, height: 6)
                     }
                 }
                 Spacer()
-                Button(tip == Tip.allCases.last ? "Done" : "Next") {
-                    if let next = Tip(rawValue: tip.rawValue + 1) { tip = next } else { close() }
+                Button(tip == Tip.pages.last ? "Done" : "Next") {
+                    if tip == Tip.pages.last { close() } else { tip = Tip(rawValue: tip.rawValue + 1) ?? tip }
                 }
                 .keyboardShortcut(.defaultAction)
             }
@@ -97,6 +112,7 @@ private enum Demo {
 /// Counts through `steps` at a steady pace, animating each change.
 private struct Loop<Content: View>: View {
     let steps: Int
+    var cursor = true
     /// Where the pointer's tip is at each step.
     let pointer: (Int) -> String
     @ViewBuilder let content: (Int, Namespace.ID) -> Content
@@ -113,6 +129,7 @@ private struct Loop<Content: View>: View {
             .overlay(alignment: .topLeading) {
                 Image(systemName: "cursorarrow")
                     .font(.system(size: 16, weight: .semibold))
+                    .opacity(cursor ? 1 : 0)
                     .shadow(color: .black.opacity(0.6), radius: 1.5, y: 1)
                     // The arrow's tip, not its middle, goes on the target.
                     .offset(x: 5, y: 8)
@@ -326,5 +343,25 @@ private struct RightClickDemo: View {
             .padding(.horizontal, 8)
             .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(lit ? 0.14 : 0)))
+    }
+}
+
+/// The Mac logs in, and the bar drops into place on its own.
+private struct LoginDemo: View {
+    var body: some View {
+        Loop(steps: 5, cursor: false) { _ in "rest" } content: { step, targets in
+            let up = step > 0
+            VStack(spacing: 0) {
+                DemoBar(targets: targets)
+                    .offset(y: up ? 0 : -Demo.bar.height)
+                    .opacity(up ? 1 : 0)
+                Spacer()
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 40))
+                    .opacity(up ? 0 : 0.9)
+                    .scaleEffect(up ? 0.7 : 1)
+                Spacer()
+            }
+        }
     }
 }
