@@ -321,13 +321,23 @@ extension EnvironmentValues {
 
 struct AppleButton: View {
     @Environment(\.bar) private var bar
+    @Environment(\.pills) private var pills
 
     var body: some View {
+        // With separate glass pills it is a round glass button beside the workspaces' capsule, as a lone button sits
+        // beside iOS's tab bar. Otherwise it is bare, inside the shared capsule or on the bar.
+        let button = pills == .separate && delegate.model.config.pillGlass
         LivePill(id: .apple, pulse: 0) { open in
             Image(systemName: "apple.logo")
                 .font(.system(size: 14, weight: .semibold))
+                // The logo's ink sits low and right of its box.
+                .offset(x: button ? -0.5 : 0, y: button ? -1 : 0)
                 .padding(.horizontal, 3)
-                .background { hoverFill(open).frame(width: bar.item, height: bar.item) }
+                .frame(width: button ? bar.pill : nil, height: button ? bar.pill : nil)
+                .background {
+                    if button { PillBackground(height: bar.pill) }
+                    hoverFill(open).frame(width: button ? bar.pill : bar.item, height: button ? bar.pill : bar.item)
+                }
         }
     }
 }
@@ -352,6 +362,8 @@ struct WorkspaceStrip: View {
         let focusedFrame = focused.flatMap { frames[$0] }
         // In glass, the strip is a tab bar like iOS's: a glass capsule whose selection is a lens.
         let lens = pills != .none && model.config.pillGlass
+        // The lens sits 3 points inside its capsule on every side, so their corners are concentric.
+        let item = lens ? bar.pill - 6 : bar.item
         HStack(spacing: 0) {
             ForEach(model.workspaces.ids, id: \.self) { id in
                 WorkspaceButton(
@@ -359,7 +371,7 @@ struct WorkspaceStrip: View {
                     numbered: model.workspaces.numbered,
                     stack: model.workspaces.stack(on: id),
                     focused: focused == id,
-                    height: bar.item
+                    height: item
                 ) {
                     if focused == id, let frame = frames[id] {
                         focusedTap(frame.offsetBy(dx: stripOrigin.x, dy: 0))
@@ -386,8 +398,8 @@ struct WorkspaceStrip: View {
             if let focusedFrame {
                 let droplet = DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
                 if lens {
-                    PillBackground(height: bar.item)
-                        .modifier(LensFrame(lead: lead, trail: trail, from: origin, to: focusedFrame, height: bar.item))
+                    PillBackground(height: item)
+                        .modifier(LensFrame(lead: lead, trail: trail, from: origin, to: focusedFrame, height: item))
                 } else if pills != .none {
                     PillFill(shape: droplet).frame(height: bar.item)
                 } else {
@@ -398,7 +410,7 @@ struct WorkspaceStrip: View {
         }
         .coordinateSpace(.named("strip"))
         // The tab bar's capsule. Grouped pills already have one around the whole side.
-        .padding(.horizontal, lens && pills == .separate ? 4 : 0)
+        .padding(.horizontal, lens && pills == .separate ? 3 : 0)
         .background { if lens, pills == .separate { PillBackground(height: bar.pill).frame(height: bar.pill) } }
         .onGeometryChange(for: CGPoint.self) { $0.frame(in: .global).origin } action: { stripOrigin = $0 }
         .onChange(of: focusedFrame) { old, new in
