@@ -59,6 +59,12 @@ Everything else, like widget order, click commands, and script widgets, lives in
 
 The bar uses private macOS frameworks (SkyLight, DisplayServices, CoreBrightness) where no public API exists. A macOS update can break one of those features, but the bar loads each one at runtime, so a missing framework costs that feature and never crashes the bar. While the bar runs, the native menu bar is invisible. If the bar quits, macOS brings the native menu bar back. [Details](docs/details.md) covers behavior, permissions, and migrating from SketchyBar.
 
+## Contributing
+
+Bugs and feature requests go to [Issues](https://github.com/jbroma/liquid-bar/issues/new/choose), which has a short form for each. Questions, ideas, and screenshots of your bar go to [Discussions](https://github.com/jbroma/liquid-bar/discussions).
+
+Pull requests are welcome, from people and from coding agents. `make run` builds and opens the bar, and it needs no signing identity. `swift test` runs the unit tests. [AGENTS.md](AGENTS.md) has the build rules and the commit format, which matters because commit subjects become the release notes.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or setup help
+    url: https://github.com/jbroma/liquid-bar/discussions/categories/q-a
+    about: Ask how to set something up, or why the bar does what it does.
+  - name: Show your bar
+    url: https://github.com/jbroma/liquid-bar/discussions/categories/show-and-tell
+    about: Share a screenshot or your config.

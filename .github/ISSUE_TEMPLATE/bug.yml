@@ -1,0 +1,57 @@
+name: Bug report
+description: Something in the bar looks or behaves wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: A screenshot or a short recording helps most with anything visual.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a fullscreen app
+        2. Move the pointer to the top edge
+  - type: input
+    id: version
+    attributes:
+      label: LiquidBar version
+      description: Settings, General shows it at the bottom.
+      placeholder: 0.15.0
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "26.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: display
+    attributes:
+      label: Where does it happen?
+      options:
+        - Built-in display with a notch
+        - Built-in display without a notch
+        - External display
+        - Every display
+  - type: dropdown
+    id: workspaces
+    attributes:
+      label: Workspaces come from
+      options:
+        - AeroSpace
+        - macOS desktops
+        - Running apps
+        - Not sure
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: The contents of `~/.config/liquid-bar/config.json`, if you changed anything.
+      render: json
