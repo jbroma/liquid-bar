@@ -369,10 +369,22 @@ final class VolumeSource {
         return noErr
     }
 
+    private let devicesChanged: AudioObjectPropertyListenerProc = { _, _, _, context in
+        let source = Unmanaged<VolumeSource>.fromOpaque(context!)
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { source.takeUnretainedValue().model.audioDevicesChanges += 1 }
+        }
+        return noErr
+    }
+
     init(model: BarModel) {
         self.model = model
+        let system = AudioObjectID(kAudioObjectSystemObject), context = Unmanaged.passUnretained(self).toOpaque()
         var addr = defaultOutput
-        AudioObjectAddPropertyListener(AudioObjectID(kAudioObjectSystemObject), &addr, changed, Unmanaged.passUnretained(self).toOpaque())
+        AudioObjectAddPropertyListener(system, &addr, changed, context)
+        // A device that connects without becoming the output, or after the dropdown opened.
+        var devices = address(kAudioHardwarePropertyDevices)
+        AudioObjectAddPropertyListener(system, &devices, devicesChanged, context)
         followDefaultDevice()
     }
 

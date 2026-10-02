@@ -7,6 +7,10 @@ struct VolumeMenu: View {
     let model: BarModel
     @State private var devices: [OutputDevice] = []
     @State private var current: AudioObjectID = 0
+    /// Paired Bluetooth headphones and speakers that are not connected, which CoreAudio does not list.
+    @State private var paired: [BluetoothDevice] = []
+    /// The one being connected, by address.
+    @State private var connecting: String?
     @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
@@ -36,6 +40,14 @@ struct VolumeMenu: View {
                     Text(device.name).lineLimit(1)
                 }
             }
+            ForEach(paired) { device in
+                MenuButton { connect(device) } content: {
+                    DeviceIcon(symbol: device.symbol, selected: false)
+                    Text(device.name).lineLimit(1)
+                    Spacer(minLength: 8)
+                    if connecting == device.id { ProgressView().controlSize(.small) }
+                }
+            }
             // CoreAudio lists an AirPlay receiver only while it plays; Control Center's Sound module lists them all.
             MenuButton {
                 slot.dismiss()
@@ -47,10 +59,34 @@ struct VolumeMenu: View {
             MenuSeparator()
             SettingsButton(title: "Sound Settings…", pane: "com.apple.Sound-Settings.extension")
         }
-        // Switching devices changes the name the source reports, which re-reads the list and the current one.
-        .task(id: volume.device) {
+        // Switching devices changes the name the source reports, and a device coming or going changes the count; both
+        // read the list and the current one again.
+        .task(id: [volume.device, "\(model.audioDevicesChanges)"]) {
             devices = outputDevices()
             current = defaultOutputDevice()
+            // Only with Bluetooth access already given: opening this dropdown never asks for it.
+            guard Permission.bluetooth.status == .granted else { return }
+            let audio: Set<String> = ["airpods", "airpodspro", "airpodsmax", "headphones", "hifispeaker"]
+            paired = await Bluetooth.read().devices.filter { device in
+                audio.contains(device.symbol) && !device.connected && !devices.contains { $0.name == device.name }
+            }
+        }
+    }
+
+    /// Connects paired headphones and makes them the output once CoreAudio lists them, as picking them in macOS's
+    /// Sound menu does.
+    private func connect(_ device: BluetoothDevice) {
+        connecting = device.id
+        Task {
+            await Bluetooth.toggle(device.id)
+            for _ in 0..<20 {
+                if let output = outputDevices().first(where: { $0.name == device.name }) {
+                    setDefaultOutputDevice(output.id)
+                    break
+                }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            connecting = nil
         }
     }
 }
