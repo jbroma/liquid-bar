@@ -391,10 +391,12 @@ struct WorkspaceMenu: View {
 struct OverlayGlass: View {
     let corner: CGFloat
     var style: GlassStyle?
+    /// A preset's blur, for its preview; otherwise the config's.
+    var blur: Double?
 
     var body: some View {
         let shown = style ?? delegate.model.config.glass.dropdown
-        StyledGlass(corner: corner, style: shown, preview: style != nil, blur: delegate.model.config.glassBlur).id(shown)
+        StyledGlass(corner: corner, style: shown, preview: style != nil, blur: blur ?? delegate.model.config.blur).id(shown)
     }
 }
 
@@ -405,12 +407,14 @@ struct PillBackground: View {
     var style: GlassStyle?
     /// A preview blurs what its own window draws under it.
     var preview = false
+    /// A preset's blur, for its preview; otherwise the config's.
+    var blur: Double?
 
     var body: some View {
         let config = delegate.model.config
         if config.pillGlass {
             let shown = style ?? config.glass.bar
-            StyledGlass(corner: height / 2, style: shown, preview: preview, blur: config.glassBlur, pill: true).id(shown)
+            StyledGlass(corner: height / 2, style: shown, preview: preview, blur: blur ?? config.blur, pill: true).id(shown)
                 .overlay { PillSheen(strength: shown.pillSheen) }
         } else {
             PillFill(shape: Capsule(), style: style)
@@ -460,7 +464,7 @@ struct BarBackground: View {
     var body: some View {
         let strength = style.pillSheen
         let lit = Color.white.opacity(0.4 * strength)
-        let glass = StyledGlass(corner: 0, style: style, preview: preview, blur: delegate.model.config.glassBlur, pill: true)
+        let glass = StyledGlass(corner: 0, style: style, preview: preview, blur: delegate.model.config.blur, pill: true)
             .id(style)
             .padding(.horizontal, -12)
             .padding(.top, -12)

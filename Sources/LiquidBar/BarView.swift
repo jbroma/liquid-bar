@@ -42,18 +42,18 @@ struct BarView: View {
         .frame(maxWidth: .infinity)
         .frame(height: bar.height)
         .background(alignment: .top) {
-            if config.notchCurve, config.shownBackground != .none, let left = bar.left, let right = bar.right {
+            if config.notchCurve, config.background != .none, let left = bar.left, let right = bar.right {
                 // The background's lower edge rises into the notch's sides, so the bar is slimmer beside it.
                 let outline = BarOutline(notch: left...(bar.screen.width - right), top: bar.height)
                 Group {
-                    if config.shownBackground == .black {
+                    if config.background == .black {
                         outline.fill(.black)
                     } else {
                         BarBackground(style: config.glass.background, outline: outline)
                     }
                 }
             } else {
-                switch config.shownBackground {
+                switch config.background {
                 case .glass: BarBackground(style: config.glass.background)
                 case .black: Color.black
                 case .none: EmptyView()

@@ -32,15 +32,17 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"pills": true}"#).pills == .separate)
     #expect(throws: ConfigError.self) { try decode(#"{"pills": "round"}"#) }
     // Grouped pills go without the bar's background unless the config asks for it.
-    #expect(Config().shownBackground == .glass)
-    #expect(try decode(#"{"pills": "grouped"}"#).shownBackground == BarBackgroundKind.none)
-    #expect(try decode(#"{"pills": "grouped", "background": "black"}"#).shownBackground == .black)
+    #expect(Config().background == BarBackgroundKind.none)
+    #expect(try decode(#"{"background": "black"}"#).background == .black)
     // The boolean it was before it could be black.
-    #expect(try decode(#"{"pills": "grouped", "background": true}"#).shownBackground == .glass)
-    #expect(try decode(#"{"background": false}"#).shownBackground == BarBackgroundKind.none)
+    #expect(try decode(#"{"background": true}"#).background == .glass)
+    #expect(try decode(#"{"background": false}"#).background == BarBackgroundKind.none)
     #expect(throws: ConfigError.self) { try decode(#"{"background": "white"}"#) }
-    #expect(Config().glassBlur == 1)
-    #expect(try decode(#"{"glassBlur": 0.4}"#).glassBlur == 0.4)
+    // Blur follows the preset until the config sets it.
+    #expect(Config().blur == 0.1)
+    #expect(try decode(#"{"glassStyle": "frost"}"#).blur == 1)
+    #expect(try decode(#"{"glassStyle": "frost", "glassBlur": 0.4}"#).blur == 0.4)
+    #expect(try decode(#"{"glassBlur": 0.4}"#).glassIsCustom)
     #expect(throws: ConfigError.self) { try decode(#"{"glassBlur": 2}"#) }
     #expect(try apply(.glassBlur(0.95), to: "{}") == """
         {
@@ -49,8 +51,8 @@ private func decode(_ json: String) throws -> Config {
         """)
     #expect(Config().pillGlass)
     #expect(try !decode(#"{"pillGlass": false}"#).pillGlass)
-    #expect(!Config().notchCurve)
-    #expect(try decode(#"{"notchCurve": true}"#).notchCurve)
+    #expect(Config().notchCurve)
+    #expect(try !decode(#"{"notchCurve": false}"#).notchCurve)
     #expect(try apply(.background(.black), to: "{}") == """
         {
           "background" : "black"
@@ -209,7 +211,10 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
 }
 
 @Test func decodesTheGlassStyle() throws {
-    #expect(try decode("{}").glassStyle == .liquid)
+    #expect(try decode("{}").glassStyle == .crystal)
+    // Crystal's dropdowns are Pearl, which leaves a menu's text readable.
+    #expect(Config().glass == GlassParts(bar: .crystal, dropdown: .pearl, background: .crystal))
+    #expect(!Config().glassIsCustom)
     #expect(try decode(#"{"glassStyle": "obsidian"}"#).glassStyle == .obsidian)
     #expect(try decode(#"{"glassStyle": "dew"}"#).glassStyle == .dew)
     #expect(try decode(#"{"glassStyle": "pearl"}"#).glassStyle == .pearl)
@@ -258,7 +263,7 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
     #expect(bar.glass == GlassParts(bar: .crystal, dropdown: .mist, background: .mist))
     #expect(bar.glassIsCustom)
     let both = try decode(#"{"barStyle": "frost", "dropdownStyle": "dew"}"#)
-    #expect(both.glass == GlassParts(bar: .frost, dropdown: .dew, background: .liquid))
+    #expect(both.glass == GlassParts(bar: .frost, dropdown: .dew, background: .crystal))
     #expect(!(try decode(#"{"glassStyle": "dew", "dropdownStyle": "dew"}"#)).glassIsCustom)
     let background = try decode(#"{"glassStyle": "dew", "backgroundStyle": "obsidian"}"#)
     #expect(background.glass.background == .obsidian)
@@ -282,7 +287,7 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
           "margin" : 4
         }
         """)
-    #expect(try apply(.glassStyle(.pearl), to: #"{"barStyle": "crystal", "dropdownStyle": "dew", "backgroundStyle": "frost", "margin": 4}"#) == """
+    #expect(try apply(.glassStyle(.pearl), to: #"{"barStyle": "crystal", "dropdownStyle": "dew", "backgroundStyle": "frost", "glassBlur": 0.5, "margin": 4}"#) == """
         {
           "glassStyle" : "pearl",
           "margin" : 4

@@ -400,21 +400,21 @@ private struct AppearancePane: View {
                 if config.pills != .none {
                     Toggle("Glass pills", isOn: saving(config.pillGlass, Setting.pillGlass))
                 }
-                Picker("Bar background", selection: saving(config.shownBackground, Setting.background)) {
+                Picker("Bar background", selection: saving(config.background, Setting.background)) {
                     Text("Glass").tag(BarBackgroundKind.glass)
                     Text("Black").tag(BarBackgroundKind.black)
                     Text("None").tag(BarBackgroundKind.none)
                 }
                 .pickerStyle(.segmented)
                 // Only a background has an edge to curve, and only a notch gives it somewhere to go.
-                if config.shownBackground != .none, NSScreen.screens.contains(where: { $0.auxiliaryTopLeftArea != nil }) {
+                if config.background != .none, NSScreen.screens.contains(where: { $0.auxiliaryTopLeftArea != nil }) {
                     Toggle("Curve into the notch", isOn: saving(config.notchCurve, Setting.notchCurve))
                 }
                 LabeledContent("Glass blur") {
                     HStack(spacing: 8) {
                         // Rounded, or the slider's steps reach the file as 0.30000000000000004.
-                        Slider(value: saving(config.glassBlur) { .glassBlur(($0 * 100).rounded() / 100) }, in: 0...1, step: 0.05).frame(width: 200)
-                        Text(config.glassBlur, format: .percent.precision(.fractionLength(0)))
+                        Slider(value: saving(config.blur) { .glassBlur(($0 * 100).rounded() / 100) }, in: 0...1, step: 0.05).frame(width: 200)
+                        Text(config.blur, format: .percent.precision(.fractionLength(0)))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                             .frame(width: 40, alignment: .trailing)
@@ -521,7 +521,7 @@ private struct CustomizeGroup: View {
         Section {
             StylePicker(title: "Bar", selected: config.glass.bar, part: .bar) { Setting.barStyle($0).save() }
             StylePicker(title: "Dropdowns", selected: config.glass.dropdown, part: .dropdown) { Setting.dropdownStyle($0).save() }
-            if config.shownBackground == .glass {
+            if config.background == .glass {
                 StylePicker(title: "Background", selected: config.glass.background, part: .background) { Setting.backgroundStyle($0).save() }
             }
             if config.glassIsCustom {
@@ -593,12 +593,13 @@ private struct StyleSwatch: View {
     }
 }
 
-/// A style's glass over a colourful backdrop, so the styles differ as they do over busy windows.
+/// A preset's pill and dropdown, at its blur, over a backdrop.
 private struct StyleCard: View {
     let style: GlassStyle
     let selected: Bool
 
     var body: some View {
+        let preset = style.preset
         Choice(title: style.title, selected: selected, pick: { Setting.glassStyle(style).save() }) {
             ZStack(alignment: .top) {
                 PreviewBackdrop(text: true)
@@ -607,7 +608,7 @@ private struct StyleCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 8)
                         .frame(height: 18)
-                        .background(PillBackground(height: 18, style: style, preview: true))
+                        .background(PillBackground(height: 18, style: preset.glass.bar, preview: true, blur: preset.blur))
                         .padding(.horizontal, 6)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .frame(height: 22)
@@ -619,7 +620,7 @@ private struct StyleCard: View {
                     .font(.system(size: 11))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(6)
-                    .background(OverlayGlass(corner: 10, style: style))
+                    .background(OverlayGlass(corner: 10, style: preset.glass.dropdown, blur: preset.blur))
                     .padding([.horizontal, .bottom], 6)
                 }
                 .foregroundStyle(Color.barWhite)

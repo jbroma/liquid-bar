@@ -66,7 +66,7 @@ extension Config {
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
         config.pills = try choice(PillLayout.self, "pills", raw.pills?.name(on: "separate", off: "none")) ?? config.pills
-        config.background = try choice(BarBackgroundKind.self, "background", raw.background?.name(on: "glass", off: "none"))
+        config.background = try choice(BarBackgroundKind.self, "background", raw.background?.name(on: "glass", off: "none")) ?? config.background
         config.notchCurve = raw.notchCurve ?? config.notchCurve
         config.pillGlass = raw.pillGlass ?? config.pillGlass
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
@@ -130,7 +130,7 @@ public enum Setting: Equatable, Sendable {
     case pinnedOrder([String])
     /// A preset: sets `glassStyle` and drops the overrides, so the preset applies whole.
     case glassStyle(GlassStyle)
-    /// nil removes the override, so the part follows `glassStyle` again.
+    /// nil removes the override, so the part follows the preset again.
     case barStyle(GlassStyle?)
     case dropdownStyle(GlassStyle?)
     case backgroundStyle(GlassStyle?)
@@ -159,6 +159,7 @@ public enum Setting: Equatable, Sendable {
             json["barStyle"] = nil
             json["dropdownStyle"] = nil
             json["backgroundStyle"] = nil
+            json["glassBlur"] = nil
         case .barStyle(let style): json["barStyle"] = style?.rawValue
         case .dropdownStyle(let style): json["dropdownStyle"] = style?.rawValue
         case .backgroundStyle(let style): json["backgroundStyle"] = style?.rawValue

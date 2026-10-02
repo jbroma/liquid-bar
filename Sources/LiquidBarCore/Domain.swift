@@ -142,19 +142,18 @@ public struct Config: Equatable, Sendable {
     public var pills = PillLayout.separate
     /// The pills and the focused workspace are the bar style's real glass. Off, they are its flat fill.
     public var pillGlass = true
-    /// What is behind the whole bar. Nil follows the pills: grouped pills go without a background, since each side
-    /// already has its capsule, and the other layouts have the glass. Read the result through `shownBackground`.
-    public var background: BarBackgroundKind?
-    public var shownBackground: BarBackgroundKind { background ?? (pills == .grouped ? .none : .glass) }
-    /// On a screen with a notch, the background's lower edge curves up into the notch's sides.
-    public var notchCurve = false
-    /// The preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` override its part; read the result through `glass`.
-    public var glassStyle = GlassStyle.liquid
+    /// What is behind the whole bar.
+    public var background = BarBackgroundKind.none
+    /// On a screen with a notch, a background's lower edge curves up into the notch's sides.
+    public var notchCurve = true
+    /// The preset. `barStyle`, `dropdownStyle`, and `backgroundStyle` override its part, and `glassBlur` its blur; read
+    /// the results through `glass` and `blur`.
+    public var glassStyle = GlassStyle.crystal
     public var barStyle: GlassStyle?
     public var dropdownStyle: GlassStyle?
     public var backgroundStyle: GlassStyle?
-    /// How much the glass blurs what is behind it, from 0 (none) to 1 (as macOS draws it).
-    public var glassBlur = 1.0
+    /// How much the glass blurs what is behind it, from 0 (none) to 1 (as macOS draws it). Nil follows the preset.
+    public var glassBlur: Double?
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
@@ -199,13 +198,29 @@ public enum GlassStyle: String, CaseIterable, Sendable {
 
     public var summary: String {
         switch self {
-        case .liquid: "Glass with a bright lit rim, like the volume overlay"
-        case .dew: "A third of the way to Crystal: a softer rim, a little clearer"
-        case .pearl: "Two thirds of the way to Crystal: a faint rim, nearly clear"
-        case .crystal: "The clearest glass, showing the most of what is behind"
-        case .frost: "Heavy frosted glass that blurs the most"
-        case .mist: "Soft, light glass with gentle contrast"
-        case .obsidian: "Dark tinted glass, calm over busy windows"
+        case .liquid: "Rich glass with a bright lit rim"
+        case .dew: "Lighter glass with a softer rim"
+        case .pearl: "Soft glass with a faint rim"
+        case .crystal: "Clear glass that shows the most of what is behind"
+        case .frost: "Frosted glass that blurs away what is behind"
+        case .mist: "Light, milky glass"
+        case .obsidian: "Dark glass, calm over busy windows"
+        }
+    }
+
+    /// The look this style names as a preset: each part's glass and how much the glass blurs. Every part is the
+    /// style's own glass, except that Crystal's dropdowns are Pearl, because clear glass leaves a menu's text hard
+    /// to read. The clearer the style, the less it blurs, and Frost blurs fully.
+    public var preset: (glass: GlassParts, blur: Double) {
+        let own = GlassParts(bar: self, dropdown: self, background: self)
+        return switch self {
+        case .liquid: (own, 0.35)
+        case .dew: (own, 0.25)
+        case .pearl: (own, 0.2)
+        case .crystal: (GlassParts(bar: .crystal, dropdown: .pearl, background: .crystal), 0.1)
+        case .frost: (own, 1)
+        case .mist: (own, 0.5)
+        case .obsidian: (own, 0.4)
         }
     }
 }
@@ -225,11 +240,14 @@ public struct GlassParts: Equatable, Sendable {
 
 extension Config {
     public var glass: GlassParts {
-        GlassParts(bar: barStyle ?? glassStyle, dropdown: dropdownStyle ?? glassStyle, background: backgroundStyle ?? glassStyle)
+        let preset = glassStyle.preset.glass
+        return GlassParts(bar: barStyle ?? preset.bar, dropdown: dropdownStyle ?? preset.dropdown, background: backgroundStyle ?? preset.background)
     }
 
+    public var blur: Double { glassBlur ?? glassStyle.preset.blur }
+
     /// The overrides pick something other than the preset, so no preset card describes the look.
-    public var glassIsCustom: Bool { glass != GlassParts(bar: glassStyle, dropdown: glassStyle, background: glassStyle) }
+    public var glassIsCustom: Bool { glass != glassStyle.preset.glass || blur != glassStyle.preset.blur }
 }
 
 /// A point `t` from Liquid (0) to Crystal (1), every trait moving together.
