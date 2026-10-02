@@ -175,58 +175,58 @@ private extension View {
     }
 }
 
-/// The demo bar: the Apple logo and the workspaces, or the front app's menus, on the left, and the status items on
-/// the right.
+/// One end of the demo bar, as the card is a corner of the screen: the Apple logo and the workspaces, or the front
+/// app's menus, at the left end, or the status items at the right end.
 private struct DemoBar: View {
+    var right = false
     var menus = false
-    var workspaces = 4
     var pinned = false
-    /// Without Wi-Fi and the battery, which leaves room for the menus.
-    var short = false
     let targets: Namespace.ID
     /// Apps every Mac has, the first of each workspace in front.
     private let apps = [["com.apple.mail"], ["com.apple.Safari", "com.apple.Notes"], ["com.apple.Music"], []]
 
     var body: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Image(systemName: "apple.logo")
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(.horizontal, 3 + itemGap / 2)
-                if menus {
-                    HStack(spacing: 0) {
-                        Text("Safari").fontWeight(.bold).padding(.horizontal, 7)
-                        ForEach(["File", "Edit", "View", "History"], id: \.self) { Text($0).fontWeight(.medium).padding(.horizontal, 7) }
-                    }
-                    .padding(.horizontal, itemGap / 2)
-                    .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
-                } else {
-                    HStack(spacing: 0) { ForEach(0..<workspaces, id: \.self, content: workspace) }
-                        .padding(.horizontal, itemGap / 2)
-                        .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
-                }
-            }
-            .fixedSize()
-            .demoIsland()
+            if !right { leftEnd.fixedSize().demoIsland() }
             Color.clear.frame(width: 1, height: 1).target("bar", targets).frame(maxWidth: .infinity)
-            HStack(spacing: 0) {
-                if pinned {
-                    Image(nsImage: AppIcons.icon("com.apple.Passwords")).resizable().frame(width: 16, height: 16)
-                        .demoItem()
-                        .transition(.scale(0.6).combined(with: .opacity))
-                }
-                if !short {
-                    Image(systemName: "wifi").frame(width: 16).demoItem()
-                    Image(systemName: "battery.75percent").font(.system(size: 15)).demoItem()
-                }
-                Image(systemName: "switch.2").frame(width: 16).demoItem()
-                Text("9:41").demoItem(padding: 14)
-            }
-            .fixedSize()
-            .demoIsland()
+            if right { rightEnd.fixedSize().demoIsland() }
         }
         .padding(.horizontal, 10 - itemGap / 2)
         .frame(height: Demo.bar.height)
+    }
+
+    private var leftEnd: some View {
+        HStack(spacing: 0) {
+            Image(systemName: "apple.logo")
+                .font(.system(size: 14, weight: .semibold))
+                .padding(.horizontal, 3 + itemGap / 2)
+            if menus {
+                HStack(spacing: 0) {
+                    Text("Safari").fontWeight(.bold).padding(.horizontal, 7)
+                    ForEach(["File", "Edit", "View", "History"], id: \.self) { Text($0).fontWeight(.medium).padding(.horizontal, 7) }
+                }
+                .padding(.horizontal, itemGap / 2)
+                .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
+            } else {
+                HStack(spacing: 0) { ForEach(apps.indices, id: \.self, content: workspace) }
+                    .padding(.horizontal, itemGap / 2)
+                    .transition(.blurReplace.combined(with: .scale(0.9, anchor: .leading)))
+            }
+        }
+    }
+
+    private var rightEnd: some View {
+        HStack(spacing: 0) {
+            if pinned {
+                Image(nsImage: AppIcons.icon("com.apple.Passwords")).resizable().frame(width: 16, height: 16)
+                    .demoItem()
+                    .transition(.scale(0.6).combined(with: .opacity))
+            }
+            Image(systemName: "wifi").frame(width: 16).demoItem()
+            Image(systemName: "battery.75percent").font(.system(size: 15)).demoItem()
+            Image(systemName: "switch.2").frame(width: 16).demoItem()
+            Text("9:41").demoItem(padding: 14)
+        }
     }
 
     /// A workspace as the bar draws it: its apps' icons or a dot, and the number and the selection on the focused one.
@@ -254,7 +254,7 @@ private struct ShiftDemo: View {
         Loop(steps: 5) { $0 == 0 ? "rest" : "bar" } content: { step, targets in
             let held = step == 2 || step == 3
             VStack(spacing: 0) {
-                DemoBar(menus: held, short: true, targets: targets)
+                DemoBar(menus: held, targets: targets)
                 Spacer()
                 Text("\(Image(systemName: "shift")) shift")
                     .font(.system(size: 12, weight: .medium))
@@ -275,7 +275,7 @@ private struct PinDemo: View {
         Loop(steps: 6) { [0: "rest", 5: "rest"][$0] ?? "pin" } content: { step, targets in
             let pinned = step >= 2 && step < 5
             VStack(spacing: 10) {
-                DemoBar(workspaces: 3, pinned: pinned, targets: targets)
+                DemoBar(right: true, pinned: pinned, targets: targets)
                 // A corner of the Settings window.
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Menu Bar Items").font(.system(size: 11, weight: .bold)).padding(.bottom, 5)
@@ -313,7 +313,7 @@ private struct RightClickDemo: View {
     var body: some View {
         Loop(steps: 5) { [0: "rest", 3: "settings"][$0] ?? "bar" } content: { step, targets in
             let open = step == 2 || step == 3
-            DemoBar(workspaces: 3, targets: targets)
+            DemoBar(targets: targets)
                 .overlay {
                     Circle()
                         .strokeBorder(.white.opacity(step == 1 ? 0.9 : 0), lineWidth: 1.5)
