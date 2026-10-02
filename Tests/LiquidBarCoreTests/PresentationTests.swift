@@ -6,7 +6,7 @@ import Testing
     let onBattery = BatteryState.Power.battery(minutesLeft: 90)
     #expect(BatteryState(percent: 40, power: onBattery).tint == .normal)
     #expect(BatteryState(percent: 20, power: onBattery).tint == .red)
-    #expect(BatteryState(percent: 12, power: .charging(minutesToFull: 80)).tint == .green)
+    #expect(BatteryState(percent: 12, power: .charging(minutesToFull: 80)).tint == .normal)
     #expect(BatteryState(percent: 12, power: .pluggedIn).tint == .normal)
 }
 

@@ -171,7 +171,10 @@ struct BatteryMenu: View {
         MenuBody {
             if let battery {
                 MenuTitle(title: "Battery", accessory: "\(battery.percent)%")
-                MenuRow { Meter(value: Double(battery.percent) / 100, tint: battery.tint.color, width: 236, height: 6) }
+                BatteryBar(level: Double(battery.percent) / 100, charging: battery.charging, fill: battery.tint.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .accessibilityHidden(true)
                 MenuValue(title: "Power Source", value: battery.powerSource(watts: watts))
                 MenuValue(title: "Status", value: battery.detail)
                 if let health {
@@ -190,6 +193,58 @@ struct BatteryMenu: View {
             health = readBatteryHealth()
             watts = battery?.onAC == true ? adapterWatts() : nil
         }
+    }
+}
+
+/// The charge as a wide bar, like Control Center's sliders. While charging, a sheen sweeps along the fill and sparks
+/// run from its end into the empty part, as if the charge were pouring in. The clock runs only while charging.
+struct BatteryBar: View {
+    let level: Double
+    let charging: Bool
+    let fill: Color
+    private let height: CGFloat = 24
+
+    var body: some View {
+        TimelineView(.animation(paused: !charging)) { timeline in
+            GeometryReader { proxy in
+                let width = height + (proxy.size.width - height) * level
+                // One sweep takes 1.8 s.
+                let phase = charging ? (timeline.date.timeIntervalSinceReferenceDate / 1.8).truncatingRemainder(dividingBy: 1) : 0
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.14))
+                    if charging {
+                        // Three sparks leave the fill's end one after another and fade over 44 points.
+                        ForEach(0..<3, id: \.self) { index in
+                            let travel = (phase + Double(index) / 3).truncatingRemainder(dividingBy: 1)
+                            Capsule()
+                                .fill(fill.opacity(0.55 * (1 - travel)))
+                                .frame(width: 10 - 5 * travel, height: 4 - 2 * travel)
+                                .offset(x: width - 4 + 44 * travel)
+                        }
+                    }
+                    Capsule()
+                        .fill(fill.opacity(charging ? 0.8 : 1))
+                        .overlay(alignment: .leading) {
+                            if charging {
+                                LinearGradient(colors: [.clear, .white, .clear], startPoint: .leading, endPoint: .trailing)
+                                    .frame(width: 70)
+                                    .offset(x: -70 + (width + 70) * phase)
+                            }
+                        }
+                        .clipShape(Capsule())
+                        .frame(width: width)
+                        // The end of the fill swells a little with each sweep that reaches it.
+                        .scaleEffect(x: charging ? 1 + 0.012 * sin(phase * 2 * .pi) : 1, anchor: .leading)
+                    Image(systemName: charging ? "bolt.fill" : "battery.100percent")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.black.opacity(0.6))
+                        .frame(width: height)
+                }
+                .clipShape(Capsule())
+            }
+        }
+        .frame(height: height)
+        .animation(spring, value: level)
     }
 }
 

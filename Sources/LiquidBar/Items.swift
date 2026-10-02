@@ -1,23 +1,6 @@
 import LiquidBarCore
 import SwiftUI
 
-/// A slim level bar, 0...1.
-struct Meter: View {
-    let value: Double
-    let tint: Color
-    let width: CGFloat
-    let height: CGFloat
-
-    var body: some View {
-        Capsule()
-            .fill(.white.opacity(0.2))
-            .frame(width: width, height: height)
-            .overlay(alignment: .leading) {
-                Capsule().fill(tint).frame(width: width * min(1, max(0, value)))
-            }
-    }
-}
-
 /// A slim battery filled to the level, then the percentage unless turned off. A bolt shows only while charging.
 struct BatteryLabel: View {
     let battery: BatteryState

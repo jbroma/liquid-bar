@@ -244,7 +244,7 @@ extension Config {
 }
 
 public enum Tint: Equatable, Sendable {
-    case normal, green, red
+    case normal, red
 }
 
 extension BatteryState {
@@ -252,9 +252,8 @@ extension BatteryState {
         if case .charging = power { true } else { false }
     }
 
-    /// White by default: green only while charging, red only when low on battery.
+    /// White, also while charging, which the bolt beside it shows: red only when low on battery.
     public var tint: Tint {
-        if charging { return .green }
         if !onAC && percent <= 20 { return .red }
         return .normal
     }

@@ -146,7 +146,6 @@ extension Tint {
         switch self {
         // Solid white, unlike the translucent label colour, so the battery fill reads at rest.
         case .normal: Color(hex: 0xf7f1ff)
-        case .green: .barGreen
         case .red: .barRed
         }
     }
