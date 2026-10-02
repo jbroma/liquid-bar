@@ -103,7 +103,7 @@ The [Release workflow](../.github/workflows/release.yml) then:
 4. Writes the version and the zip's SHA-256 into the Homebrew cask, `Casks/liquid-bar.rb`.
 5. Commits `CHANGELOG.md`, `appcast.xml`, and the cask to `main`. The feed and the cask change only after the release is public, so they never point to a missing file.
 
-This repository is its own Homebrew tap: `brew tap jbroma/liquid-bar https://github.com/jbroma/liquid-bar` reads the cask from `Casks/`. The cask sets `auto_updates`, so Homebrew leaves updates to Sparkle, and `brew upgrade` skips the app unless run with `--greedy`.
+This repository is its own Homebrew tap: `brew tap jbroma/liquid-bar https://github.com/jbroma/liquid-bar` reads the cask from `Casks/`. Homebrew 6 and later load a cask from a tap that is not its own only when you name it in full, `jbroma/liquid-bar/liquid-bar`, or trust it first with `brew trust`. The cask sets `auto_updates`, so Homebrew leaves updates to Sparkle, and `brew upgrade` skips the app unless run with `--greedy`.
 
 The [CI workflow](../.github/workflows/ci.yml) runs the tests and a release build on every push to `main` and every pull request.
 

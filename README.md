@@ -30,7 +30,7 @@ With [Homebrew](https://brew.sh):
 
 ```sh
 brew tap jbroma/liquid-bar https://github.com/jbroma/liquid-bar
-brew install --cask liquid-bar
+brew install --cask jbroma/liquid-bar/liquid-bar
 ```
 
 Or download `LiquidBar-<version>.zip` from [Releases](https://github.com/jbroma/liquid-bar/releases), unzip it, and move `LiquidBar.app` to `/Applications`. Either way the app is signed with a Developer ID and notarized by Apple, so it opens like any other downloaded app.
