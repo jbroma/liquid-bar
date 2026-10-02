@@ -106,11 +106,10 @@ private enum NameOrBool: Decodable {
 /// The case of `T` named `name`, nil when the key is missing.
 private func choice<T: RawRepresentable & CaseIterable>(_: T.Type, _ key: String, _ name: String?) throws -> T? where T.RawValue == String {
     guard let name else { return nil }
-    guard let value = T(rawValue: name) else {
-        let names = T.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
-        throw ConfigError(description: "\(key) must be one of \(names), got \"\(name)\"")
-    }
-    return value
+    if let value = T(rawValue: name) { return value }
+    if let legacy = GlassStyle(legacy: name) as? T { return legacy }
+    let names = T.allCases.map { "\"\($0.rawValue)\"" }.joined(separator: ", ")
+    throw ConfigError(description: "\(key) must be one of \(names), got \"\(name)\"")
 }
 
 /// A change made from the Settings window or a dropdown.

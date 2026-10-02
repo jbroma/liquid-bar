@@ -39,8 +39,8 @@ private func decode(_ json: String) throws -> Config {
     #expect(try decode(#"{"background": false}"#).background == BarBackgroundKind.none)
     #expect(throws: ConfigError.self) { try decode(#"{"background": "white"}"#) }
     // Blur follows the preset until the config sets it.
-    #expect(Config().blur == 0.1)
-    #expect(try decode(#"{"glassStyle": "frost"}"#).blur == 1)
+    #expect(Config().blur == 0.2)
+    #expect(try decode(#"{"glassStyle": "frost"}"#).blur == 0.8)
     #expect(try decode(#"{"glassStyle": "frost", "glassBlur": 0.4}"#).blur == 0.4)
     #expect(try decode(#"{"glassBlur": 0.4}"#).glassIsCustom)
     #expect(throws: ConfigError.self) { try decode(#"{"glassBlur": 2}"#) }
@@ -212,33 +212,24 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
 
 @Test func decodesTheGlassStyle() throws {
     #expect(try decode("{}").glassStyle == .crystal)
-    // Crystal's dropdowns are Pearl, which leaves a menu's text readable.
-    #expect(Config().glass == GlassParts(bar: .crystal, dropdown: .pearl, background: .crystal))
+    #expect(Config().glass == GlassParts(bar: .crystal, dropdown: .crystal, background: .crystal))
+    #expect(Config().blur == 0.2)
     #expect(!Config().glassIsCustom)
     #expect(try decode(#"{"glassStyle": "obsidian"}"#).glassStyle == .obsidian)
-    #expect(try decode(#"{"glassStyle": "dew"}"#).glassStyle == .dew)
-    #expect(try decode(#"{"glassStyle": "pearl"}"#).glassStyle == .pearl)
-    #expect(GlassStyle.allCases.map(\.rawValue) == ["liquid", "dew", "pearl", "crystal", "frost", "mist", "obsidian"])
-    #expect(GlassStyle.allCases.map(\.title) == ["Liquid", "Dew", "Pearl", "Crystal", "Frost", "Mist", "Obsidian"])
+    #expect(GlassStyle.allCases.map(\.rawValue) == ["crystal", "liquid", "frost", "obsidian"])
+    #expect(GlassStyle.allCases.map(\.title) == ["Crystal", "Liquid", "Frost", "Obsidian"])
+    // The three styles dropped after 0.13 read as the nearest of the four.
+    #expect(try decode(#"{"glassStyle": "dew", "barStyle": "pearl", "dropdownStyle": "mist"}"#).glass
+        == GlassParts(bar: .crystal, dropdown: .frost, background: .liquid))
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "Obsidian"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": "volume"}"#) }
     #expect(throws: (any Error).self) { try decode(#"{"glassStyle": 1}"#) }
 }
 
-@Test func dewAndPearlAreEvenStepsFromLiquidToCrystal() {
-    let percents = GlassStyle.allCases.compactMap(\.blend).map { blend in
-        [blend.liquid, blend.pillFill, blend.pillOutline].map { ($0 * 100).rounded() }
-    }
-    #expect(percents == [[100, 14, 0], [67, 11, 10], [33, 8, 20], [0, 5, 30]])
-    #expect([GlassStyle.liquid.blend?.pillFill, GlassStyle.liquid.blend?.pillOutline] == [0.14, 0])
-    #expect([GlassStyle.crystal.blend?.pillFill, GlassStyle.crystal.blend?.pillOutline] == [0.05, 0.3])
-    #expect(GlassStyle.frost.blend == nil)
-}
-
 @Test func glassStyleEditsTheConfig() throws {
-    #expect(try apply(.glassStyle(.mist), to: #"{"glassStyle": "crystal", "margin": 4}"#) == """
+    #expect(try apply(.glassStyle(.frost), to: #"{"glassStyle": "crystal", "margin": 4}"#) == """
         {
-          "glassStyle" : "mist",
+          "glassStyle" : "frost",
           "margin" : 4
         }
         """)
@@ -256,16 +247,16 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
 }
 
 @Test func barAndDropdownStylesOverrideThePreset() throws {
-    let none = try decode(#"{"glassStyle": "mist"}"#)
-    #expect(none.glass == GlassParts(bar: .mist, dropdown: .mist, background: .mist))
+    let none = try decode(#"{"glassStyle": "frost"}"#)
+    #expect(none.glass == GlassParts(bar: .frost, dropdown: .frost, background: .frost))
     #expect(!none.glassIsCustom)
-    let bar = try decode(#"{"glassStyle": "mist", "barStyle": "crystal"}"#)
-    #expect(bar.glass == GlassParts(bar: .crystal, dropdown: .mist, background: .mist))
+    let bar = try decode(#"{"glassStyle": "frost", "barStyle": "crystal"}"#)
+    #expect(bar.glass == GlassParts(bar: .crystal, dropdown: .frost, background: .frost))
     #expect(bar.glassIsCustom)
-    let both = try decode(#"{"barStyle": "frost", "dropdownStyle": "dew"}"#)
-    #expect(both.glass == GlassParts(bar: .frost, dropdown: .dew, background: .crystal))
-    #expect(!(try decode(#"{"glassStyle": "dew", "dropdownStyle": "dew"}"#)).glassIsCustom)
-    let background = try decode(#"{"glassStyle": "dew", "backgroundStyle": "obsidian"}"#)
+    let both = try decode(#"{"barStyle": "frost", "dropdownStyle": "liquid"}"#)
+    #expect(both.glass == GlassParts(bar: .frost, dropdown: .liquid, background: .crystal))
+    #expect(!(try decode(#"{"glassStyle": "liquid", "dropdownStyle": "liquid"}"#)).glassIsCustom)
+    let background = try decode(#"{"glassStyle": "liquid", "backgroundStyle": "obsidian"}"#)
     #expect(background.glass.background == .obsidian)
     #expect(background.glassIsCustom)
     #expect(throws: (any Error).self) { try decode(#"{"barStyle": "Crystal"}"#) }
@@ -274,10 +265,10 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
 }
 
 @Test func barAndDropdownStylesEditTheConfig() throws {
-    #expect(try apply(.barStyle(.crystal), to: #"{"glassStyle": "mist", "margin": 4}"#) == """
+    #expect(try apply(.barStyle(.crystal), to: #"{"glassStyle": "frost", "margin": 4}"#) == """
         {
           "barStyle" : "crystal",
-          "glassStyle" : "mist",
+          "glassStyle" : "frost",
           "margin" : 4
         }
         """)
@@ -287,9 +278,9 @@ private func apply(_ setting: Setting, to json: String?) throws -> String {
           "margin" : 4
         }
         """)
-    #expect(try apply(.glassStyle(.pearl), to: #"{"barStyle": "crystal", "dropdownStyle": "dew", "backgroundStyle": "frost", "glassBlur": 0.5, "margin": 4}"#) == """
+    #expect(try apply(.glassStyle(.liquid), to: #"{"barStyle": "crystal", "dropdownStyle": "frost", "backgroundStyle": "frost", "glassBlur": 0.5, "margin": 4}"#) == """
         {
-          "glassStyle" : "pearl",
+          "glassStyle" : "liquid",
           "margin" : 4
         }
         """)

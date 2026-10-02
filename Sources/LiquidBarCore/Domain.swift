@@ -179,48 +179,39 @@ public enum BarBackgroundKind: String, CaseIterable, Sendable {
     case glass, black, none
 }
 
-/// The glass of the dropdowns, the bar's pills, the bar's menu, and the Accessibility window.
+/// A glass look, for the bar's pills, the dropdowns, the bar's background, the bar's menu, and the Accessibility
+/// window. As `glassStyle` it is the preset: every part in that glass, at the preset's blur.
 public enum GlassStyle: String, CaseIterable, Sendable {
-    case liquid, dew, pearl, crystal, frost, mist, obsidian
+    case crystal, liquid, frost, obsidian
 
     public var title: String { rawValue.capitalized }
 
-    /// Dew and Pearl sit a third and two thirds of the way from Liquid to Crystal. Off that line, nil.
-    public var blend: GlassBlend? {
-        switch self {
-        case .liquid: GlassBlend(t: 0)
-        case .dew: GlassBlend(t: 1.0 / 3)
-        case .pearl: GlassBlend(t: 2.0 / 3)
-        case .crystal: GlassBlend(t: 1)
-        default: nil
-        }
-    }
-
     public var summary: String {
         switch self {
+        case .crystal: "Clear glass with a fine lit edge"
         case .liquid: "Rich glass with a bright lit rim"
-        case .dew: "Lighter glass with a softer rim"
-        case .pearl: "Soft glass with a faint rim"
-        case .crystal: "Clear glass that shows the most of what is behind"
-        case .frost: "Frosted glass that blurs away what is behind"
-        case .mist: "Light, milky glass"
+        case .frost: "Light, milky glass that softens what is behind"
         case .obsidian: "Dark glass, calm over busy windows"
         }
     }
 
-    /// The look this style names as a preset: each part's glass and how much the glass blurs. Every part is the
-    /// style's own glass, except that Crystal's dropdowns are Pearl, because clear glass leaves a menu's text hard
-    /// to read. The clearer the style, the less it blurs, and Frost blurs fully.
-    public var preset: (glass: GlassParts, blur: Double) {
-        let own = GlassParts(bar: self, dropdown: self, background: self)
-        return switch self {
-        case .liquid: (own, 0.35)
-        case .dew: (own, 0.25)
-        case .pearl: (own, 0.2)
-        case .crystal: (GlassParts(bar: .crystal, dropdown: .pearl, background: .crystal), 0.1)
-        case .frost: (own, 1)
-        case .mist: (own, 0.5)
-        case .obsidian: (own, 0.4)
+    /// How much the preset's glass blurs what is behind it: the clearer the glass, the less.
+    public var blur: Double {
+        switch self {
+        case .crystal: 0.2
+        case .liquid: 0.5
+        case .frost: 0.8
+        case .obsidian: 0.4
+        }
+    }
+
+    /// The styles of versions up to 0.13, which had seven, by the nearest of the four.
+    public init?(legacy name: String) {
+        switch name {
+        case "dew": self = .liquid
+        case "pearl": self = .crystal
+        case "mist": self = .frost
+        default: return nil
         }
     }
 }
@@ -240,27 +231,14 @@ public struct GlassParts: Equatable, Sendable {
 
 extension Config {
     public var glass: GlassParts {
-        let preset = glassStyle.preset.glass
-        return GlassParts(bar: barStyle ?? preset.bar, dropdown: dropdownStyle ?? preset.dropdown, background: backgroundStyle ?? preset.background)
+        GlassParts(bar: barStyle ?? glassStyle, dropdown: dropdownStyle ?? glassStyle, background: backgroundStyle ?? glassStyle)
     }
 
-    public var blur: Double { glassBlur ?? glassStyle.preset.blur }
+    public var blur: Double { glassBlur ?? glassStyle.blur }
 
     /// The overrides pick something other than the preset, so no preset card describes the look.
-    public var glassIsCustom: Bool { glass != glassStyle.preset.glass || blur != glassStyle.preset.blur }
-}
-
-/// A point `t` from Liquid (0) to Crystal (1), every trait moving together.
-public struct GlassBlend: Equatable, Sendable {
-    /// The opacity of Liquid's glass over Crystal's.
-    public let liquid: Double
-    public let pillFill: Double
-    public let pillOutline: Double
-
-    public init(t: Double) {
-        liquid = 1 - t
-        pillFill = 0.14 * (1 - t) + 0.05 * t
-        pillOutline = 0.3 * t
+    public var glassIsCustom: Bool {
+        glass != GlassParts(bar: glassStyle, dropdown: glassStyle, background: glassStyle) || blur != glassStyle.blur
     }
 }
 

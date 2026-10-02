@@ -444,6 +444,8 @@ private struct AppearancePane: View {
 private struct Choice<Thumbnail: View>: View {
     let title: String
     let selected: Bool
+    /// A second, dimmer word after the title, like "Default".
+    var note: String?
     var corner: CGFloat = 8
     let pick: () -> Void
     @ViewBuilder let thumbnail: Thumbnail
@@ -458,15 +460,18 @@ private struct Choice<Thumbnail: View>: View {
                     RoundedRectangle(cornerRadius: corner + 3, style: .continuous)
                         .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2.5)
                 }
-            Text(title)
-                .font(.callout)
-                .fontWeight(selected ? .semibold : .regular)
-                .foregroundStyle(selected ? .primary : .secondary)
+            HStack(spacing: 4) {
+                Text(title)
+                    .fontWeight(selected ? .semibold : .regular)
+                    .foregroundStyle(selected ? .primary : .secondary)
+                if let note { Text(note).foregroundStyle(.tertiary) }
+            }
+            .font(.callout)
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: pick)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
+        .accessibilityLabel(note.map { "\(title), \($0)" } ?? title)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
@@ -513,7 +518,7 @@ private struct PreviewBackdrop: View {
     }
 }
 
-/// The styles of the bar's pills, the dropdowns, and the bar's background picked apart, from the same seven styles as the presets.
+/// The styles of the bar's pills, the dropdowns, and the bar's background picked apart, from the same four styles as the presets.
 private struct CustomizeGroup: View {
     let config: Config
 
@@ -599,8 +604,7 @@ private struct StyleCard: View {
     let selected: Bool
 
     var body: some View {
-        let preset = style.preset
-        Choice(title: style.title, selected: selected, pick: { Setting.glassStyle(style).save() }) {
+        Choice(title: style.title, selected: selected, note: style == Config().glassStyle ? "Default" : nil, pick: { Setting.glassStyle(style).save() }) {
             ZStack(alignment: .top) {
                 PreviewBackdrop(text: true)
                 VStack(alignment: .trailing, spacing: 4) {
@@ -608,7 +612,7 @@ private struct StyleCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .padding(.horizontal, 8)
                         .frame(height: 18)
-                        .background(PillBackground(height: 18, style: preset.glass.bar, preview: true, blur: preset.blur))
+                        .background(PillBackground(height: 18, style: style, preview: true, blur: style.blur))
                         .padding(.horizontal, 6)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .frame(height: 22)
@@ -620,7 +624,7 @@ private struct StyleCard: View {
                     .font(.system(size: 11))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(6)
-                    .background(OverlayGlass(corner: 10, style: preset.glass.dropdown, blur: preset.blur))
+                    .background(OverlayGlass(corner: 10, style: style, blur: style.blur))
                     .padding([.horizontal, .bottom], 6)
                 }
                 .foregroundStyle(Color.barWhite)
