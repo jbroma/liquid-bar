@@ -254,10 +254,12 @@ struct BatteryBar: View {
                     } else {
                         Capsule().fill(fill).frame(width: width)
                     }
-                    Image(systemName: charging ? "bolt.fill" : "battery.100percent")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.black.opacity(0.6))
-                        .frame(width: height)
+                    if charging {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.black.opacity(0.6))
+                            .frame(width: height)
+                    }
                 }
                 .clipShape(Capsule())
             }
