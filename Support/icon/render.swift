@@ -1,8 +1,9 @@
 // Renders the app icon: docs/images/icon.png (1024 px master) and Support/AppIcon.icns.
 // Run from the repo root with `make icon`.
 //
-// The icon is the bar with its lens: a capsule of glass, and a thicker lens of glass over the focused workspace's two
-// apps. Glass is built from a mask of its shape: what is behind it is blurred and a little magnified, and light
+// The icon is the workspace selector as the bar draws it: a capsule of glass with a workspace's app, the lens a few
+// points inside it around the focused workspace's two apps, two empty workspaces, and one more app. Glass is built
+// from a mask of its shape: what is behind it is blurred and a little magnified, and light
 // catches the rim at the top left and the bottom right.
 import AppKit
 import CoreImage
@@ -134,12 +135,22 @@ func white(_ c: CGContext, _ path: CGPath, _ alpha: CGFloat = 1) { c.addPath(pat
 func fill(_ c: CGContext, _ path: CGPath) { c.addPath(path); c.fillPath() }
 
 
+let bar = CGRect(x: 112, y: 396, width: 800, height: 232), lens = CGRect(x: 297, y: 418, width: 290, height: 188)
 let icon = render(aurora, [
-    Glass(shapes: { c in fill(c, capsule(CGRect(x: 144, y: 412, width: 736, height: 200))) }),
-    Glass(tint: 0.2, shapes: { c in fill(c, capsule(CGRect(x: 172, y: 372, width: 380, height: 280))) }),
+    Glass(shapes: { c in fill(c, capsule(bar)) }),
+    Glass(tint: 0.22, shapes: { c in fill(c, capsule(lens)) }),
 ]) { c in
-    white(c, circle(296, 512, 52)); white(c, circle(428, 512, 52))
-    white(c, circle(640, 512, 32), 0.7); white(c, circle(740, 512, 32), 0.7); white(c, circle(824, 512, 22), 0.45)
+    func app(_ x: CGFloat, _ size: CGFloat, _ alpha: CGFloat) {
+        white(c, squircle(CGRect(x: x - size / 2, y: bar.midY - size / 2, width: size, height: size), size * 0.26), alpha)
+    }
+    let size = bar.height * 0.44
+    app(222, size, 0.8)
+    // The one in front over the other.
+    app(lens.midX + size * 0.36, size * 0.94, 0.5)
+    app(lens.midX - size * 0.3, size, 1)
+    white(c, circle(634, bar.midY, 15), 0.6)
+    white(c, circle(704, bar.midY, 15), 0.6)
+    app(802, size, 0.8)
 }
 
 func writePNG(_ image: CGImage, _ path: String) {
