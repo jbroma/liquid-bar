@@ -18,6 +18,8 @@ final class BarModel {
     var volume = VolumeState(level: 0, muted: false)
     /// Counts the changes to CoreAudio's device list, like headphones connecting, so the Sound dropdown reads it again.
     var audioDevicesChanges = 0
+    /// Mission Control is up, or opening or closing.
+    var missionControl = false
     var network = NetworkState(kind: .offline)
     var now = Date()
     /// macOS shows its camera, microphone or screen recording dot at the right end of the menu bar.

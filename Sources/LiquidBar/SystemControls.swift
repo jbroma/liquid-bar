@@ -149,7 +149,7 @@ enum Appearance {
 enum NativeMenuBar {
     private nonisolated static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
     private nonisolated static let connection = systemFunction(framework, "SLSMainConnectionID", as: (@convention(c) () -> Int32).self)
-    private static let set = systemFunction(framework, "SLSSetMenuBarInsetAndAlpha", as: (@convention(c) (Int32, Double, Double, Float) -> Int32).self)
+    private nonisolated static let set = systemFunction(framework, "SLSSetMenuBarInsetAndAlpha", as: (@convention(c) (Int32, Double, Double, Float) -> Int32).self)
 
     private nonisolated static let setShown = systemFunction(framework, "SLSSetMenuBarVisibilityOverrideOnDisplay",
                                                              as: (@convention(c) (Int32, CGDirectDisplayID, Bool) -> Void).self)
@@ -164,17 +164,47 @@ enum NativeMenuBar {
     static func onMissionControl(context: UnsafeMutableRawPointer, _ handler: @escaping (UnsafeMutableRawPointer, Bool) -> Void) {
         guard let register else { return }
         missionControlHandler = handler
-        let events: [UInt32] = ProcessInfo.processInfo.isOperatingSystemAtLeast(.init(majorVersion: 27, minorVersion: 0, patchVersion: 0)) ? [1325, 1326] : [1327, 1328]
+        // On macOS 27 event 1508 comes first: with 1325 as Mission Control opens, and half a second before 1326 as it
+        // closes, when the closing animation starts.
+        let events: [UInt32] = ProcessInfo.processInfo.isOperatingSystemAtLeast(.init(majorVersion: 27, minorVersion: 0, patchVersion: 0)) ? [1508, 1325, 1326] : [1327, 1328]
         for event in events {
             _ = register({ event, _, _, context in
+                // Right here, on SkyLight's thread: a hop to the main thread costs the frames the menu bar flashes in.
+                NativeMenuBar.holdHidden()
                 DispatchQueue.main.async { NativeMenuBar.missionControlHandler?(context!, event == 1327) }
             }, event, context)
         }
     }
 
-    static func setAlpha(_ alpha: Float) {
+    nonisolated static func setAlpha(_ alpha: Float) {
         guard let connection, let set else { return }
         _ = set(connection(), 0, 1, alpha)
+    }
+
+    private nonisolated static let holdQueue = DispatchQueue(label: "dev.liquidbar.menubar", qos: .userInteractive)
+    private nonisolated(unsafe) static var holdTimer: DispatchSourceTimer?
+
+    /// Mission Control animates the native menu bar back to full opacity as it opens and closes. A bar without a
+    /// background does not cover it, so its opacity is put back to 0 every millisecond until `stopHolding`. That
+    /// keeps it away as Mission Control opens. As it closes, macOS still shows it for two or three frames, however
+    /// often it is reset, which is what the bar's frosted cover is for.
+    nonisolated static func holdHidden() {
+        setAlpha(0)
+        holdQueue.async {
+            guard holdTimer == nil else { return }
+            let timer = DispatchSource.makeTimerSource(queue: holdQueue)
+            timer.schedule(deadline: .now(), repeating: .milliseconds(1), leeway: .nanoseconds(0))
+            timer.setEventHandler { setAlpha(0) }
+            holdTimer = timer
+            timer.resume()
+        }
+    }
+
+    nonisolated static func stopHolding() {
+        holdQueue.async {
+            holdTimer?.cancel()
+            holdTimer = nil
+        }
     }
 
     /// Keeps the menu bar shown while menu bar auto-hide would hide it, or lets it hide again.

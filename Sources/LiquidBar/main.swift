@@ -105,6 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func raiseBarThroughMissionControl(open: Bool) {
         panels.forEach { $0.level = .init(rawValue: barLevel.rawValue + 5) }
+        model.missionControl = true
         followWindowList()
         missionControlSettle?.cancel()
         guard !open else { return }
@@ -113,6 +114,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         missionControlSettle = Task {
             repeat { try? await Task.sleep(for: .seconds(1.5)) } while !Task.isCancelled && missionControlShown()
             guard !Task.isCancelled else { return }
+            NativeMenuBar.stopHolding()
+            model.missionControl = false
             panels.forEach { $0.level = barLevel }
         }
     }
