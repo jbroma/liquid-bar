@@ -22,6 +22,6 @@ Commit subjects are the release notes. git-cliff (`cliff.toml`) builds `CHANGELO
 
 1. Bump `CFBundleShortVersionString` and `CFBundleVersion` in `Support/Info.plist`, commit as `chore: v<version>`, and push `main`.
 2. Run `make release` on the Mac that holds the Developer ID and the Sparkle key. It notarizes the app, pushes the signed tag, uploads the zip to a draft release, and starts the Release workflow.
-3. The Release workflow writes the notes, publishes the release, and commits `CHANGELOG.md`, `appcast.xml`, and the Homebrew cask `Casks/liquid-bar.rb` to `main`. Run `git pull` afterwards.
+3. The Release workflow writes the notes, publishes the release, and commits `CHANGELOG.md` and `appcast.xml` to `main`, and updates the Homebrew cask in `jbroma/homebrew-tap`. Run `git pull` afterwards.
 
-Never edit `CHANGELOG.md` or `appcast.xml` by hand, nor the `version` and `sha256` lines of the cask. `CHANGELOG.md` follows Keep a Changelog, with a `## [version](release link) - date` heading for each version. A release's notes are that version's section without the heading.
+Never edit `CHANGELOG.md` or `appcast.xml` by hand. `CHANGELOG.md` follows Keep a Changelog, with a `## [version](release link) - date` heading for each version. A release's notes are that version's section without the heading.

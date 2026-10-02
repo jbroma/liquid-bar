@@ -100,10 +100,10 @@ The [Release workflow](../.github/workflows/release.yml) then:
 1. Writes the release notes and `CHANGELOG.md` from the commit messages with [git-cliff](https://git-cliff.org) (`cliff.toml`). `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/): `feat` commits go under Added, `fix` and `perf` under Fixed, and `chore`, `docs`, `refactor`, `test`, and `build` commits are left out, so a commit subject should read as a line of release notes.
 2. Publishes the release with the notes: the version's changelog section without its heading.
 3. Adds an entry to the top of `appcast.xml` with `scripts/appcast.py`: the version, build, and minimum macOS from `Support/Info.plist`, the zip's size and signature, and the notes.
-4. Writes the version and the zip's SHA-256 into the Homebrew cask, `Casks/liquid-bar.rb`.
-5. Commits `CHANGELOG.md`, `appcast.xml`, and the cask to `main`. The feed and the cask change only after the release is public, so they never point to a missing file.
+4. Commits `CHANGELOG.md` and `appcast.xml` to `main`. The feed changes only after the release is public, so it never points to a missing file.
+5. Writes the version and the zip's SHA-256 into the Homebrew cask and pushes it to [jbroma/homebrew-tap](https://github.com/jbroma/homebrew-tap), using the deploy key in the `TAP_DEPLOY_KEY` secret.
 
-This repository is its own Homebrew tap: `brew tap jbroma/liquid-bar https://github.com/jbroma/liquid-bar` reads the cask from `Casks/`. Homebrew 6 and later load a cask from a tap that is not its own only when you name it in full, `jbroma/liquid-bar/liquid-bar`, or trust it first with `brew trust`. The cask sets `auto_updates`, so Homebrew leaves updates to Sparkle, and `brew upgrade` skips the app unless run with `--greedy`.
+`brew install --cask jbroma/tap/liquid-bar` installs from that tap. The cask sets `auto_updates`, so Homebrew leaves updates to Sparkle, and `brew upgrade` skips the app unless run with `--greedy`.
 
 The [CI workflow](../.github/workflows/ci.yml) runs the tests and a release build on every push to `main` and every pull request.
 
