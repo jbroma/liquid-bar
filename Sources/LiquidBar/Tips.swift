@@ -269,25 +269,53 @@ private struct ShiftDemo: View {
     }
 }
 
-/// An item is ticked in Settings' Menu Bar Items, and it appears on the bar.
+/// An item is ticked in the Settings window's Menu Bar Items pane, and it appears on the bar.
 private struct PinDemo: View {
     var body: some View {
         Loop(steps: 6) { [0: "rest", 5: "rest"][$0] ?? "pin" } content: { step, targets in
             let pinned = step >= 2 && step < 5
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 DemoBar(right: true, pinned: pinned, targets: targets)
-                // A corner of the Settings window.
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Menu Bar Items").font(.system(size: 11, weight: .bold)).padding(.bottom, 5)
-                    row("com.apple.Passwords", "Passwords", pinned: pinned, targets: targets)
-                    Rectangle().fill(.white.opacity(0.1)).frame(height: 1).padding(.leading, 26)
-                    row("com.apple.shortcuts", "Shortcuts", pinned: false, targets: nil)
+                // The top of the Settings window; the card cuts off the rest.
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 5) {
+                            ForEach([Color.red, .yellow, .green], id: \.self) { Circle().fill($0).frame(width: 8, height: 8) }
+                        }
+                        .padding(.leading, 4)
+                        .padding(.bottom, 8)
+                        ForEach(SettingsSection.allCases) { section in
+                            Text(section.title)
+                                .padding(.horizontal, 6)
+                                .frame(maxWidth: .infinity, minHeight: 18, alignment: .leading)
+                                .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .fill(Color.accentColor.opacity(section == .menuBarItems ? 1 : 0)))
+                        }
+                    }
+                    .font(.system(size: 10, weight: .medium))
+                    .padding(8)
+                    .frame(width: 112)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .background(Color(white: 0.17))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Other Menu Bar Items").font(.system(size: 11, weight: .bold)).padding(.bottom, 6)
+                        VStack(spacing: 0) {
+                            row("com.apple.Passwords", "Passwords", pinned: pinned, targets: targets)
+                            Rectangle().fill(.white.opacity(0.1)).frame(height: 1).padding(.leading, 26)
+                            row("com.apple.shortcuts", "Shortcuts", pinned: false, targets: nil)
+                        }
+                        .padding(.horizontal, 8)
+                        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(0.06)))
+                    }
+                    .font(.system(size: 12))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 14)
                 }
-                .font(.system(size: 12))
-                .padding(10)
-                .frame(width: 200, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(white: 0.14)))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.white.opacity(0.12)))
+                .frame(width: 330, height: 130)
+                .background(Color(white: 0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white.opacity(0.14)))
+                .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
             }
         }
     }
