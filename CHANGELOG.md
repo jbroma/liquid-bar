@@ -2,6 +2,20 @@
 
 All notable changes to LiquidBar, in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.13.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.13.0) - 2026-10-02
+
+### Added
+
+- The workspaces are a glass tab bar whose selection is a lens that lifts and magnifies on its way
+- The Apple logo is a round glass button, and the workspace lens sits evenly inside its capsule
+
+### Fixed
+
+- Paired headphones and speakers show in the Sound dropdown before they connect, and the list follows devices coming and going
+- Without pills, the focused workspace keeps its selection
+- A right-click on an empty part of the bar opens the bar's menu, not the desktop's
+- Moving the workspace selection takes 40% less CPU
+
 ## [0.12.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.12.0) - 2026-10-02
 
 ### Added
