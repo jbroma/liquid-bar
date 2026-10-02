@@ -151,9 +151,11 @@ struct ControlCenterMenu: View {
         let controls = model.controls
         let state = controls.state
         MenuBody {
-            VStack(spacing: 8) {
+            // Groups sit straight on the dropdown's glass, with a hairline between them, like the other dropdowns.
+            VStack(spacing: 0) {
                 switches(controls, state)
                 BrightnessModule(state: state, controls: controls)
+                MenuSeparator()
                 tiles(controls, state)
                 MenuExtrasSection(model: model)
             }
@@ -170,7 +172,7 @@ struct ControlCenterMenu: View {
     }
 
     /// Bluetooth and AirDrop beside a tall Focus tile, as at the top of macOS's Control Center, and the open list in a
-    /// module of its own below them, so no row moves under the pointer.
+    /// group of its own below them, so no row moves under the pointer.
     @ViewBuilder private func switches(_ controls: Controls, _ state: ControlState) -> some View {
         HStack(spacing: 8) {
             VStack(spacing: 0) {
@@ -178,7 +180,7 @@ struct ControlCenterMenu: View {
                 row(.airDrop, controls, state)
             }
             .frame(maxWidth: .infinity)
-            .module()
+            Rectangle().fill(.white.opacity(0.12)).frame(width: 1).padding(.vertical, 8)
             ControlButton(name: ControlTile.focus.name, radius: 12) { controls.press(.focus, dismiss: slot.dismiss) } label: {
                 VStack(spacing: 6) {
                     TileIcon(tile: .focus, on: ControlTile.focus.isOn(state), size: 34)
@@ -191,13 +193,15 @@ struct ControlCenterMenu: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .module()
         }
         .fixedSize(horizontal: false, vertical: true)
+        MenuSeparator()
         if let tile = expanded {
-            VStack(spacing: 0) { expansion(tile, controls, state) }
-                .module()
-                .transition(.opacity)
+            VStack(spacing: 0) {
+                expansion(tile, controls, state)
+                MenuSeparator()
+            }
+            .transition(.opacity)
         }
     }
 
@@ -223,7 +227,6 @@ struct ControlCenterMenu: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .module()
     }
 
     @ViewBuilder private func expansion(_ tile: ControlTile, _ controls: Controls, _ state: ControlState) -> some View {
@@ -356,9 +359,8 @@ private struct BrightnessModule: View {
                 if let level = state.brightness { slider("Display", level, "sun.max.fill", controls.setBrightness) }
                 if let level = state.keyboard { slider("Keyboard", level, "light.max", controls.setKeyboard) }
             }
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .module()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
         }
     }
 
@@ -369,13 +371,6 @@ private struct BrightnessModule: View {
                 .accessibilityLabel("\(name) Brightness")
                 .accessibilityValue("\(percent(level))%")
         }
-    }
-}
-
-extension View {
-    /// The rounded panel behind a group of controls.
-    func module() -> some View {
-        padding(6).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white.opacity(0.1)))
     }
 }
 

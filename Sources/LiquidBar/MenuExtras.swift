@@ -82,11 +82,12 @@ struct MenuExtrasSection: View {
 
     var body: some View {
         if !AXIsProcessTrusted() {
+            MenuSeparator()
             MenuButton { Permission.accessibility.request() } content: { Text("Allow Access to Menu Bar Items…").lineLimit(1) }
                 .frame(minHeight: 30)
-                .module()
         } else if !model.menuExtras.isEmpty {
             VStack(spacing: 0) {
+                MenuSeparator()
                 HeaderRow(title: "Menu Bar Items") {
                     Text("\(model.menuExtras.count)").foregroundStyle(secondary).monospacedDigit()
                     Disclosure(open: shown)
@@ -100,7 +101,6 @@ struct MenuExtrasSection: View {
                         .transition(.opacity)
                 }
             }
-            .module()
             .onChange(of: slot.owner == .controlCenter) { _, open in if !open { (shown, expanded) = (false, nil) } }
         }
     }
