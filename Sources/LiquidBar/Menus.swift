@@ -12,13 +12,17 @@ struct VolumeMenu: View {
     var body: some View {
         let volume = model.volume
         MenuBody {
-            MenuTitle(title: "Sound", accessory: volume.muted ? "Muted" : "\(volume.level)%")
-            MenuRow { VolumeSlider(level: volume.level, muted: volume.muted, set: model.setVolume) }
-            MenuButton { setMuted(!volume.muted) } content: {
-                Text("Mute")
-                Spacer()
-                if volume.muted { Image(systemName: "checkmark").fontWeight(.semibold) }
+            // Like the Wi-Fi dropdown: the switch is the sound itself, and off mutes it.
+            HeaderRow(title: "Sound") {
+                Text(volume.muted ? "Muted" : "\(volume.level)%").foregroundStyle(secondary).monospacedDigit()
+                GlassSwitch(on: !volume.muted) { setMuted(!$0) }
+                    .accessibilityLabel("Sound")
             }
+            LevelSlider(level: volume.level, muted: volume.muted, symbol: volume.symbol, height: 24, set: model.setVolume)
+                .accessibilityLabel("Volume")
+                .accessibilityValue("\(volume.level)%")
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
             MenuSeparator()
             MenuSection(title: "Output")
             ForEach(devices) { device in
@@ -74,34 +78,6 @@ struct LevelSlider: View {
             .overlay { ScrollCatcher(step: 2, notch: 5) { set(min(100, max(0, level + $0))) } }
         }
         .frame(height: height)
-    }
-}
-
-/// The volume overlay's slider: a thin track between a quiet and a loud speaker. Click, drag or scroll sets the level.
-struct VolumeSlider: View {
-    let level: Int
-    let muted: Bool
-    let set: (Int) -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "speaker.fill")
-            GeometryReader { proxy in
-                let width = proxy.size.width
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.2))
-                    Capsule().fill(.white.opacity(muted ? 0.4 : 1)).frame(width: width * CGFloat(level) / 100)
-                }
-                .frame(height: 5)
-                .frame(maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onChanged { set(VolumeState.level(at: $0.location.x, width: width)) })
-                .overlay { ScrollCatcher(step: 2, notch: 5) { set(min(100, max(0, level + $0))) } }
-            }
-            Image(systemName: "speaker.wave.3.fill")
-        }
-        .font(.system(size: 12, weight: .semibold))
-        .frame(height: 24)
     }
 }
 
