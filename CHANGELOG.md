@@ -2,6 +2,25 @@
 
 All notable changes to LiquidBar, in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.15.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.15.0) - 2026-10-02
+
+### Added
+
+- The battery dropdown is shorter, with health folded away, and charging is a liquid in the bar
+- The Bluetooth and AirDrop lists drop their switch rows, since the circles on their rows switch them
+- The calendar opens with today as a headline, dims weekends, and slides between months
+- The calendar follows Apple's Calendar, with a red today, a light day number, and the month in bold before the year
+- Settings chooses what Control Center shows, which can now include Sound, True Tone, and Stage Manager
+
+### Fixed
+
+- The charging bar ends in a soft pulsing glow instead of sparks
+- The battery bar has no icon unless it is charging
+- The native menu bar no longer flashes under a bar without a background as Mission Control opens and closes
+- The frosted strip shows only for Mission Control itself, and leaves sooner after it closes
+- The bar and its frosted strip are up from Mission Control's first event
+- The native menu bar never shows under the bar, which now draws its own copy of the desktop picture behind it
+
 ## [0.14.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.14.0) - 2026-10-02
 
 ### Added
