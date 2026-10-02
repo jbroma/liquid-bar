@@ -216,7 +216,6 @@ private struct DemoBar: View {
     private func workspace(_ index: Int) -> some View {
         let focused = index == 1
         return HStack(spacing: 4) {
-            if focused { Text("\(index + 1)") }
             if apps[index].isEmpty, !focused { Circle().fill(.white.opacity(0.35)).frame(width: 4, height: 4) }
             if !apps[index].isEmpty {
                 IconStack(apps: apps[index].map { WorkspaceApp(bundleID: $0, windowID: 0, focused: false) }, more: 0)

@@ -441,7 +441,7 @@ struct WorkspaceStrip: View {
     }
 }
 
-/// A workspace shows a card stack of its apps' icons, or a dot when it has no windows, and the focused one also its number (apps have none).
+/// A workspace shows a card stack of its apps' icons, or a dot when it has no windows, which becomes its number while it is focused.
 /// It never changes width on hover, so the strip never shifts under the pointer; its apps show in a dropdown instead.
 struct WorkspaceButton: View {
     let id: String
@@ -453,18 +453,20 @@ struct WorkspaceButton: View {
 
     var body: some View {
         LivePill(id: .workspace(id), pulse: 0, gap: 0) { open in
-            // Like a tab of iOS's tab bar, only the focused workspace carries its label, the number. The others show
-            // their apps, or a dot when they have no windows.
+            // A workspace keeps its width when it gains or loses the focus, so the strip never shifts under the moving
+            // selection: its apps, or without windows a dot, which the focused one swaps for its number in place.
             let empty = stack.apps.isEmpty
-            HStack(spacing: 4) {
-                if numbered, focused { Text(id) }
-                if numbered, empty, !focused { Circle().fill(Color.barWhite.opacity(0.35)).frame(width: 4, height: 4) }
+            ZStack {
+                if empty, numbered {
+                    Text(id).opacity(focused ? 1 : 0)
+                    Circle().fill(Color.barWhite.opacity(0.35)).frame(width: 4, height: 4).opacity(focused ? 0 : 1)
+                }
                 if !empty { IconStack(apps: stack.apps, more: stack.more) }
             }
             // Under the pointer it grows a little, as the pills on the right do, without moving its neighbours.
             .scaleEffect(open ? 1.12 : 1)
-            .padding(.horizontal, 7)
-            .frame(minWidth: height, minHeight: height)
+            .padding(.horizontal, empty ? 0 : 7)
+            .frame(minWidth: empty ? height + 4 : height, minHeight: height)
             .background { hoverFill(open && !focused) }
         }
         .onTapGesture(perform: action)
