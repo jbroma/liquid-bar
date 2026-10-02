@@ -196,8 +196,8 @@ struct BatteryMenu: View {
     }
 }
 
-/// The charge as a wide bar, like Control Center's sliders. While charging, a sheen sweeps along the fill and sparks
-/// run from its end into the empty part, as if the charge were pouring in. The clock runs only while charging.
+/// The charge as a wide bar, like Control Center's sliders. While charging, a sheen sweeps along the fill and a glow
+/// past its end swells and fades, as if the charge were pouring in. The clock runs only while charging.
 struct BatteryBar: View {
     let level: Double
     let charging: Bool
@@ -213,19 +213,18 @@ struct BatteryBar: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.14))
                     if charging {
-                        // Three sparks leave the fill's end one after another and fade over 44 points.
-                        ForEach(0..<3, id: \.self) { index in
-                            let travel = (phase + Double(index) / 3).truncatingRemainder(dividingBy: 1)
-                            Capsule()
-                                .fill(fill.opacity(0.55 * (1 - travel)))
-                                .frame(width: 10 - 5 * travel, height: 4 - 2 * travel)
-                                .offset(x: width - 4 + 44 * travel)
-                        }
+                        // A glow past the fill's end, which swells and fades with each sweep.
+                        let pulse = 0.5 - 0.5 * cos(phase * 2 * .pi)
+                        LinearGradient(colors: [fill.opacity(0.45 * pulse), .clear], startPoint: .leading, endPoint: .trailing)
+                            .frame(width: 26 + 22 * pulse)
+                            .offset(x: width - height / 2)
                     }
                     Capsule()
-                        .fill(fill.opacity(charging ? 0.8 : 1))
+                        .fill(fill)
                         .overlay(alignment: .leading) {
                             if charging {
+                                // Dimmed a little, so the sheen has something to brighten.
+                                Color.black.opacity(0.16)
                                 LinearGradient(colors: [.clear, .white, .clear], startPoint: .leading, endPoint: .trailing)
                                     .frame(width: 70)
                                     .offset(x: -70 + (width + 70) * phase)
