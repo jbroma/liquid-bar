@@ -2,6 +2,32 @@
 
 All notable changes to LiquidBar, in the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
 
+## [0.12.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.12.0) - 2026-10-02
+
+### Added
+
+- The bar's background can be solid black
+- The bar's background can curve up into the notch
+- A Blur slider sets how much the glass blurs what is behind it
+- A Glass pills option draws the pills in the bar style's real glass
+- Every glass style has real glass for the pills and the focused workspace, on by default
+- Control Center's groups sit straight on its glass, without panels behind them
+- Control Center no longer lists menu bar items, which are pinned in Settings
+- Glass pills have a lit edge, so they look raised over a dark wallpaper too
+- The bar's glass background matches the glass pills, with a lit lower edge
+- Each preset is a whole look with its own blur, and Crystal is the default
+- The Sound dropdown has a switch that mutes and Control Center's wide slider
+- In fullscreen the bar slides and fades in and out, like the menu bar
+
+### Fixed
+
+- Opening and closing a dropdown takes less than half the CPU
+- Settings keeps working after many changes, where the bar stopped following its config file
+- The Glass blur slider changes the glass pills in every style
+- In fullscreen, the bar comes back at the top edge instead of the native menu bar (thanks rudrankriyam)
+- The Sound switch goes off when the volume reaches 0
+- In fullscreen on a notched screen, the bar hides and comes back at the top edge, like the menu bar
+
 ## [0.11.0](https://github.com/jbroma/liquid-bar/releases/tag/v0.11.0) - 2026-10-01
 
 ### Added
