@@ -20,6 +20,10 @@ final class BarModel {
     var audioDevicesChanges = 0
     /// Mission Control is up, or opening or closing.
     var missionControl = false
+    /// The strip of desktop picture under each screen's bar, by the screen's frame. Empty where it cannot be read.
+    var desktopStrips: [String: CGImage] = [:]
+    /// The screens whose bar is over a full-screen window, where there is no desktop picture behind it.
+    var coveredScreens: Set<String> = []
     var network = NetworkState(kind: .offline)
     var now = Date()
     /// macOS shows its camera, microphone or screen recording dot at the right end of the menu bar.

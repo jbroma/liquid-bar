@@ -41,7 +41,34 @@ struct BarView: View {
         .onChange(of: model.frontApp?.pid) { menuMode.end() }
         .frame(maxWidth: .infinity)
         .frame(height: bar.height)
-        .background(alignment: .top) {
+        .background(alignment: .top) { backing }
+        .background(alignment: .top) { desktop }
+        .animation(.easeOut(duration: 0.1), value: model.missionControl)
+        .contentShape(Rectangle())
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                menuMode.hover(true, app: model.frontApp)
+            case .ended:
+                menuMode.hover(false)
+            }
+        }
+    }
+
+    /// An opaque copy of what is behind the bar, under everything else it draws: the desktop picture, or black over
+    /// a full-screen window. With it the native menu bar never shows through, whatever the background.
+    @ViewBuilder private var desktop: some View {
+        let key = NSStringFromRect(bar.screen)
+        if model.coveredScreens.contains(key) {
+            Color.black
+        } else if let strip = model.desktopStrips[key] {
+            Image(decorative: strip, scale: CGFloat(strip.height) / bar.height).resizable().frame(height: bar.height)
+        }
+    }
+
+    @ViewBuilder private var backing: some View {
+        let config = model.config
+        Group {
             if config.notchCurve, config.background != .none, let left = bar.left, let right = bar.right {
                 // The background's lower edge rises into the notch's sides, so the bar is slimmer beside it.
                 let outline = BarOutline(notch: left...(bar.screen.width - right), top: bar.height)
@@ -57,20 +84,10 @@ struct BarView: View {
                 case .glass: BarBackground(style: config.glass.background)
                 case .black: Color.black
                 case .none:
-                    // While Mission Control is up, a frosted strip, as its own menu bar has: as it closes, macOS shows
-                    // the native menu bar for a few frames, which a clear bar would let through.
-                    FrostedCover(shown: model.missionControl)
+                    // Without a copy of the desktop picture, a frosted strip while Mission Control is up: as it
+                    // closes, macOS shows the native menu bar for a few frames, which a clear bar would let through.
+                    FrostedCover(shown: model.missionControl && model.desktopStrips.isEmpty)
                 }
-            }
-        }
-        .animation(.easeOut(duration: 0.1), value: model.missionControl)
-        .contentShape(Rectangle())
-        .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                menuMode.hover(true, app: model.frontApp)
-            case .ended:
-                menuMode.hover(false)
             }
         }
     }

@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var missionControlSettle: Task<Void, Never>?
     /// Mission Control's window has been on screen since the bar was raised.
     var missionControlSeen = false
+    var pictureTick = 0
     /// Each screen's hover state, closed when the bar's menu opens.
     var slots: [ExpansionSlot] = []
     let settings = SettingsWindow()
@@ -105,6 +106,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Reads the strip of desktop picture under each bar again, and keeps the bars above the native menu bar while
+    /// they have one: a bar that draws its own copy of what is behind it hides the native menu bar for good, also in
+    /// the first frame of Mission Control, which comes before any event.
+    func followDesktopPicture() {
+        var strips: [String: CGImage] = [:]
+        for bar in panels where bar.parent == nil {
+            guard let screen = NSScreen.screens.first(where: { $0.frame.contains(bar.frame) }),
+                  let strip = DesktopPicture.strip(of: screen, height: bar.frame.height) else { continue }
+            strips[NSStringFromRect(screen.frame)] = strip
+        }
+        if strips.mapValues(DesktopPicture.digest) != model.desktopStrips.mapValues(DesktopPicture.digest) { model.desktopStrips = strips }
+        guard missionControlSettle == nil else { return }
+        panels.forEach { $0.level = restingLevel }
+    }
+
+    /// Above the native menu bar while the bars draw the desktop picture behind them, and otherwise at the Dock's
+    /// level, under it.
+    private var restingLevel: NSWindow.Level {
+        model.desktopStrips.isEmpty ? barLevel : .init(rawValue: barLevel.rawValue + 5)
+    }
+
     func raiseBarThroughMissionControl(open: Bool) {
         panels.forEach { $0.level = .init(rawValue: barLevel.rawValue + 5) }
         followWindowList()
@@ -132,7 +154,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NativeMenuBar.stopHolding()
             missionControlSeen = false
             model.missionControl = false
-            panels.forEach { $0.level = barLevel }
+            missionControlSettle = nil
+            panels.forEach { $0.level = restingLevel }
         }
     }
 
@@ -244,6 +267,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if covered { coveredBars.append(bar) }
             revealed = revealed || covered && shown
         }
+        let covered = Set(coveredBars.compactMap { bar in NSScreen.screens.first { $0.frame.contains(bar.frame) }.map { NSStringFromRect($0.frame) } })
+        if covered != model.coveredScreens { model.coveredScreens = covered }
+        // Every fifth second: a dynamic desktop picture changes slowly, and a new one is rare.
+        pictureTick += 1
+        if pictureTick % 5 == 0 { followDesktopPicture() }
         watchTopEdge(!coveredBars.isEmpty)
         // The privacy dot is a small WindowServer window at the top right, on screen only while the dot shows.
         let dot = windows.contains { window in
@@ -324,6 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         slots = NSScreen.screens.map { ExpansionSlot(screen: $0.frame) }
         panels = zip(NSScreen.screens, slots).flatMap { makePanels(for: $0, slot: $1) }
         NativeMenuBar.bars = (panels.map { UInt32($0.windowNumber) }, Int32(barLevel.rawValue + 5))
+        followDesktopPicture()
     }
 
     func makePanels(for screen: NSScreen, slot: ExpansionSlot) -> [NSPanel] {

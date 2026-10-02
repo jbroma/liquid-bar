@@ -228,6 +228,44 @@ enum NativeMenuBar {
     }
 }
 
+/// The desktop picture as it is on screen. macOS tells an app which file is set, but not what a dynamic or aerial
+/// picture shows, so the picture is read from its own window, which the window server hands out without Screen
+/// Recording access, unlike other apps' windows.
+enum DesktopPicture {
+    private static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
+    private static let connection = systemFunction(framework, "SLSMainConnectionID", as: (@convention(c) () -> Int32).self)
+    private static let capture = systemFunction(framework, "SLSHWCaptureWindowList",
+                                                as: (@convention(c) (Int32, UnsafeMutablePointer<UInt32>, Int32, UInt32) -> Unmanaged<CFArray>?).self)
+
+    /// The top `height` points of `screen`'s desktop picture.
+    static func strip(of screen: NSScreen, height: CGFloat) -> CGImage? {
+        guard let connection, let capture, let primary = NSScreen.screens.first else { return nil }
+        let frame = CGRect(x: screen.frame.minX, y: primary.frame.height - screen.frame.maxY, width: screen.frame.width, height: screen.frame.height)
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+        // The picture's window covers the screen, under the desktop's icons. Under it is the window server's black one.
+        let picture = windows.compactMap { window -> (id: UInt32, layer: Int)? in
+            guard let layer = window[kCGWindowLayer as String] as? Int, layer < Int(CGWindowLevelForKey(.desktopIconWindow)),
+                  window[kCGWindowOwnerName as String] as? String != "Window Server",
+                  let bounds = window[kCGWindowBounds as String], CGRect(dictionaryRepresentation: bounds as! CFDictionary) == frame,
+                  let id = window[kCGWindowNumber as String] as? Int else { return nil }
+            return (UInt32(id), layer)
+        }.max { $0.layer < $1.layer }
+        guard var id = picture?.id,
+              // Ignoring the clip shape, at the best resolution.
+              let image = (capture(connection(), &id, 1, (1 << 11) | (1 << 8))?.takeRetainedValue() as? [CGImage])?.first
+        else { return nil }
+        return image.cropping(to: CGRect(x: 0, y: 0, width: image.width, height: Int(height * CGFloat(image.height) / screen.frame.height)))
+    }
+
+    /// Enough of a strip to tell whether it has changed.
+    static func digest(_ strip: CGImage) -> Int {
+        guard let data = strip.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return 0 }
+        var hasher = Hasher()
+        for offset in stride(from: 0, to: CFDataGetLength(data), by: 4099) { hasher.combine(bytes[offset]) }
+        return hasher.finalize()
+    }
+}
+
 /// The macOS desktops through SkyLight, read as yabai reads them. macOS has no API to switch desktops, so switching
 /// presses the "Switch to Desktop N" shortcut.
 enum Desktops {
