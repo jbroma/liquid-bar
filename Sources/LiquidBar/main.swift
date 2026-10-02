@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var fullscreenPoll: Timer?
     /// The bars a window covers, whose top edge the pointer is followed to.
     var coveredBars: [NSPanel] = []
+    /// The bars slid away in fullscreen, which stay on screen until their animation ends.
+    var hiddenBars: Set<ObjectIdentifier> = []
     var edgeMonitor: Any?
     var edgePoll: Task<Void, Never>?
     var pendingRebuild: Task<Void, Never>?
@@ -213,12 +215,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // A notched screen keeps the native menu bar's window on screen in fullscreen, in the strip beside the
             // camera, so there the pointer says when the menu bar shows: from the top edge, for as long as it is on the bar.
             let onBar = NSMouseInRect(pointer, bar.frame, false)
+            let visible = !hiddenBars.contains(ObjectIdentifier(bar))
             let native = screen.auxiliaryTopLeftArea == nil ? menuBars.contains { $0.intersects(frame) }
-                : onBar && (bar.isVisible || pointer.y >= bar.frame.maxY - 1)
+                : onBar && (visible || pointer.y >= bar.frame.maxY - 1)
             // Only a bar already showing is kept: a pulse, like the charger plugged in, must not bring a hidden one back.
-            let shown = native || bar.isVisible && (slot.owner != nil || menuOpen)
+            let shown = native || visible && (slot.owner != nil || menuOpen)
             let hide = covered && !shown
-            if hide == bar.isVisible { hide ? bar.orderOut(nil) : bar.orderFrontRegardless() }
+            if hide == visible { slide(bar, away: hide) }
             if covered { coveredBars.append(bar) }
             revealed = revealed || covered && shown
         }
@@ -233,6 +236,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Reapplied every tick, as yabai reapplies it on Space changes.
         NativeMenuBar.setAlpha(0)
         return revealed
+    }
+
+    /// Slides a bar up out of the screen's top edge while it fades, or back down, as macOS moves the menu bar in
+    /// fullscreen. The content moves inside its window, which leaves the screen once the bar is away.
+    private func slide(_ bar: NSPanel, away: Bool) {
+        guard let content = bar.contentView else { return }
+        let id = ObjectIdentifier(bar)
+        if away { hiddenBars.insert(id) } else { hiddenBars.remove(id) }
+        if !away, !bar.isVisible {
+            content.setFrameOrigin(NSPoint(x: 0, y: content.frame.height))
+            bar.alphaValue = 0
+            bar.orderFrontRegardless()
+        }
+        NSAnimationContext.runAnimationGroup { animation in
+            animation.duration = away ? 0.18 : 0.22
+            animation.timingFunction = CAMediaTimingFunction(name: away ? .easeIn : .easeOut)
+            content.animator().setFrameOrigin(NSPoint(x: 0, y: away ? content.frame.height : 0))
+            bar.animator().alphaValue = away ? 0 : 1
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                if self?.hiddenBars.contains(id) == true { bar.orderOut(nil) }
+            }
+        }
     }
 
     /// The 1s poll is too slow for the pointer reaching the top edge. While a window covers a bar, the pointer at that
@@ -250,6 +276,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func pollFromTopEdge() {
+        // From a few points below the edge: the pointer's position can lag the event that brought it there, and no
+        // later event comes while it rests at the edge.
         guard edgePoll == nil, pointerAtTopEdge else { return }
         edgePoll = Task {
             while followWindowList() || pointerAtTopEdge { try? await Task.sleep(for: .milliseconds(50)) }
@@ -260,7 +288,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pointerAtTopEdge: Bool {
         let pointer = NSEvent.mouseLocation
         // NSMouseInRect counts the top edge as inside, where the pointer rests when pushed against it.
-        return coveredBars.contains { NSMouseInRect(pointer, $0.frame, false) && pointer.y >= $0.frame.maxY - 1 }
+        return coveredBars.contains { NSMouseInRect(pointer, $0.frame, false) && pointer.y >= $0.frame.maxY - 6 }
     }
 
     func apply(_ config: Config) {
@@ -273,6 +301,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func rebuildPanels() {
         trace("rebuild panels")
         panels.forEach { $0.close() }
+        hiddenBars = []
         slots = NSScreen.screens.map { ExpansionSlot(screen: $0.frame) }
         panels = zip(NSScreen.screens, slots).flatMap { makePanels(for: $0, slot: $1) }
     }
