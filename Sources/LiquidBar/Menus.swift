@@ -166,29 +166,45 @@ struct BatteryMenu: View {
     let percent: Bool
     @State private var health: BatteryHealth?
     @State private var watts: Int?
+    /// The health details start folded, like the Wi-Fi networks, and fold again when the dropdown closes.
+    @State private var detailed = false
+    @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
         MenuBody {
             if let battery {
-                MenuTitle(title: "Battery", accessory: "\(battery.percent)%")
+                HeaderRow(title: "Battery") { Text("\(battery.percent)%").foregroundStyle(secondary).monospacedDigit() }
                 BatteryBar(level: Double(battery.percent) / 100, charging: battery.charging, fill: battery.tint.color)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .accessibilityHidden(true)
-                MenuValue(title: "Power Source", value: battery.powerSource(watts: watts))
-                MenuValue(title: "Status", value: battery.detail)
+                // One line: what the battery is doing, and what powers the Mac.
+                MenuRow {
+                    Text(battery.detail).monospacedDigit().lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(battery.powerSource(watts: watts)).foregroundStyle(secondary).lineLimit(1)
+                }
                 if let health {
                     MenuSeparator()
-                    MenuSection(title: "Health")
-                    MenuValue(title: "Condition", value: health.condition)
-                    if let capacity = health.maxCapacity { MenuValue(title: "Maximum Capacity", value: "\(capacity)%") }
-                    if let cycles = health.cycleCount { MenuValue(title: "Cycle Count", value: "\(cycles)") }
+                    HeaderRow(title: "Battery Health", bold: false) {
+                        Text(health.condition).foregroundStyle(secondary)
+                        Disclosure(open: detailed)
+                    }
+                    .hoverButton { withAnimation(spring) { detailed.toggle() } }
+                    if detailed {
+                        Group {
+                            if let capacity = health.maxCapacity { MenuValue(title: "Maximum Capacity", value: "\(capacity)%") }
+                            if let cycles = health.cycleCount { MenuValue(title: "Cycle Count", value: "\(cycles)") }
+                        }
+                        .transition(.opacity)
+                    }
                 }
                 MenuSeparator()
             }
             HeaderRow(title: "Show Percentage", bold: false) { GlassSwitch(on: percent) { Setting.batteryPercent($0).save() } }
             SettingsButton(title: "Battery Settings…", pane: "com.apple.Battery-Settings.extension")
         }
+        .onChange(of: slot.owner == .battery) { _, open in if !open { detailed = false } }
         .task(id: battery) {
             health = readBatteryHealth()
             watts = battery?.onAC == true ? adapterWatts() : nil
@@ -196,8 +212,9 @@ struct BatteryMenu: View {
     }
 }
 
-/// The charge as a wide bar, like Control Center's sliders. While charging, a sheen sweeps along the fill and a glow
-/// past its end swells and fades, as if the charge were pouring in. The clock runs only while charging.
+/// The charge as a wide bar, like Control Center's sliders. While charging it is a liquid on its side: the surface at
+/// the end of the fill rolls in three layers and sloshes slowly, bubbles drift along the fill and fade at the surface,
+/// and a soft light lies along its top. The clock runs only while charging.
 struct BatteryBar: View {
     let level: Double
     let charging: Bool
@@ -208,32 +225,35 @@ struct BatteryBar: View {
         TimelineView(.animation(paused: !charging)) { timeline in
             GeometryReader { proxy in
                 let width = height + (proxy.size.width - height) * level
-                // One sweep takes 1.8 s.
-                let phase = charging ? (timeline.date.timeIntervalSinceReferenceDate / 1.8).truncatingRemainder(dividingBy: 1) : 0
+                let time = charging ? timeline.date.timeIntervalSinceReferenceDate : 0
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.14))
                     if charging {
-                        // A glow past the fill's end, which swells and fades with each sweep.
-                        let pulse = 0.5 - 0.5 * cos(phase * 2 * .pi)
-                        LinearGradient(colors: [fill.opacity(0.45 * pulse), .clear], startPoint: .leading, endPoint: .trailing)
-                            .frame(width: 26 + 22 * pulse)
-                            .offset(x: width - height / 2)
-                    }
-                    Capsule()
-                        .fill(fill)
-                        .overlay(alignment: .leading) {
-                            if charging {
-                                // Dimmed a little, so the sheen has something to brighten.
-                                Color.black.opacity(0.16)
-                                LinearGradient(colors: [.clear, .white, .clear], startPoint: .leading, endPoint: .trailing)
-                                    .frame(width: 70)
-                                    .offset(x: -70 + (width + 70) * phase)
+                        // The whole surface leans in and out, as a liquid settles.
+                        let end = width + 2.5 * sin(time * 1.3)
+                        let surface = LiquidEdge(end: end, time: time, amplitude: 4)
+                        // Two fainter waves behind the surface, each a little ahead and out of step.
+                        LiquidEdge(end: end + 5, time: time * 0.8 + 4, amplitude: 5).fill(fill.opacity(0.22))
+                        LiquidEdge(end: end + 2.5, time: time * 1.15 + 2, amplitude: 4.5).fill(fill.opacity(0.4))
+                        surface.fill(fill)
+                            .overlay(alignment: .leading) {
+                                // Dimmed a little, so the light and the bubbles show on it.
+                                Color.black.opacity(0.2)
+                                LinearGradient(colors: [.white.opacity(0.5), .clear], startPoint: .top, endPoint: .center)
+                                ForEach(0..<9, id: \.self) { index in
+                                    let bubble = Bubble(index: index, time: time)
+                                    // It grows as it goes, wobbles across the bar, and fades in and out at the ends.
+                                    Circle()
+                                        .fill(.white.opacity(bubble.opacity))
+                                        .frame(width: bubble.size)
+                                        .offset(x: 22 + (end - 30) * bubble.travel, y: bubble.y)
+                                        .frame(maxHeight: .infinity)
+                                }
                             }
-                        }
-                        .clipShape(Capsule())
-                        .frame(width: width)
-                        // The end of the fill swells a little with each sweep that reaches it.
-                        .scaleEffect(x: charging ? 1 + 0.012 * sin(phase * 2 * .pi) : 1, anchor: .leading)
+                            .mask { surface }
+                    } else {
+                        Capsule().fill(fill).frame(width: width)
+                    }
                     Image(systemName: charging ? "bolt.fill" : "battery.100percent")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.6))
@@ -244,6 +264,45 @@ struct BatteryBar: View {
         }
         .frame(height: height)
         .animation(spring, value: level)
+    }
+}
+
+/// One bubble in the charging liquid at `time`. Its speed, size, height and wobble come from its index, so each
+/// keeps its own.
+private struct Bubble {
+    let travel: Double
+    let size: CGFloat
+    let y: CGFloat
+    let opacity: Double
+
+    init(index: Int, time: Double) {
+        let seed = Double(index) * 0.618
+        func part(_ scale: Double) -> Double { (seed * scale).truncatingRemainder(dividingBy: 1) }
+        travel = (time * (0.12 + 0.1 * part(5)) + seed).truncatingRemainder(dividingBy: 1)
+        size = (2 + 3.5 * part(3)) * (0.7 + 0.5 * travel)
+        y = part(7) * 14 - 7 + 2.2 * sin(time * (2 + 2 * part(11)) + seed * 9)
+        opacity = min(1, 4 * travel) * min(1, 6 * (1 - travel))
+    }
+}
+
+/// A bar filled from the left to about `end`, whose right edge is a rolling wave, like the surface of a liquid on its
+/// side: a long swell with a shorter ripple running the other way over it.
+nonisolated struct LiquidEdge: Shape {
+    let end: CGFloat
+    let time: Double
+    let amplitude: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: .zero)
+        for y in stride(from: 0, through: rect.height, by: 0.5) {
+            let across = Double(y) / Double(rect.height) * 2 * .pi
+            let swell = sin(across * 0.9 + time * 2.4), ripple = 0.4 * sin(across * 2.3 - time * 3.7)
+            path.addLine(to: CGPoint(x: end - amplitude + amplitude * (swell + ripple) / 1.4, y: y))
+        }
+        path.addLine(to: CGPoint(x: 0, y: rect.height))
+        path.closeSubpath()
+        return path
     }
 }
 
