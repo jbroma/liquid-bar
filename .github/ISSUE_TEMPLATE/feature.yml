@@ -3,13 +3,7 @@ description: Something the bar should do or show
 labels: [enhancement]
 body:
   - type: textarea
-    id: what
     attributes:
       label: What should the bar do?
-      description: Say what you would see or click. A screenshot of how macOS or another app does it helps.
     validations:
       required: true
-  - type: textarea
-    id: why
-    attributes:
-      label: What do you do today instead?
