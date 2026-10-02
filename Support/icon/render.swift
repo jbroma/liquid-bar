@@ -1,100 +1,165 @@
 // Renders the app icon: docs/images/icon.png (1024 px master) and Support/AppIcon.icns.
 // Run from the repo root with `make icon`.
+//
+// The icon is the bar with its lens: a capsule of glass, and a thicker lens of glass over the focused workspace's two
+// apps. Glass is built from a mask of its shape: what is behind it is blurred and a little magnified, and light
+// catches the rim at the top left and the bottom right.
 import AppKit
+import CoreImage
 import SwiftUI
 
+let S = 1024
+let ci = CIContext(options: [.workingColorSpace: NSNull(), .outputColorSpace: NSNull()])
 func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor { CGColor(srgbRed: r, green: g, blue: b, alpha: a) }
+func hex(_ v: Int, _ a: CGFloat = 1) -> CGColor { rgb(CGFloat((v >> 16) & 255) / 255, CGFloat((v >> 8) & 255) / 255, CGFloat(v & 255) / 255, a) }
 func squircle(_ r: CGRect, _ radius: CGFloat) -> CGPath { RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: r).cgPath }
-func capsule(_ r: CGRect) -> CGPath { squircle(r, r.height / 2) }
+func capsule(_ r: CGRect) -> CGPath { squircle(r, min(r.width, r.height) / 2) }
+func circle(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> CGPath { CGPath(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r), transform: nil) }
+let body = squircle(CGRect(x: 100, y: 100, width: 824, height: 824), 185)
 
-/// Draws the icon in a 1024-point space with a top-left origin, scaled to `px` pixels. Each size is drawn from the
-/// vectors rather than downsampled, so the small sizes stay sharp.
-func render(_ px: Int) -> CGImage {
-    let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-    ctx.scaleBy(x: CGFloat(px) / 1024, y: CGFloat(px) / 1024)
-    ctx.translateBy(x: 0, y: 1024)
-    ctx.scaleBy(x: 1, y: -1)
+/// A top-left-origin RGBA bitmap.
+func color(_ draw: (CGContext) -> Void) -> CGImage {
+    let c = CGContext(data: nil, width: S, height: S, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    c.translateBy(x: 0, y: CGFloat(S)); c.scaleBy(x: 1, y: -1)
+    draw(c); return c.makeImage()!
+}
+/// A top-left-origin gray bitmap, black where nothing is drawn: a mask.
+func gray(_ draw: (CGContext) -> Void) -> CGImage {
+    let c = CGContext(data: nil, width: S, height: S, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+    c.setFillColor(gray: 0, alpha: 1); c.fill(CGRect(x: 0, y: 0, width: S, height: S))
+    c.translateBy(x: 0, y: CGFloat(S)); c.scaleBy(x: 1, y: -1)
+    c.setFillColor(gray: 1, alpha: 1)
+    draw(c); return c.makeImage()!
+}
+let frame = CGRect(x: 0, y: 0, width: S, height: S)
+func blur(_ image: CGImage, _ radius: CGFloat) -> CIImage {
+    CIImage(cgImage: image).clampedToExtent().applyingGaussianBlur(sigma: radius).cropped(to: frame)
+}
+/// 1 where the field is above `t`, with an edge `1 / k` wide.
+func threshold(_ field: CIImage, _ t: CGFloat, _ k: CGFloat = 40) -> CIImage {
+    let bias = 0.5 - t * k
+    return field.applyingFilter("CIColorMatrix", parameters: [
+        "inputRVector": CIVector(x: k, y: 0, z: 0, w: 0), "inputGVector": CIVector(x: 0, y: k, z: 0, w: 0),
+        "inputBVector": CIVector(x: 0, y: 0, z: k, w: 0), "inputBiasVector": CIVector(x: bias, y: bias, z: bias, w: 0),
+    ]).applyingFilter("CIColorClamp")
+}
+func mask(_ image: CIImage) -> CGImage {
+    let c = CGContext(data: nil, width: S, height: S, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)!
+    c.draw(ci.createCGImage(image, from: frame)!, in: frame)
+    return c.makeImage()!
+}
+func rgba(_ image: CIImage) -> CGImage { ci.createCGImage(image, from: frame, format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)! }
+/// Images made here are already top-left; drawing them into a flipped context needs the flip undone.
+func put(_ c: CGContext, _ image: CGImage, in rect: CGRect = frame) {
+    c.saveGState(); c.translateBy(x: rect.minX, y: rect.maxY); c.scaleBy(x: 1, y: -1)
+    c.draw(image, in: CGRect(origin: .zero, size: rect.size)); c.restoreGState()
+}
+func clipped(_ c: CGContext, to m: CGImage, offset: CGPoint = .zero, _ draw: () -> Void) {
+    c.saveGState(); c.translateBy(x: offset.x, y: CGFloat(S) + offset.y); c.scaleBy(x: 1, y: -1)
+    c.clip(to: frame, mask: m)
+    c.scaleBy(x: 1, y: -1); c.translateBy(x: -offset.x, y: -CGFloat(S) - offset.y)
+    draw(); c.restoreGState()
+}
+func gradient(_ c: CGContext, _ colors: [CGColor], _ stops: [CGFloat], from: CGPoint, to: CGPoint) {
+    c.drawLinearGradient(CGGradient(colorsSpace: nil, colors: colors as CFArray, locations: stops)!, start: from, end: to, options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+}
+func glow(_ c: CGContext, _ color: CGColor, at p: CGPoint, radius: CGFloat) {
+    let g = CGGradient(colorsSpace: nil, colors: [color, color.copy(alpha: 0)!] as CFArray, locations: [0, 1])!
+    c.drawRadialGradient(g, startCenter: p, startRadius: 0, endCenter: p, endRadius: radius, options: [])
+}
 
-    // Apple's macOS grid: an 824 pt body centred on the 1024 canvas, leaving room for the shadow.
-    let body = squircle(CGRect(x: 100, y: 100, width: 824, height: 824), 185)
-    ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: rgb(0, 0, 0, 0.35))
-    ctx.addPath(body)
-    ctx.setFillColor(rgb(0.2, 0.1, 0.6))
-    ctx.fillPath()
-    ctx.restoreGState()
+/// The backdrop: violet to deep blue, with a pink, a cyan and an orange glow for the glass to bend.
+struct Palette { let base: [CGColor]; let glows: [(CGColor, CGPoint, CGFloat)] }
+let aurora = Palette(base: [hex(0x7A3CF0), hex(0x3B22D6), hex(0x0B1E8F)],
+                     glows: [(hex(0xFF5CA8, 0.75), CGPoint(x: 250, y: 880), 520), (hex(0x35C8FF, 0.6), CGPoint(x: 900, y: 240), 470), (hex(0xFFB15C, 0.45), CGPoint(x: 560, y: 1000), 330)])
 
-    // The wallpaper from the screenshots: violet to deep blue, with a lighter sweep and its bright rim.
-    ctx.saveGState()
-    ctx.addPath(body)
-    ctx.clip()
-    let wallpaper = CGGradient(colorsSpace: nil, colors: [rgb(0.45, 0.25, 0.92), rgb(0.20, 0.12, 0.78), rgb(0.05, 0.12, 0.55)] as CFArray, locations: [0, 0.5, 1])!
-    ctx.drawLinearGradient(wallpaper, start: CGPoint(x: 150, y: 100), end: CGPoint(x: 880, y: 924), options: [])
-    let rim = CGMutablePath()
-    rim.move(to: CGPoint(x: 230, y: 924))
-    rim.addQuadCurve(to: CGPoint(x: 924, y: 540), control: CGPoint(x: 470, y: 560))
-    let sweep = rim.mutableCopy()!
-    sweep.addLine(to: CGPoint(x: 924, y: 924))
-    sweep.closeSubpath()
-    ctx.addPath(sweep)
-    ctx.setFillColor(rgb(0.25, 0.45, 1, 0.35))
-    ctx.fillPath()
-    ctx.addPath(rim)
-    ctx.setStrokeColor(rgb(1, 1, 1, 0.55))
-    ctx.setLineWidth(7)
-    ctx.strokePath()
-    ctx.restoreGState()
+/// The backdrop without the body's clip, so glass can blur and magnify it.
+func backdrop(_ p: Palette) -> CGImage {
+    color { c in
+        gradient(c, p.base, [0, 0.5, 1], from: CGPoint(x: 150, y: 100), to: CGPoint(x: 880, y: 924))
+        for (col, at, r) in p.glows { glow(c, col, at: at, radius: r) }
+    }
+}
 
-    func glass(_ rect: CGRect, fill: CGFloat, shadow: Bool) {
-        let path = capsule(rect)
-        if shadow {
-            ctx.saveGState()
-            ctx.setShadow(offset: CGSize(width: 0, height: -rect.height * 0.08), blur: rect.height * 0.25, color: rgb(0.02, 0.02, 0.2, 0.45))
-            ctx.addPath(path)
-            ctx.setFillColor(rgb(1, 1, 1, fill))
-            ctx.fillPath()
-            ctx.restoreGState()
+struct Glass {
+    /// How far the shapes melt into each other before the edge is taken.
+    var melt: CGFloat = 0
+    var tint: CGFloat = 0.12
+    var shapes: (CGContext) -> Void
+}
+
+func render(_ palette: Palette, _ layers: [Glass], glyphs: (CGContext) -> Void) -> CGImage {
+    let bg = backdrop(palette)
+    return color { c in
+        c.saveGState()
+        c.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: rgb(0, 0, 0, 0.35))
+        c.addPath(body); c.setFillColor(palette.base[1]); c.fillPath()
+        c.restoreGState()
+        c.addPath(body); c.clip()
+        put(c, bg)
+        // A soft light from the top left on the whole tile.
+        gradient(c, [rgb(1, 1, 1, 0.16), rgb(1, 1, 1, 0)], [0, 1], from: CGPoint(x: 100, y: 100), to: CGPoint(x: 560, y: 620))
+        var under = bg
+        for layer in layers {
+            let raw = gray(layer.shapes)
+            let shape = layer.melt > 0 ? mask(threshold(blur(raw, layer.melt), 0.5, 30)) : raw
+            let field = blur(shape, 9)
+            let inside = mask(threshold(field, 0.5))
+            let rim = mask(threshold(field, 0.5).applyingFilter("CIDifferenceBlendMode", parameters: ["inputBackgroundImage": threshold(field, 0.8)]))
+            let lip = mask(threshold(field, 0.8).applyingFilter("CIDifferenceBlendMode", parameters: ["inputBackgroundImage": threshold(field, 0.97, 12)]))
+            // Its shadow on what is under it.
+            clipped(c, to: mask(blur(shape, 26)), offset: CGPoint(x: 0, y: 22)) { c.setFillColor(rgb(0.03, 0.02, 0.25, 0.55)); c.fill(frame) }
+            clipped(c, to: inside) {
+                // What is behind, blurred and a little magnified, as thick glass bends it.
+                let zoom: CGFloat = 1.1
+                put(c, rgba(blur(under, 16)), in: frame.insetBy(dx: -CGFloat(S) * (zoom - 1) / 2, dy: -CGFloat(S) * (zoom - 1) / 2))
+                c.setFillColor(rgb(1, 1, 1, layer.tint)); c.fill(frame)
+                gradient(c, [rgb(1, 1, 1, 0.30), rgb(1, 1, 1, 0.02), rgb(1, 1, 1, 0.14)], [0, 0.5, 1], from: CGPoint(x: 0, y: 150), to: CGPoint(x: 0, y: 900))
+            }
+            // Light catches the edge at the top left and again at the bottom right.
+            clipped(c, to: lip) { gradient(c, [rgb(1, 1, 1, 0.30), rgb(1, 1, 1, 0.0), rgb(1, 1, 1, 0.22)], [0, 0.5, 1], from: CGPoint(x: 150, y: 150), to: CGPoint(x: 880, y: 880)) }
+            clipped(c, to: rim) { gradient(c, [rgb(1, 1, 1, 0.95), rgb(1, 1, 1, 0.28), rgb(1, 1, 1, 0.8)], [0, 0.5, 1], from: CGPoint(x: 200, y: 180), to: CGPoint(x: 820, y: 860)) }
+            under = c.makeImage().map { snapshot in color { put($0, flipped(snapshot)) } } ?? under
         }
-        ctx.saveGState()
-        ctx.addPath(path)
-        ctx.clip()
-        let sheen = CGGradient(colorsSpace: nil, colors: [rgb(1, 1, 1, 0.38), rgb(1, 1, 1, 0.04), rgb(1, 1, 1, 0.12)] as CFArray, locations: [0, 0.55, 1])!
-        ctx.drawLinearGradient(sheen, start: CGPoint(x: rect.midX, y: rect.minY), end: CGPoint(x: rect.midX, y: rect.maxY), options: [])
-        ctx.restoreGState()
-        ctx.addPath(path)
-        ctx.setStrokeColor(rgb(1, 1, 1, 0.6))
-        ctx.setLineWidth(rect.height * 0.035)
-        ctx.strokePath()
+        c.setShadow(offset: CGSize(width: 0, height: 6), blur: 14, color: rgb(0.05, 0.03, 0.3, 0.35))
+        glyphs(c)
     }
-    func white(_ path: CGPath, _ alpha: CGFloat) {
-        ctx.addPath(path)
-        ctx.setFillColor(rgb(1, 1, 1, alpha))
-        ctx.fillPath()
-    }
-    func dot(_ x: CGFloat, _ r: CGFloat, _ alpha: CGFloat) { white(CGPath(ellipseIn: CGRect(x: x - r, y: 335 - r, width: 2 * r, height: 2 * r), transform: nil), alpha) }
+}
+/// A context snapshot is bottom-left; this turns it top-left like the other images here.
+func flipped(_ image: CGImage) -> CGImage {
+    let c = CGContext(data: nil, width: S, height: S, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    c.translateBy(x: 0, y: CGFloat(S)); c.scaleBy(x: 1, y: -1); c.draw(image, in: frame); return c.makeImage()!
+}
+func white(_ c: CGContext, _ path: CGPath, _ alpha: CGFloat = 1) { c.addPath(path); c.setFillColor(rgb(1, 1, 1, alpha)); c.fillPath() }
+func fill(_ c: CGContext, _ path: CGPath) { c.addPath(path); c.fillPath() }
 
-    // A zoomed-in bar: the focused workspace pill with two apps, an empty workspace, and a status pill.
-    glass(CGRect(x: 150, y: 210, width: 724, height: 250), fill: 0.30, shadow: true)
-    glass(CGRect(x: 190, y: 250, width: 290, height: 170), fill: 0.34, shadow: false)
-    dot(275, 38, 1)
-    dot(395, 38, 0.75)
-    dot(555, 30, 0.55)
-    white(capsule(CGRect(x: 640, y: 309, width: 180, height: 52)), 1)
 
-    return ctx.makeImage()!
+let icon = render(aurora, [
+    Glass(shapes: { c in fill(c, capsule(CGRect(x: 144, y: 412, width: 736, height: 200))) }),
+    Glass(tint: 0.2, shapes: { c in fill(c, capsule(CGRect(x: 172, y: 372, width: 380, height: 280))) }),
+]) { c in
+    white(c, circle(296, 512, 52)); white(c, circle(428, 512, 52))
+    white(c, circle(640, 512, 32), 0.7); white(c, circle(740, 512, 32), 0.7); white(c, circle(824, 512, 22), 0.45)
 }
 
 func writePNG(_ image: CGImage, _ path: String) {
     try! NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
 }
+/// The master scaled down. The blurs need the full size, so the small sizes are not drawn on their own.
+func scaled(_ px: Int) -> CGImage {
+    let c = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    c.interpolationQuality = .high
+    c.draw(icon, in: CGRect(x: 0, y: 0, width: px, height: px))
+    return c.makeImage()!
+}
 
-writePNG(render(1024), "docs/images/icon.png")
+writePNG(icon, "docs/images/icon.png")
 let iconset = FileManager.default.temporaryDirectory.appendingPathComponent("AppIcon.iconset").path
 try? FileManager.default.removeItem(atPath: iconset)
 try! FileManager.default.createDirectory(atPath: iconset, withIntermediateDirectories: true)
 for size in [16, 32, 128, 256, 512] {
-    writePNG(render(size), "\(iconset)/icon_\(size)x\(size).png")
-    writePNG(render(size * 2), "\(iconset)/icon_\(size)x\(size)@2x.png")
+    writePNG(scaled(size), "\(iconset)/icon_\(size)x\(size).png")
+    writePNG(scaled(size * 2), "\(iconset)/icon_\(size)x\(size)@2x.png")
 }
 let iconutil = try! Process.run(URL(fileURLWithPath: "/usr/bin/iconutil"), arguments: ["-c", "icns", iconset, "-o", "Support/AppIcon.icns"])
 iconutil.waitUntilExit()
