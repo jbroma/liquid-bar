@@ -28,7 +28,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `glassStyle` | string | `"liquid"` | The glass of the dropdowns, the pills, the bar's menu, and the Accessibility window: `"liquid"`, `"dew"`, `"pearl"`, `"crystal"`, `"frost"`, `"mist"`, or `"obsidian"`. See [Glass styles](#glass-styles). |
 | `barStyle` | string | follows `glassStyle` | The style of the bar's pills, the pinned pill, and the workspace fills. Same names as `glassStyle`. |
 | `dropdownStyle` | string | follows `glassStyle` | The style of the dropdowns, the bar's menu, and the Accessibility window. Same names. |
-| `backgroundStyle` | string | follows `glassStyle` | The style of the strip behind the bar, drawn in that style's dropdown glass. Same names. It shows only while `background` is `"glass"`. |
+| `backgroundStyle` | string | follows `glassStyle` | The style of the strip behind the bar, in the same glass and light as that style's glass pills, with a lit line along its lower edge. Same names. It shows only while `background` is `"glass"`. |
 | `glassBlur` | number, 0 to 1 | `1` | How much the glass of the dropdowns and of the bar's background blurs what is behind it. `1` is the blur macOS draws, and lower values show more of what is behind. `0` leaves only a little softness. |
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |

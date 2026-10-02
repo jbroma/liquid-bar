@@ -49,18 +49,7 @@ struct BarView: View {
                     if config.shownBackground == .black {
                         outline.fill(.black)
                     } else {
-                        let style = config.glass.background
-                        // The glass's own rim is straight, so it runs out of sight below, and the styles with a lit
-                        // rim get one drawn along the curve.
-                        BarBackground(style: style, below: 16)
-                            .overlay {
-                                if let lit = style.blend?.liquid, lit > 0 {
-                                    let rim = BarOutline(notch: outline.notch, top: outline.top, edgeOnly: true)
-                                    rim.stroke(.white.opacity(0.4 * lit), lineWidth: 7).blur(radius: 3)
-                                    rim.stroke(.white.opacity(0.95 * lit), lineWidth: 1.5)
-                                }
-                            }
-                            .mask { outline }
+                        BarBackground(style: config.glass.background, outline: outline)
                     }
                 }
             } else {

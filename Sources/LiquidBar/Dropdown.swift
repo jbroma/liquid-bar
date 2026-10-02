@@ -437,8 +437,8 @@ private struct PillSheen: View {
 }
 
 extension GlassStyle {
-    /// How strongly a glass pill is lit, from the brightest styles to the clearest.
-    fileprivate var pillSheen: Double {
+    /// How strongly a glass pill and the bar's background are lit, from the brightest styles to the clearest.
+    var pillSheen: Double {
         switch self {
         case .liquid: 1
         case .dew, .mist: 0.85
@@ -449,20 +449,33 @@ extension GlassStyle {
     }
 }
 
-/// The strip behind the whole bar, in the same glass as the dropdowns. It runs past the bar's top and sides, so of
-/// the glass's rim only the lower edge shows.
+/// The strip behind the whole bar, in the bar's glass: the same glass and the same light as a glass pill, so the two
+/// match. It runs past the bar on every side, which hides the glass's own edges, and its lower edge is a lit line:
+/// straight, or along `outline` where the bar curves into the notch.
 struct BarBackground: View {
     let style: GlassStyle
     var preview = false
-    /// How far it also runs past the lower edge, for a caller that cuts its own.
-    var below: CGFloat = 0
+    var outline: BarOutline?
 
     var body: some View {
-        StyledGlass(corner: 0, style: style, preview: preview, blur: delegate.model.config.glassBlur)
+        let strength = style.pillSheen
+        let lit = Color.white.opacity(0.4 * strength)
+        let glass = StyledGlass(corner: 0, style: style, preview: preview, blur: delegate.model.config.glassBlur, pill: true)
             .id(style)
             .padding(.horizontal, -12)
             .padding(.top, -12)
-            .padding(.bottom, -below)
+            .padding(.bottom, -16)
+            .overlay { LinearGradient(colors: [.white.opacity(0.1 * strength), .clear], startPoint: .top, endPoint: .bottom) }
+        if let outline {
+            glass
+                // Half of the line falls outside the outline and is cut off with the glass.
+                .overlay { BarOutline(notch: outline.notch, top: outline.top, edgeOnly: true).stroke(lit, lineWidth: 2) }
+                .mask { outline }
+        } else {
+            glass
+                .overlay(alignment: .bottom) { Rectangle().fill(lit).frame(height: 1) }
+                .clipped()
+        }
     }
 }
 
