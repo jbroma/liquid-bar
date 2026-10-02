@@ -63,7 +63,7 @@ struct BarView: View {
                 }
             }
         }
-        .animation(.easeOut(duration: 0.2), value: model.missionControl)
+        .animation(.easeOut(duration: 0.1), value: model.missionControl)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             switch phase {

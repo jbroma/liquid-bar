@@ -105,14 +105,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func raiseBarThroughMissionControl(open: Bool) {
         panels.forEach { $0.level = .init(rawValue: barLevel.rawValue + 5) }
-        model.missionControl = true
         followWindowList()
         missionControlSettle?.cancel()
-        guard !open else { return }
-        // macOS 27 posts the close only once Mission Control has finished closing and the native menu bar has shown
-        // again, so the bar also stays up while Mission Control's Dock window covers the screen.
+        // The same events come with other things, like a switch of desktop, so the frosted cover waits for Mission
+        // Control's own window. It stays for a moment after that window has left, through the closing animation.
         missionControlSettle = Task {
-            repeat { try? await Task.sleep(for: .seconds(1.5)) } while !Task.isCancelled && missionControlShown()
+            // Mission Control's window can take a moment to show, and is not in every reading of the window list.
+            var seen = model.missionControl, misses = 0
+            for tick in 0... {
+                guard !Task.isCancelled else { return }
+                let shown = missionControlShown()
+                if shown, !model.missionControl { model.missionControl = true }
+                seen = seen || shown
+                misses = shown ? 0 : misses + 1
+                // Gone for three readings in a row, or never there in a second and a half: it was something else.
+                if seen ? misses >= 3 && tick > 30 : tick > 30 { break }
+                try? await Task.sleep(for: .milliseconds(50))
+            }
             guard !Task.isCancelled else { return }
             NativeMenuBar.stopHolding()
             model.missionControl = false
