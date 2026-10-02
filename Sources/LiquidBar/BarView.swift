@@ -399,7 +399,12 @@ struct WorkspaceStrip: View {
             if let focusedFrame {
                 let droplet = DropletShape(lead: lead, trail: trail, rest: focusedFrame.width)
                 if lens {
+                    // Glass redraws its insides whenever its frame changes, which cost 300ms of CPU per move. So the
+                    // glass only ever rests on a workspace, and fades out while a drawn lens makes the trip.
                     PillBackground(height: item)
+                        .modifier(LensRest(lead: lead, trail: trail, from: origin, to: focusedFrame, height: item))
+                    Capsule().fill(.white.opacity(0.1))
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 1))
                         .modifier(LensFrame(lead: lead, trail: trail, from: origin, to: focusedFrame, height: item))
                 } else {
                     PillFill(shape: droplet).frame(height: bar.item)
@@ -414,7 +419,9 @@ struct WorkspaceStrip: View {
         .onChange(of: focusedFrame) { old, new in
             guard let new else { return }
             guard let old, abs(old.midX - new.midX) > 1 else {
-                // Same workspace growing or shrinking (its first window arrived or its last left): both edges together.
+                // Same workspace growing or shrinking (its first window arrived or its last left): both edges together,
+                // with no trip to lift for.
+                origin = new
                 return withAnimation(old == nil ? nil : spring) { (lead, trail) = (new.minX, new.maxX) }
             }
             // A droplet: the edge in the direction of travel moves on a faster spring than the one behind it, so it
@@ -469,8 +476,35 @@ nonisolated func lensLift(lead: CGFloat, trail: CGFloat, from: CGRect, to: CGRec
     return max(0, min(1, left / 16, remaining / 36))
 }
 
-/// Frames the glass selection of the workspaces like the lens of iOS's tab bar: from `lead` to `trail`, and on its
-/// way it lifts, growing past the strip with a brighter rim and a clearer face.
+/// The glass selection at rest on a workspace. It keeps its place and size while the lens is on its way, at the
+/// workspace the lens left and then at the one it is going to, and fades out as the lens lifts.
+nonisolated struct LensRest: ViewModifier, Animatable {
+    var lead: CGFloat
+    var trail: CGFloat
+    let from: CGRect
+    let to: CGRect
+    let height: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(lead, trail) }
+        set { (lead, trail) = (newValue.first, newValue.second) }
+    }
+
+    func body(content: Content) -> some View {
+        let left = abs(lead - from.minX) + abs(trail - from.maxX), remaining = abs(lead - to.minX) + abs(trail - to.maxX)
+        // Still lifting off, or already coming down.
+        let rect = from.width > 0 && left / 16 < remaining / 36 ? from : to
+        content
+            // A light wash, so it stands out from the glass of the capsule under it.
+            .overlay(Capsule().fill(.white.opacity(0.08)))
+            .frame(width: max(rect.width, 1), height: height)
+            .offset(x: rect.minX)
+            .opacity(1 - lensLift(lead: lead, trail: trail, from: from, to: to))
+    }
+}
+
+/// The selection of the workspaces on its way, like the lens of iOS's tab bar: from `lead` to `trail`, it lifts,
+/// growing past the strip, clear with a bright rim, and shows only while lifted.
 nonisolated struct LensFrame: ViewModifier, Animatable {
     var lead: CGFloat
     var trail: CGFloat
@@ -486,12 +520,10 @@ nonisolated struct LensFrame: ViewModifier, Animatable {
     func body(content: Content) -> some View {
         let lift = lensLift(lead: lead, trail: trail, from: from, to: to)
         content
-            // A light wash at rest, so it stands out from the glass of the capsule under it.
-            .overlay(Capsule().fill(.white.opacity(0.08 * (1 - lift))))
-            .overlay(Capsule().strokeBorder(.white.opacity(0.45 * lift), lineWidth: 1))
             .frame(width: max(trail - lead, 1) + 8 * lift, height: height * (1 + 0.26 * lift))
             .offset(x: lead - 4 * lift)
             .frame(height: height)
+            .opacity(lift)
     }
 }
 
