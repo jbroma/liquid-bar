@@ -11,6 +11,8 @@ struct ClockMenu: View {
     @State private var direction = 1
     @State private var hovered: Date?
     private let calendar = Calendar.autoupdatingCurrent
+    /// The red of Apple's Calendar, which it keeps whatever the accent colour.
+    private static let red = Color(nsColor: .systemRed)
 
     var body: some View {
         let days = monthGrid(for: month, calendar: calendar)
@@ -18,32 +20,32 @@ struct ClockMenu: View {
         let weekdays = (0..<7).map { ($0 + calendar.firstWeekday - 1) % 7 }
         let current = calendar.isDate(month, equalTo: now, toGranularity: .month)
         MenuBody {
-            // Like Calendar's widget: the weekday in the accent colour over the date.
-            VStack(alignment: .leading, spacing: 0) {
-                Text(now.formatted(.dateTime.weekday(.wide)))
-                    .font(.system(size: 11, weight: .bold))
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.accentColor)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(now.formatted(.dateTime.day())).font(.system(size: 30, weight: .semibold)).monospacedDigit()
-                    Text(now.formatted(.dateTime.month(.wide).year())).font(.system(size: 15, weight: .medium)).foregroundStyle(secondary)
-                    Spacer(minLength: 8)
-                    Text("Week \(calendar.component(.weekOfYear, from: now))").font(.system(size: 11, weight: .medium)).foregroundStyle(secondary)
+            // Like Calendar's widget: the weekday in Calendar's red over a large, light day number.
+            HStack(alignment: .lastTextBaseline) {
+                VStack(alignment: .leading, spacing: -3) {
+                    Text(now.formatted(.dateTime.weekday(.wide)))
+                        .font(.system(size: 11, weight: .semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(Self.red)
+                    Text(now.formatted(.dateTime.day())).font(.system(size: 34, weight: .light)).monospacedDigit()
                 }
+                Spacer(minLength: 8)
+                Text("Week \(calendar.component(.weekOfYear, from: now))").font(.system(size: 11)).foregroundStyle(secondary)
             }
             .padding(.horizontal, 8)
             .padding(.top, 4)
             MenuSeparator()
             MenuRow {
-                Text(month.formatted(.dateTime.month(.wide).year()))
-                    .fontWeight(.semibold)
+                // As Calendar titles a month: the month in bold, the year after it in regular.
+                (Text(month.formatted(.dateTime.month(.wide))).fontWeight(.bold) + Text(" " + month.formatted(.dateTime.year())))
+                    .font(.system(size: 15))
                     .contentTransition(.numericText())
                 Spacer()
                 HStack(spacing: 2) {
                     MonthButton(symbol: "chevron.left") { shift(-1) }
                     // Back to today, lit only while another month shows.
                     MonthButton(symbol: "circle.fill", size: 6) { show(Date()) }
-                        .foregroundStyle(current ? secondary : Color.accentColor)
+                        .foregroundStyle(current ? secondary : Self.red)
                         .help("Today")
                     MonthButton(symbol: "chevron.right") { shift(1) }
                 }
@@ -55,12 +57,12 @@ struct ClockMenu: View {
                         Text(symbols[weekday]).frame(width: 30).opacity(calendar.isDateInWeekend(days[column]) ? 0.6 : 1)
                     }
                 }
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(secondary)
                 ForEach(0..<6, id: \.self) { row in
                     GridRow {
                         Text("\(calendar.component(.weekOfYear, from: days[row * 7]))")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 9))
                             .foregroundStyle(Color.barWhite.opacity(0.3))
                             .frame(width: 22)
                         ForEach(days[row * 7 ..< row * 7 + 7], id: \.self) { day in
@@ -69,7 +71,7 @@ struct ClockMenu: View {
                     }
                 }
             }
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: 12))
             .monospacedDigit()
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -92,13 +94,13 @@ struct ClockMenu: View {
         let inMonth = calendar.isDate(day, equalTo: month, toGranularity: .month)
         let weekend = calendar.isDateInWeekend(day)
         return Text("\(calendar.component(.day, from: day))")
-            .fontWeight(today ? .bold : .medium)
+            .fontWeight(today ? .semibold : .regular)
             .frame(width: 30, height: 26)
             .foregroundStyle(today ? Color.white : Color.barWhite.opacity(!inMonth ? 0.22 : weekend ? 0.55 : 1))
             .background {
                 if today {
-                    Circle().fill(Color.accentColor).frame(width: 25, height: 25)
-                        .shadow(color: Color.accentColor.opacity(0.6), radius: 5)
+                    // Calendar marks today with a flat red circle.
+                    Circle().fill(Self.red).frame(width: 24, height: 24)
                 } else {
                     Circle().fill(.white.opacity(hovered == day ? 0.12 : 0)).frame(width: 25, height: 25)
                 }
