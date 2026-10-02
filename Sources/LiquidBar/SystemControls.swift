@@ -206,6 +206,18 @@ enum Desktops {
         return displays.first { $0.current == active } ?? displays.first
     }
 
+    /// The screens whose current Space is a fullscreen one. SkyLight names a display by its UUID, or "Main" while
+    /// displays share their Spaces.
+    static func fullscreenScreens() -> [NSScreen] {
+        guard let connection, let copySpaces, let list = copySpaces(connection())?.takeRetainedValue() as? [[String: Any]] else { return [] }
+        let fullscreen = list.filter { ($0["Current Space"] as? [String: Any])?["type"] as? Int == 4 }.compactMap { $0["Display Identifier"] as? String }
+        return NSScreen.screens.filter { screen in
+            guard let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID,
+                  let uuid = CGDisplayCreateUUIDFromDisplayID(id)?.takeRetainedValue() else { return false }
+            return fullscreen.contains(CFUUIDCreateString(nil, uuid) as String) || fullscreen.contains("Main") && screen == NSScreen.screens.first
+        }
+    }
+
     /// The current display's desktops with the regular apps' windows on each.
     static func read() -> WorkspaceState? {
         guard let desktops = current(), let connection, let copyWindows else { return nil }

@@ -181,10 +181,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Follows the on-screen windows. Hides a screen's bar while a normal window covers that whole screen: native
-    /// fullscreen on a screen without a notch, a game, a slideshow. There the bar comes back with the native menu bar,
-    /// when the pointer reaches the top edge, and stays while one of its dropdowns or menus is open. A notched screen
-    /// keeps fullscreen windows below the camera, so its bar stays. Returns whether a bar shows under a covering window.
+    /// Follows the on-screen windows. Hides a screen's bar as macOS hides the menu bar: in a fullscreen Space, and
+    /// while a normal window covers the whole screen, like a game or a slideshow. There the bar comes back when the
+    /// pointer reaches the top edge, and stays while one of its dropdowns or menus is open. Returns whether a bar shows
+    /// while hidden at rest.
     @discardableResult
     func followWindowList() -> Bool {
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
@@ -201,15 +201,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBars = bounds(layer: .mainMenuWindow, owner: "Window Server")
         let menuOpen = NSApp.windows.contains { $0.isVisible && $0.level > barLevel && !($0 is BarPanel) }
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let fullscreen = Desktops.fullscreenScreens()
+        let pointer = NSEvent.mouseLocation
         coveredBars = []
         var revealed = false
         for (bar, slot) in zip(panels.filter { $0.parent == nil }, slots) {
             guard let screen = NSScreen.screens.first(where: { $0.frame.contains(bar.frame) }) else { continue }
             // CoreGraphics measures from the top of the primary screen, AppKit from its bottom.
             let frame = CGRect(x: screen.frame.minX, y: primaryHeight - screen.frame.maxY, width: screen.frame.width, height: screen.frame.height)
-            let covered = covering.contains { $0.contains(frame) }
+            let covered = covering.contains { $0.contains(frame) } || fullscreen.contains(screen)
+            // A notched screen keeps the native menu bar's window on screen in fullscreen, in the strip beside the
+            // camera, so there the pointer says when the menu bar shows: from the top edge, for as long as it is on the bar.
+            let onBar = NSMouseInRect(pointer, bar.frame, false)
+            let native = screen.auxiliaryTopLeftArea == nil ? menuBars.contains { $0.intersects(frame) }
+                : onBar && (bar.isVisible || pointer.y >= bar.frame.maxY - 1)
             // Only a bar already showing is kept: a pulse, like the charger plugged in, must not bring a hidden one back.
-            let shown = menuBars.contains { $0.intersects(frame) } || bar.isVisible && (slot.owner != nil || menuOpen)
+            let shown = native || bar.isVisible && (slot.owner != nil || menuOpen)
             let hide = covered && !shown
             if hide == bar.isVisible { hide ? bar.orderOut(nil) : bar.orderFrontRegardless() }
             if covered { coveredBars.append(bar) }
