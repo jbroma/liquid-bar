@@ -14,9 +14,14 @@ struct VolumeMenu: View {
         MenuBody {
             // Like the Wi-Fi dropdown: the switch is the sound itself, and off mutes it.
             HeaderRow(title: "Sound") {
-                Text(volume.muted ? "Muted" : "\(volume.level)%").foregroundStyle(secondary).monospacedDigit()
-                GlassSwitch(on: !volume.muted) { setMuted(!$0) }
-                    .accessibilityLabel("Sound")
+                // At 0 the sound is off too. Switching it on from there needs a level to come back to.
+                let silent = volume.muted || volume.level == 0
+                Text(silent ? "Muted" : "\(volume.level)%").foregroundStyle(secondary).monospacedDigit()
+                GlassSwitch(on: !silent) { on in
+                    setMuted(!on)
+                    if on, volume.level == 0 { model.setVolume(25) }
+                }
+                .accessibilityLabel("Sound")
             }
             LevelSlider(level: volume.level, muted: volume.muted, symbol: volume.symbol, height: 24, set: model.setVolume)
                 .accessibilityLabel("Volume")
