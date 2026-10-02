@@ -14,9 +14,12 @@ public struct ControlState: Equatable, Sendable {
     public var airDrop: AirDropMode?
     public var darkMode: Bool?
     public var nightShift: Bool?
+    public var trueTone: Bool?
+    public var stageManager: Bool?
 
     public init(brightness: Double? = nil, keyboard: Double? = nil, bluetooth: Bool? = nil, devices: [BluetoothDevice] = [],
-                focus: Bool? = nil, airDrop: AirDropMode? = nil, darkMode: Bool? = nil, nightShift: Bool? = nil) {
+                focus: Bool? = nil, airDrop: AirDropMode? = nil, darkMode: Bool? = nil, nightShift: Bool? = nil, trueTone: Bool? = nil,
+                stageManager: Bool? = nil) {
         self.brightness = brightness
         self.keyboard = keyboard
         self.bluetooth = bluetooth
@@ -25,6 +28,8 @@ public struct ControlState: Equatable, Sendable {
         self.airDrop = airDrop
         self.darkMode = darkMode
         self.nightShift = nightShift
+        self.trueTone = trueTone
+        self.stageManager = stageManager
     }
 }
 
@@ -44,7 +49,7 @@ public enum AirDropMode: String, CaseIterable, Sendable {
 
 /// The Control Center controls.
 public enum ControlTile: CaseIterable, Sendable {
-    case bluetooth, airDrop, focus, darkMode, nightShift, screenshot
+    case bluetooth, airDrop, focus, darkMode, nightShift, trueTone, stageManager, screenshot
 
     /// Whether the control shows as switched on. Controls that only open something are never on.
     public func isOn(_ state: ControlState) -> Bool {
@@ -54,6 +59,8 @@ public enum ControlTile: CaseIterable, Sendable {
         case .focus: state.focus == true
         case .darkMode: state.darkMode == true
         case .nightShift: state.nightShift == true
+        case .trueTone: state.trueTone == true
+        case .stageManager: state.stageManager == true
         case .screenshot: false
         }
     }
@@ -65,6 +72,8 @@ public enum ControlTile: CaseIterable, Sendable {
         case .focus: "Focus"
         case .darkMode: "Dark Mode"
         case .nightShift: "Night Shift"
+        case .trueTone: "True Tone"
+        case .stageManager: "Stage Manager"
         case .screenshot: "Screenshot"
         }
     }
@@ -76,9 +85,42 @@ public enum ControlTile: CaseIterable, Sendable {
         case .bluetooth: state.bluetooth.map { $0 ? "On" : "Off" }
         case .airDrop: state.airDrop?.rawValue
         case .focus: state.focus.map { $0 ? "On" : "Off" }
-        case .darkMode, .nightShift, .screenshot: nil
+        case .darkMode, .nightShift, .trueTone, .stageManager, .screenshot: nil
         }
     }
+}
+
+/// What the Control Center dropdown can show, in the order it shows them. The config's `controlCenter` lists the ones
+/// that are on.
+public enum ControlItem: String, CaseIterable, Sendable {
+    case bluetooth, airDrop, focus, display, keyboard, sound, darkMode, nightShift, trueTone, stageManager, screenshot
+
+    public var title: String {
+        switch self {
+        case .display: "Display"
+        case .keyboard: "Keyboard Brightness"
+        case .sound: "Sound"
+        default: tile?.name ?? ""
+        }
+    }
+
+    /// The control, for the items that are one. The others are sliders.
+    public var tile: ControlTile? {
+        switch self {
+        case .bluetooth: .bluetooth
+        case .airDrop: .airDrop
+        case .focus: .focus
+        case .darkMode: .darkMode
+        case .nightShift: .nightShift
+        case .trueTone: .trueTone
+        case .stageManager: .stageManager
+        case .screenshot: .screenshot
+        case .display, .keyboard, .sound: nil
+        }
+    }
+
+    /// Sound has its own pill, and True Tone and Stage Manager are off in macOS's Control Center too.
+    public static let defaults: [ControlItem] = [.bluetooth, .airDrop, .focus, .display, .keyboard, .darkMode, .nightShift, .screenshot]
 }
 
 /// A paired Bluetooth device.

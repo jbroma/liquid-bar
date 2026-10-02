@@ -309,6 +309,41 @@ enum NightShift {
     }
 }
 
+/// True Tone, through CoreBrightness, as the Displays pane switches it. Nil on a display without it.
+enum TrueTone {
+    private static let client = privateObject("CoreBrightness", "CBTrueToneClient")
+    private typealias Read = @convention(c) (NSObject, Selector) -> Bool
+    private static let supported = method(client, "supported", as: Read.self)
+    private static let enabled = method(client, "enabled", as: Read.self)
+    private static let enable = method(client, "setEnabled:", as: (@convention(c) (NSObject, Selector, Bool) -> Bool).self)
+
+    static func isOn() -> Bool? {
+        guard let client, let supported, let enabled, supported(client, NSSelectorFromString("supported")) else { return nil }
+        return enabled(client, NSSelectorFromString("enabled"))
+    }
+
+    static func setOn(_ on: Bool) {
+        guard let client, let enable else { return }
+        _ = enable(client, NSSelectorFromString("setEnabled:"), on)
+    }
+}
+
+/// Stage Manager, through the preference its Control Center tile writes, which WindowManager follows.
+enum StageManager {
+    private static let domain = "com.apple.WindowManager" as CFString
+    private static let key = "GloballyEnabled" as CFString
+
+    static func isOn() -> Bool? {
+        CFPreferencesAppSynchronize(domain)
+        return CFPreferencesCopyAppValue(key, domain) as? Bool
+    }
+
+    static func setOn(_ on: Bool) {
+        CFPreferencesSetAppValue(key, on as CFBoolean, domain)
+        CFPreferencesAppSynchronize(domain)
+    }
+}
+
 /// macOS's "Turn Do Not Disturb On/Off" shortcut (symbolic hotkey 175), pressed with a posted key event. It switches
 /// Focus without opening Control Center, which still shows its own banner. Unless the user bound it, the shortcut gets
 /// ⌃⌥⇧⌘ plus a letter no other system shortcut uses, only for the moment of the press. SkyLight keeps that binding in
