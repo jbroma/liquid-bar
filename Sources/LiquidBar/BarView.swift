@@ -361,9 +361,10 @@ struct WorkspaceStrip: View {
         let focused = model.workspaces.focused
         let focusedFrame = focused.flatMap { frames[$0] }
         // In glass, the strip is a tab bar like iOS's: a glass capsule whose selection is a lens.
-        let lens = pills != .none && model.config.pillGlass
+        // Without pills the selection stays, with no capsule around the strip.
+        let lens = model.config.pillGlass
         // The lens sits 3 points inside its capsule on every side, so their corners are concentric.
-        let item = lens ? bar.pill - 6 : bar.item
+        let item = lens && pills != .none ? bar.pill - 6 : bar.item
         HStack(spacing: 0) {
             ForEach(model.workspaces.ids, id: \.self) { id in
                 WorkspaceButton(
@@ -400,11 +401,8 @@ struct WorkspaceStrip: View {
                 if lens {
                     PillBackground(height: item)
                         .modifier(LensFrame(lead: lead, trail: trail, from: origin, to: focusedFrame, height: item))
-                } else if pills != .none {
-                    PillFill(shape: droplet).frame(height: bar.item)
                 } else {
-                    // Without pills, a line under the focused workspace that flows the same way.
-                    droplet.fill(Color.barWhite.opacity(0.85)).frame(height: 2).frame(height: bar.item + 2, alignment: .bottom)
+                    PillFill(shape: droplet).frame(height: bar.item)
                 }
             }
         }

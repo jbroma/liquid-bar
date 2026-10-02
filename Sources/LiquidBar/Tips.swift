@@ -212,7 +212,7 @@ private struct DemoBar: View {
         .frame(height: Demo.bar.height)
     }
 
-    /// A workspace as the bar draws it: its number and its apps' icons, with the fill or the line on the focused one.
+    /// A workspace as the bar draws it: its number and its apps' icons, with the selection on the focused one.
     private func workspace(_ index: Int) -> some View {
         let focused = index == 1
         return HStack(spacing: 4) {
@@ -227,7 +227,7 @@ private struct DemoBar: View {
         .frame(minWidth: Demo.bar.item, minHeight: Demo.bar.item)
         .background(alignment: .bottom) {
             if focused {
-                if Demo.pills == .none { Capsule().fill(.white.opacity(0.85)).frame(height: 2).offset(y: 2) } else { PillFill(shape: Capsule()) }
+                PillBackground(height: Demo.bar.item, style: delegate.model.config.glass.bar, preview: true)
             }
         }
     }
