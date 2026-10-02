@@ -66,7 +66,7 @@ A widget is one of these names, or a script object.
 | `wifi` | Network symbol. | Network name (or the signal, when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol, with the percentage if turned on. It is white, also while charging, when a bolt shows beside it, and red at 20% or less on battery. | The percentage and a wide level bar, which while charging is a liquid on its side, with a rolling surface at the end of the fill and bubbles drifting along it. Under it, one line with what the battery is doing and the power source. Battery Health shows the condition and unfolds to the maximum capacity and cycle count. Then a Show Percentage switch and Battery Settings…. |
 | `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | Control Center without Wi-Fi, Sound, and Now Playing, which have their own pills. See [Control Center](details.md#control-center). |
-| `clock` | Time. | The full date over a month grid with week numbers and today marked. Scroll or click the chevrons to change the month. |
+| `clock` | Time. | Today as a headline, the weekday in the accent colour over the date, with the week number. Under it a month grid with week numbers, today in an accent circle, and weekends dimmed. Scroll or click the chevrons to change the month, which slides in, and the dot goes back to today. Then Open Calendar. |
 
 ## Script widgets
 

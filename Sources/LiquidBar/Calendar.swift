@@ -1,19 +1,38 @@
 import LiquidBarCore
 import SwiftUI
 
-/// The full date over a month grid with week numbers and today marked. Scroll or the chevrons change the month.
+/// Today as a headline, over a month grid with week numbers and today marked. Scroll or the chevrons change the
+/// month, which slides in from the side it comes from.
 struct ClockMenu: View {
     let now: Date
     @Environment(ExpansionSlot.self) private var slot
     @State private var month = Date()
+    /// The way the last change went, for the slide: 1 is forward.
+    @State private var direction = 1
+    @State private var hovered: Date?
     private let calendar = Calendar.autoupdatingCurrent
 
     var body: some View {
         let days = monthGrid(for: month, calendar: calendar)
         let symbols = calendar.veryShortStandaloneWeekdaySymbols
-        let weekdays = (0..<7).map { symbols[($0 + calendar.firstWeekday - 1) % 7] }
+        let weekdays = (0..<7).map { ($0 + calendar.firstWeekday - 1) % 7 }
+        let current = calendar.isDate(month, equalTo: now, toGranularity: .month)
         MenuBody {
-            MenuTitle(title: fullDateText(now))
+            // Like Calendar's widget: the weekday in the accent colour over the date.
+            VStack(alignment: .leading, spacing: 0) {
+                Text(now.formatted(.dateTime.weekday(.wide)))
+                    .font(.system(size: 11, weight: .bold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.accentColor)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(now.formatted(.dateTime.day())).font(.system(size: 30, weight: .semibold)).monospacedDigit()
+                    Text(now.formatted(.dateTime.month(.wide).year())).font(.system(size: 15, weight: .medium)).foregroundStyle(secondary)
+                    Spacer(minLength: 8)
+                    Text("Week \(calendar.component(.weekOfYear, from: now))").font(.system(size: 11, weight: .medium)).foregroundStyle(secondary)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 4)
             MenuSeparator()
             MenuRow {
                 Text(month.formatted(.dateTime.month(.wide).year()))
@@ -22,7 +41,9 @@ struct ClockMenu: View {
                 Spacer()
                 HStack(spacing: 2) {
                     MonthButton(symbol: "chevron.left") { shift(-1) }
-                    MonthButton(symbol: "circle.fill", size: 6) { withAnimation(spring) { month = Date() } }
+                    // Back to today, lit only while another month shows.
+                    MonthButton(symbol: "circle.fill", size: 6) { show(Date()) }
+                        .foregroundStyle(current ? secondary : Color.accentColor)
                         .help("Today")
                     MonthButton(symbol: "chevron.right") { shift(1) }
                 }
@@ -30,8 +51,8 @@ struct ClockMenu: View {
             Grid(horizontalSpacing: 2, verticalSpacing: 2) {
                 GridRow {
                     Text("").frame(width: 22)
-                    ForEach(Array(weekdays.enumerated()), id: \.offset) { _, symbol in
-                        Text(symbol).frame(width: 30)
+                    ForEach(Array(weekdays.enumerated()), id: \.offset) { column, weekday in
+                        Text(symbols[weekday]).frame(width: 30).opacity(calendar.isDateInWeekend(days[column]) ? 0.6 : 1)
                     }
                 }
                 .font(.system(size: 10, weight: .semibold))
@@ -40,7 +61,7 @@ struct ClockMenu: View {
                     GridRow {
                         Text("\(calendar.component(.weekOfYear, from: days[row * 7]))")
                             .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Color.barWhite.opacity(0.35))
+                            .foregroundStyle(Color.barWhite.opacity(0.3))
                             .frame(width: 22)
                         ForEach(days[row * 7 ..< row * 7 + 7], id: \.self) { day in
                             dayCell(day)
@@ -52,27 +73,47 @@ struct ClockMenu: View {
             .monospacedDigit()
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
+            .id(calendar.dateComponents([.year, .month], from: month))
+            .transition(.asymmetric(insertion: .offset(x: CGFloat(direction) * 40).combined(with: .opacity),
+                                    removal: .offset(x: CGFloat(-direction) * 40).combined(with: .opacity)))
             MenuSeparator()
             MenuButton {
                 slot.dismiss()
                 shell("open -b com.apple.iCal")
             } content: { Text("Open Calendar") }
         }
+        .clipped()
         .overlay { ScrollCatcher(step: 30) { shift($0 > 0 ? -1 : 1) } }
+        .onChange(of: slot.owner == .clock) { _, open in if !open { month = Date() } }
     }
 
     private func dayCell(_ day: Date) -> some View {
         let today = calendar.isDateInToday(day)
         let inMonth = calendar.isDate(day, equalTo: month, toGranularity: .month)
+        let weekend = calendar.isDateInWeekend(day)
         return Text("\(calendar.component(.day, from: day))")
             .fontWeight(today ? .bold : .medium)
-            .frame(width: 30, height: 24)
-            .foregroundStyle(Color.barWhite.opacity(today || inMonth ? 1 : 0.3))
-            .background { if today { Circle().fill(Color.accentColor).frame(width: 24, height: 24) } }
+            .frame(width: 30, height: 26)
+            .foregroundStyle(today ? Color.white : Color.barWhite.opacity(!inMonth ? 0.22 : weekend ? 0.55 : 1))
+            .background {
+                if today {
+                    Circle().fill(Color.accentColor).frame(width: 25, height: 25)
+                        .shadow(color: Color.accentColor.opacity(0.6), radius: 5)
+                } else {
+                    Circle().fill(.white.opacity(hovered == day ? 0.12 : 0)).frame(width: 25, height: 25)
+                }
+            }
+            .onHover { if $0 { hovered = day } else if hovered == day { hovered = nil } }
+            .animation(.easeOut(duration: 0.12), value: hovered)
     }
 
     private func shift(_ months: Int) {
-        withAnimation(spring) { month = calendar.date(byAdding: .month, value: months, to: month)! }
+        show(calendar.date(byAdding: .month, value: months, to: month)!)
+    }
+
+    private func show(_ date: Date) {
+        direction = date < month ? -1 : 1
+        withAnimation(spring) { month = date }
     }
 }
 
