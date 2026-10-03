@@ -323,12 +323,12 @@ enum SystemControlCenter {
     /// The item whose panel should be open, read and written only on `panels`.
     private nonisolated(unsafe) static var wanted: String?
 
-    /// Leaves open only the panel of item `id`, Control Center's or Notification Center, or none for nil. It acts a
-    /// moment later on the latest wish, so the pointer sweeping across the bar opens nothing on its way, and one
-    /// press at a time, since each press toggles.
-    nonisolated static func want(_ id: String?) {
+    /// Leaves open only the panel of item `id`, Control Center's or Notification Center, or none for nil. It acts
+    /// `after` seconds later on the latest wish, so the pointer sweeping across the bar opens nothing on its way, and
+    /// one press at a time, since each press toggles.
+    nonisolated static func want(_ id: String?, after delay: Double = 0) {
         panels.async { wanted = id }
-        panels.asyncAfter(deadline: .now() + 0.12) {
+        panels.asyncAfter(deadline: .now() + delay) {
             for item in [controlCenter, clock] where item != wanted { setOpen(item, false) }
             if let wanted { setOpen(wanted, true) }
         }

@@ -103,10 +103,11 @@ final class ExpansionSlot {
         if next != owner {
             trace("owner \(owner.map { "\($0)" } ?? "-") -> \(next.map { "\($0)" } ?? "-")")
             // A short spring: the bar redraws on every frame of it, and the longer one cost twice the CPU.
-            withAnimation(.spring(duration: 0.22, bounce: 0.2)) { owner = next }
             // Control Center and the clock open macOS's own panels. Another item closes them, while leaving the bar,
-            // which is how the pointer gets into a panel, keeps them.
-            if let next { SystemControlCenter.want(next.nativeItem) }
+            // which is how the pointer gets into a panel, keeps them. Hover takes an empty slot only after its intent
+            // delay, but an occupied one at once, so a slide from another item waits a moment before pressing.
+            if let next { SystemControlCenter.want(next.nativeItem, after: owner == nil ? 0 : 0.12) }
+            withAnimation(.spring(duration: 0.22, bounce: 0.2)) { owner = next }
             if next == nil {
                 escape.map(NSEvent.removeMonitor)
                 escape = nil
