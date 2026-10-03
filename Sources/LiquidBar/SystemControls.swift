@@ -3,8 +3,8 @@ import ApplicationServices
 import IOBluetooth
 import LiquidBarCore
 
-// One boundary per subsystem behind the Control Center dropdown. Each reads nil and does nothing when this macOS
-// lacks what it needs, so a missing private symbol costs a tile, never a crash.
+// One boundary per subsystem. Each reads nil and does nothing when this macOS lacks what it needs, so a missing
+// private symbol costs a feature, never a crash.
 
 /// Runs blocking work, like Accessibility waits, polling loops or Bluetooth's permission prompt, on a GCD thread, so it
 /// never holds one of the few threads Swift concurrency shares.
@@ -20,78 +20,8 @@ private nonisolated func systemFunction<T>(_ path: String, _ name: String, as ty
     return unsafeBitCast(pointer, to: type)
 }
 
-/// An instance of a class from a private framework, or nil when this macOS does not have it.
-private func privateObject(_ framework: String, _ className: String) -> NSObject? {
-    dlopen("/System/Library/PrivateFrameworks/\(framework).framework/\(framework)", RTLD_LAZY)
-    return (NSClassFromString(className) as? NSObject.Type)?.init()
-}
-
-/// `object`'s implementation of the method `name`, cast to its C signature, or nil when the object lacks it.
-private func method<T>(_ object: NSObject?, _ name: String, as type: T.Type) -> T? {
-    guard let object, object.responds(to: NSSelectorFromString(name)) else { return nil }
-    return unsafeBitCast(object.method(for: NSSelectorFromString(name)), to: type)
-}
-
-/// The built-in display's brightness, through DisplayServices, the private framework behind the brightness keys.
-enum DisplayBrightness {
-    private static let framework = "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices"
-    private static let get = systemFunction(framework, "DisplayServicesGetBrightness", as: (@convention(c) (CGDirectDisplayID, UnsafeMutablePointer<Float>) -> Int32).self)
-    private static let set = systemFunction(framework, "DisplayServicesSetBrightness", as: (@convention(c) (CGDirectDisplayID, Float) -> Int32).self)
-
-    private static var display: CGDirectDisplayID? {
-        var ids = [CGDirectDisplayID](repeating: 0, count: 16)
-        var count: UInt32 = 0
-        guard CGGetOnlineDisplayList(16, &ids, &count) == .success else { return nil }
-        return ids.prefix(Int(count)).first { CGDisplayIsBuiltin($0) != 0 }
-    }
-
-    static func read() -> Double? {
-        guard let get, let display else { return nil }
-        var value: Float = 0
-        return get(display, &value) == 0 ? Double(value) : nil
-    }
-
-    static func write(_ value: Double) {
-        guard let set, let display else { return }
-        _ = set(display, Float(value))
-    }
-}
-
-/// The built-in keyboard's backlight, through CoreBrightness's KeyboardBrightnessClient, which the keys use.
-enum KeyboardBrightness {
-    private static let client = privateObject("CoreBrightness", "KeyboardBrightnessClient")
-    private static let get = method(client, "brightnessForKeyboard:", as: (@convention(c) (NSObject, Selector, UInt64) -> Float).self)
-    private static let set = method(client, "setBrightness:forKeyboard:", as: (@convention(c) (NSObject, Selector, Float, UInt64) -> Bool).self)
-
-    private static var keyboard: UInt64? {
-        let ids = NSSelectorFromString("copyKeyboardBacklightIDs")
-        guard let client, client.responds(to: ids) else { return nil }
-        return (client.perform(ids)?.takeRetainedValue() as? [NSNumber])?.first?.uint64Value
-    }
-
-    static func read() -> Double? {
-        guard let client, let get, let keyboard else { return nil }
-        return Double(get(client, NSSelectorFromString("brightnessForKeyboard:"), keyboard))
-    }
-
-    static func write(_ value: Double) {
-        guard let client, let set, let keyboard else { return }
-        _ = set(client, NSSelectorFromString("setBrightness:forKeyboard:"), Float(value), keyboard)
-    }
-}
-
-/// Bluetooth power and paired devices through IOBluetooth.
+/// Paired Bluetooth devices through IOBluetooth.
 enum Bluetooth {
-    /// No public API switches the controller; this is what System Settings calls.
-    private static let setPower = systemFunction("/System/Library/Frameworks/IOBluetooth.framework/IOBluetooth", "IOBluetoothPreferenceSetControllerPowerState",
-                                                 as: (@convention(c) (Int32) -> Void).self)
-
-    static var canSwitch: Bool { setPower != nil }
-
-    static func setOn(_ on: Bool) {
-        setPower?(on ? 1 : 0)
-    }
-
     /// Whether the controller is on, and the paired devices while it is. The first read asks for Bluetooth access and
     /// waits for the answer, so reads run off the main thread.
     static func read() async -> (on: Bool?, devices: [BluetoothDevice]) {
@@ -127,19 +57,13 @@ enum Bluetooth {
     }
 }
 
-/// Dark Mode, through SkyLight, where System Settings switches it. Unlike System Events, it needs no Automation grant.
+/// Dark Mode, read through SkyLight, where System Settings switches it.
 enum Appearance {
     private static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
     private static let get = systemFunction(framework, "SLSGetAppearanceThemeLegacy", as: (@convention(c) () -> Bool).self)
-    /// The second argument posts the change to running apps.
-    private static let set = systemFunction(framework, "SLSSetAppearanceThemeNotifying", as: (@convention(c) (Bool, Bool) -> Void).self)
 
     static func isDark() -> Bool? {
         get?()
-    }
-
-    static func setDark(_ dark: Bool) {
-        set?(dark, true)
     }
 }
 
@@ -340,115 +264,11 @@ enum Desktops {
     }
 }
 
-/// Night Shift, through CoreBrightness's CBBlueLightClient, which Control Center uses.
-enum NightShift {
-    private static let client = privateObject("CoreBrightness", "CBBlueLightClient")
-    private static let status = method(client, "getBlueLightStatus:", as: (@convention(c) (NSObject, Selector, UnsafeMutableRawPointer) -> Bool).self)
-    private static let enable = method(client, "setEnabled:", as: (@convention(c) (NSObject, Selector, Bool) -> Bool).self)
-
-    static func isOn() -> Bool? {
-        guard let client, let status else { return nil }
-        // The status struct is about 40 bytes: BOOL active, BOOL enabled, BOOL sunSchedulePermitted, int mode, the
-        // schedule, flags. Enabled is what Control Center's toggle shows.
-        var buffer = [UInt8](repeating: 0, count: 128)
-        guard status(client, NSSelectorFromString("getBlueLightStatus:"), &buffer) else { return nil }
-        return buffer[1] != 0
-    }
-
-    static func setOn(_ on: Bool) {
-        guard let client, let enable else { return }
-        _ = enable(client, NSSelectorFromString("setEnabled:"), on)
-    }
-}
-
-/// True Tone, through CoreBrightness, as the Displays pane switches it. Nil on a display without it.
-enum TrueTone {
-    private static let client = privateObject("CoreBrightness", "CBTrueToneClient")
-    private typealias Read = @convention(c) (NSObject, Selector) -> Bool
-    private static let supported = method(client, "supported", as: Read.self)
-    private static let enabled = method(client, "enabled", as: Read.self)
-    private static let enable = method(client, "setEnabled:", as: (@convention(c) (NSObject, Selector, Bool) -> Bool).self)
-
-    static func isOn() -> Bool? {
-        guard let client, let supported, let enabled, supported(client, NSSelectorFromString("supported")) else { return nil }
-        return enabled(client, NSSelectorFromString("enabled"))
-    }
-
-    static func setOn(_ on: Bool) {
-        guard let client, let enable else { return }
-        _ = enable(client, NSSelectorFromString("setEnabled:"), on)
-    }
-}
-
-/// Stage Manager, through the preference its Control Center tile writes, which WindowManager follows.
-enum StageManager {
-    private static let domain = "com.apple.WindowManager" as CFString
-    private static let key = "GloballyEnabled" as CFString
-
-    static func isOn() -> Bool? {
-        CFPreferencesAppSynchronize(domain)
-        return CFPreferencesCopyAppValue(key, domain) as? Bool
-    }
-
-    static func setOn(_ on: Bool) {
-        CFPreferencesSetAppValue(key, on as CFBoolean, domain)
-        CFPreferencesAppSynchronize(domain)
-    }
-}
-
-/// macOS's "Turn Do Not Disturb On/Off" shortcut (symbolic hotkey 175), pressed with a posted key event. It switches
-/// Focus without opening Control Center, which still shows its own banner. Unless the user bound it, the shortcut gets
-/// ⌃⌥⇧⌘ plus a letter no other system shortcut uses, only for the moment of the press. SkyLight keeps that binding in
-/// the login session and never writes the user's keyboard shortcut preferences.
-enum DoNotDisturbShortcut {
-    private nonisolated static let framework = "/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight"
-    private nonisolated static let get = systemFunction(framework, "CGSGetSymbolicHotKeyValue",
-        as: (@convention(c) (Int32, UnsafeMutablePointer<UInt16>, UnsafeMutablePointer<UInt16>, UnsafeMutablePointer<UInt32>) -> Int32).self)
-    private nonisolated static let set = systemFunction(framework, "CGSSetSymbolicHotKeyValue", as: (@convention(c) (Int32, UInt16, UInt16, UInt32) -> Int32).self)
-    private nonisolated static let isEnabled = systemFunction(framework, "CGSIsSymbolicHotKeyEnabled", as: (@convention(c) (Int32) -> Bool).self)
-    private nonisolated static let setEnabled = systemFunction(framework, "CGSSetSymbolicHotKeyEnabled", as: (@convention(c) (Int32, Bool) -> Int32).self)
-    private nonisolated static let id: Int32 = 175
-    private nonisolated static let unbound: UInt16 = 0xFFFF
-    private nonisolated static let hyper: UInt32 = 0x1E0000
-    /// D, F, J and K as (character, virtual key code).
-    private nonisolated static let letters: [(UInt16, UInt16)] = [(100, 2), (102, 3), (106, 38), (107, 40)]
-
-    /// Presses the shortcut, and returns false when SkyLight lacks the calls or every candidate combo is taken.
-    nonisolated static func press() -> Bool {
-        guard let get, let set, let isEnabled, let setEnabled else { return false }
-        func value(_ id: Int32) -> (char: UInt16, key: UInt16, mods: UInt32)? {
-            var char: UInt16 = 0, key: UInt16 = 0, mods: UInt32 = 0
-            return get(id, &char, &key, &mods) == 0 ? (char, key, mods) : nil
-        }
-        let old = value(id) ?? (unbound, unbound, 0), wasEnabled = isEnabled(id)
-        let rebound = !wasEnabled || old.key == unbound
-        var combo = (old.key, old.mods)
-        if rebound {
-            let taken = Set((0..<512).compactMap { other in isEnabled(other) ? value(other).flatMap { $0.mods == hyper ? $0.key : nil } : nil })
-            guard let (char, key) = letters.first(where: { !taken.contains($0.1) }) else { return false }
-            _ = set(id, char, key, hyper)
-            _ = setEnabled(id, true)
-            combo = (key, hyper)
-        }
-        let source = CGEventSource(stateID: .hidSystemState)
-        for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: combo.0, keyDown: down) else { return false }
-            event.flags = CGEventFlags(rawValue: UInt64(combo.1))
-            event.post(tap: .cghidEventTap)
-        }
-        if rebound {
-            // WindowServer reads the event after the post returns, and needs the binding until then.
-            usleep(200_000)
-            _ = set(id, old.char, old.key, old.mods)
-            _ = setEnabled(id, wasEnabled)
-        }
-        return true
-    }
-}
-
-/// The real Control Center, through Accessibility: its status items, and its panel for the one control with no API.
+/// Apple's own status items, which the bar covers, through Accessibility: Control Center's, the clock's and Focus's.
 enum SystemControlCenter {
     nonisolated static let controlCenter = "com.apple.menuextra.controlcenter"
+    /// Opens Notification Center.
+    nonisolated static let clock = "com.apple.menuextra.clock"
     /// Shown while a Focus is on, unless the user set it to always show in the menu bar.
     nonisolated static let focus = "com.apple.menuextra.focusmode"
 
@@ -490,30 +310,6 @@ enum SystemControlCenter {
         return items.isEmpty ? nil : items[focus] != nil
     }
 
-    /// Switches Do Not Disturb with its keyboard shortcut; donotdisturbd rejects clients without Apple's entitlement.
-    /// Without SkyLight's shortcut calls it presses in Control Center instead: while a Focus is on, its own status item
-    /// opens a small panel of modes, otherwise the full Control Center opens, then its Focus module. It blocks until
-    /// done, and returns false when nothing was switched.
-    nonisolated static func toggleFocus() -> Bool {
-        if DoNotDisturbShortcut.press() { return true }
-        guard let (app, item) = openPanel(extras()[focus] != nil ? focus : controlCenter) else { return false }
-        defer { close(app, item) }
-        if let module = waitFor(app, { focusModes($0) + $0.filter(isFocusModule) }).first, isFocusModule(module) { AX.press(module) }
-        let modes = waitFor(app, focusModes)
-        let active = modes.first { AX.attribute($0, kAXValueAttribute) as? Int == 1 }
-        // Do Not Disturb, which macOS 27 lists first without an identifier.
-        let target = active ?? modes.first { AX.string($0, "AXIdentifier")?.hasSuffix(".donotdisturb.mode.default") == true } ?? modes.first
-        guard let target else { return false }
-        return AX.press(target)
-    }
-
-    /// The Focus modes the panel lists, identified up to macOS 26 and unnamed checkboxes under the "Focus" title since.
-    private nonisolated static func focusModes(_ controls: [AXUIElement]) -> [AXUIElement] {
-        let named = controls.filter { AX.string($0, "AXIdentifier")?.hasPrefix("focus-mode-activity-") == true }
-        guard named.isEmpty, controls.contains(where: { AX.string($0, "AXIdentifier") == "focus-modes-header" }) else { return named }
-        return controls.filter { AX.string($0, kAXRoleAttribute) == kAXCheckBoxRole }
-    }
-
     /// Opens the real Control Center on one of its modules, as a click on the module would, and leaves it open for
     /// the user: Sound lists every output, AirPlay receivers included. It blocks until the module has opened, and
     /// returns false when it did not, or without Accessibility.
@@ -523,25 +319,39 @@ enum SystemControlCenter {
         return AX.press(module)
     }
 
-    /// Opens the panel of Control Center's status item `id` (its main view by default), and returns Control Center and
-    /// the item. Nil without Accessibility access.
-    private nonisolated static func openPanel(_ id: String = controlCenter) -> (app: AXUIElement, item: AXUIElement)? {
-        guard let item = extras()[id], let pid else { return nil }
+    /// Presses Apple's status item `id`, as a click on it in the native menu bar does: Control Center's opens or
+    /// closes its panel, the clock's Notification Center. It blocks until pressed, and returns false when the item is
+    /// missing, or without Accessibility.
+    @discardableResult
+    nonisolated static func press(_ id: String) -> Bool {
+        guard let item = extras()[id] else { return false }
+        return shown(item) { AX.press(item) }
+    }
+
+    /// Opens Control Center's main view, and returns Control Center and its status item. Nil without Accessibility access.
+    private nonisolated static func openPanel() -> (app: AXUIElement, item: AXUIElement)? {
+        guard let item = extras()[controlCenter], let pid else { return nil }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
         close(app, item)
-        // With menu bar auto-hide on, the status item sits above the screen, where a press opens nothing. The panel
-        // stays open once the menu bar hides again.
+        // The status item keeps its own idea of whether the panel is open, which drifts when the panel closes by
+        // itself; then the first press only resets it.
+        shown(item) {
+            for _ in 0..<2 where windows(app).isEmpty {
+                AX.press(item)
+                for _ in 0..<40 where windows(app).isEmpty { usleep(10_000) }
+            }
+        }
+        return (app, item)
+    }
+
+    /// Runs `work` with the native menu bar shown. With menu bar auto-hide on, a status item sits above the screen,
+    /// where a press opens nothing. What the press opened stays open once the menu bar hides again.
+    private nonisolated static func shown<T>(_ item: AXUIElement, _ work: () -> T) -> T {
         NativeMenuBar.setShown(true)
         defer { NativeMenuBar.setShown(false) }
         for _ in 0..<50 where position(item).y < 0 { usleep(10_000) }
-        // The status item keeps its own idea of whether the panel is open, which drifts when the panel closes by
-        // itself; then the first press only resets it.
-        for _ in 0..<2 where windows(app).isEmpty {
-            AX.press(item)
-            for _ in 0..<40 where windows(app).isEmpty { usleep(10_000) }
-        }
-        return (app, item)
+        return work()
     }
 
     private nonisolated static func position(_ item: AXUIElement) -> CGPoint {
@@ -586,21 +396,13 @@ enum SystemControlCenter {
     }
 }
 
-enum AirDrop {
-    static func mode() -> AirDropMode? {
-        (CFPreferencesCopyAppValue("DiscoverableMode" as CFString, "com.apple.sharingd" as CFString) as? String).flatMap(AirDropMode.init)
+/// Opens a module of the real Control Center off the main thread, or the settings pane when it cannot.
+func showControlCenterModule(_ id: String, else pane: String) {
+    Task {
+        if await !blocking({ SystemControlCenter.showModule(id) }) { openSettings(pane) }
     }
+}
 
-    /// Sets who can see this Mac. sharingd refuses the mode from clients without Apple's `com.apple.private.airdrop.settings`
-    /// entitlement and reads `DiscoverableMode` only at launch, so this writes the preference and restarts sharingd,
-    /// which launchd relaunches within a second. It blocks until the restart has been issued.
-    nonisolated static func set(_ mode: AirDropMode) {
-        CFPreferencesSetAppValue("DiscoverableMode" as CFString, mode.rawValue as CFString, "com.apple.sharingd" as CFString)
-        CFPreferencesAppSynchronize("com.apple.sharingd" as CFString)
-        let killall = Process()
-        killall.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-        killall.arguments = ["sharingd"]
-        try? killall.run()
-        killall.waitUntilExit()
-    }
+func openSettings(_ pane: String) {
+    shell("open 'x-apple.systempreferences:\(pane)'")
 }

@@ -32,11 +32,12 @@ final class BarModel {
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
     var frontApp: FrontApp?
-    /// Other apps' status items, listed in Control Center's dropdown.
+    /// Other apps' status items, listed in Settings, Menu Bar Items.
     var menuExtras: [MenuExtra<AXUIElement>] = []
     /// The pinned apps' status items that exist now, in the order pinned.
     var pinnedExtras: [MenuExtra<AXUIElement>] { pinnedItems(menuExtras, pinned: config.pinned) }
-    let controls = Controls()
+    /// A Focus is on. Nil without Accessibility access.
+    var focusOn: Bool?
 
     func focus(_ workspace: String) {
         switch workspaces.source {
@@ -91,10 +92,21 @@ final class BarModel {
         nowPlaying?.player.permission.tell(command)
     }
 
+    /// Reads Focus from its status item, which shows only while a Focus is on, now and whenever it comes or goes. The
+    /// Focus database itself needs Full Disk Access.
+    func followFocus() {
+        focusOn = SystemControlCenter.focusIsOn()
+        SystemControlCenter.onItemsChanged { [weak self] in self?.focusOn = SystemControlCenter.focusIsOn() }
+    }
+
+    /// Runs the widget's `clicks` command. Without one, Control Center and the clock press their native items, which
+    /// open Control Center and Notification Center.
     func click(_ widget: Widget) {
         let command = if case .script(let script) = widget { script.click } else { config.clicks[widget.name] }
-        guard let command else { return }
+        let native = [Widget.controlCenter: SystemControlCenter.controlCenter, .clock: SystemControlCenter.clock][widget]
+        guard command != nil || native != nil else { return }
         haptic()
-        shell(command)
+        if let command { return shell(command) }
+        if let native { DispatchQueue.global().async { SystemControlCenter.press(native) } }
     }
 }

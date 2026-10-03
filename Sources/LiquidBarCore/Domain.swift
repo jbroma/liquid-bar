@@ -157,8 +157,6 @@ public struct Config: Equatable, Sendable {
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
-    /// What the Control Center dropdown shows.
-    public var controlCenter = ControlItem.defaults
     /// Bundle ids of the apps whose status items sit on the bar, in order.
     public var pinned: [String] = []
     public var clicks: [String: String] = [
@@ -335,26 +333,12 @@ public func uses24HourClock(_ locale: Locale = .autoupdatingCurrent) -> Bool {
     return pattern.contains("H") || pattern.contains("k")
 }
 
-/// "Saturday 26 September 2026".
-public func fullDateText(_ date: Date, timeZone: TimeZone = .current) -> String {
-    format(date, "EEEE d MMMM y", timeZone)
-}
-
 private func format(_ date: Date, _ pattern: String, _ timeZone: TimeZone) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = timeZone
     formatter.dateFormat = pattern
     return formatter.string(from: date)
-}
-
-/// Six full weeks covering the month that contains `date`, starting on the calendar's first weekday,
-/// so the grid never changes height between months.
-public func monthGrid(for date: Date, calendar: Calendar) -> [Date] {
-    let month = calendar.dateInterval(of: .month, for: date)!.start
-    let lead = (calendar.component(.weekday, from: month) - calendar.firstWeekday + 7) % 7
-    let start = calendar.date(byAdding: .day, value: -lead, to: month)!
-    return (0..<42).map { calendar.date(byAdding: .day, value: $0, to: start)! }
 }
 
 /// Modifier keys of a menu shortcut as the Accessibility API reports them in `AXMenuItemCmdModifiers`:

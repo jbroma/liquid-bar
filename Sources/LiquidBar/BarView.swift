@@ -234,18 +234,18 @@ struct WidgetView: View {
             }
         case .controlCenter:
             // A moon while a Focus is on. The native menu bar shows the Focus's own symbol, but which Focus is on needs Full Disk Access to read.
-            MenuPill(id: .controlCenter, pulse: 0) {
+            ClickPill {
                 HStack(spacing: 8) {
-                    if model.controls.state.focus == true { Image(systemName: "moon.fill").transition(.scale.combined(with: .opacity)) }
+                    if model.focusOn == true { Image(systemName: "moon.fill").transition(.scale.combined(with: .opacity)) }
                     Image(systemName: "switch.2").frame(width: 16)
                 }
             }
-            .animation(spring, value: model.controls.state.focus)
+            .animation(spring, value: model.focusOn)
         case .clock:
             // No transition on the minute flip: animating it costs ~0.2s of CPU every minute at rest.
             // While macOS shows its privacy dot, the pill makes room for it, so the dot sits inside the pill after the time.
             // Without a pill of its own the clock's inset is 7 points smaller, so the room grows by as much.
-            MenuPill(id: .clock, pulse: 0, padding: 14) {
+            ClickPill(padding: 14) {
                 Text(clockText(model.now, hour24: model.config.clock24Hour ?? uses24HourClock(), seconds: model.config.clockSeconds))
                     .padding(.trailing, model.privacyDot ? (model.config.pills == .separate ? 4 : 11) : 0)
             }

@@ -39,7 +39,7 @@ enum Permission: CaseIterable, Identifiable {
     var use: String {
         switch self {
         case .accessibility: "App menus, menu bar items, Focus, switching desktops"
-        case .bluetooth: "Bluetooth power and devices in Control Center"
+        case .bluetooth: "Paired headphones and speakers in the Sound dropdown"
         case .location: "Wi-Fi network names"
         case .spotify: "Play, pause and skip in Spotify"
         case .music: "Play, pause and skip in Music"
@@ -103,10 +103,7 @@ enum Permission: CaseIterable, Identifiable {
             break
         case .bluetooth:
             // The first read asks, and waits for the answer.
-            Task {
-                _ = await Bluetooth.read()
-                delegate.model.controls.refresh()
-            }
+            Task { _ = await Bluetooth.read() }
         case .location:
             LocationAccess.shared.request()
         case .spotify, .music, .loginwindow:

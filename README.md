@@ -2,17 +2,13 @@
   <img src="docs/images/hero-v0150.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and the workspaces as a glass tab bar of app icons on the left, volume, Wi-Fi, battery, Control Center, and the clock as glass pills on the right, and the Control Center dropdown open below them">
 </p>
 
-LiquidBar replaces the macOS menu bar with one drawn in Liquid Glass. The left side shows your workspaces, from [AeroSpace](https://github.com/nikitabobko/AeroSpace), from macOS desktops, or as the running apps. The right side has volume, Wi-Fi, battery, Control Center, and the clock, each with a dropdown on hover. It is a native Swift and SwiftUI app with no config needed to start.
+LiquidBar replaces the macOS menu bar with one drawn in Liquid Glass. The left side shows your workspaces, from [AeroSpace](https://github.com/nikitabobko/AeroSpace), from macOS desktops, or as the running apps. The right side has volume, Wi-Fi, and battery, each with a dropdown on hover, then Control Center and the clock, which open macOS's own Control Center and Notification Center. It is a native Swift and SwiftUI app with no config needed to start.
 
 ## What you get
 
 <img src="docs/images/workspaces-v0150.webp" width="100%" alt="Banner: Workspaces and menus. Workspace 4's dropdown lists T3 Code and Messages, and next to it the strip shows the front app's menus, Studio, File, Edit, View, Window, and Help, with the top of the Edit menu open">
 
-<img src="docs/images/control-center-v0150.webp" width="100%" alt="Banner: Control Center. The top of the Control Center dropdown with Bluetooth, AirDrop, and Focus, and next to it the AirDrop section unfolded to Contacts Only, Everyone, and AirDrop Settings">
-
 <img src="docs/images/styles-v0150.webp" width="100%" alt="Banner: Four glass presets. The pills and the top of the battery dropdown in each preset side by side, Crystal, Liquid, Frost, and Graphite">
-
-<img src="docs/images/clock-battery-v0150.webp" width="100%" alt="Banner: Calendar and battery. The clock dropdown with the weekday, the day number, the week, and the month, and the battery dropdown with the charge as a thick bar, its status, and the adapter">
 
 Also in the bar:
 
@@ -44,12 +40,12 @@ To build from source instead, run `make install` (needs Xcode 26). It installs t
 
 - macOS 26 or later.
 - Menu bar auto-hide off (System Settings, "Automatically hide and show the menu bar", Never). With auto-hide on, windows and notification banners can slide under the bar.
-- Accessibility access, for the front app's menus, other apps' menu bar items, and a few Control Center tiles. The bar runs without it. On first launch it is the only thing the bar asks for; every other grant is asked for when you first use what needs it. Settings, General lists each grant with its live status. [Permissions](docs/details.md#permissions) lists every grant.
+- Accessibility access, for the front app's menus, other apps' menu bar items, Control Center, and Notification Center. The bar runs without it. On first launch it is the only thing the bar asks for; every other grant is asked for when you first use what needs it. Settings, General lists each grant with its live status. [Permissions](docs/details.md#permissions) lists every grant.
 - [AeroSpace](https://github.com/nikitabobko/AeroSpace) is optional.
 
 ## Settings
 
-Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has four sections. General holds Open at login, the workspace source, now playing, the battery percentage, the clock format, each permission's status, the config file, and the version. Appearance sets the pills as separate, grouped, or none, in real glass or flat, the bar's background, and how much the glass blurs. It picks the look from four presets with a live preview, and Customize sets the glass of the pills, the dropdowns, and the background apart. Control Center chooses the controls in the Control Center dropdown. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag.
+Right-click the bar and choose **LiquidBar Settings…**, or open LiquidBar again while it runs. The Settings window has three sections. General holds Open at login, the workspace source, now playing, the battery percentage, the clock format, each permission's status, the config file, and the version. Appearance sets the pills as separate, grouped, or none, in real glass or flat, the bar's background, and how much the glass blurs. It picks the look from four presets with a live preview, and Customize sets the glass of the pills, the dropdowns, and the background apart. Menu Bar Items pins other apps' menu bar items to the bar and reorders them by drag.
 
 <p align="center">
   <img src="docs/images/settings-v0150.webp" width="480" alt="The Settings window on its Appearance pane, with the General, Appearance, Control Center, and Menu Bar Items panes in the sidebar: the Pills picker, the Glass pills switch, the Bar background picker, the Glass blur slider, and four glass preset cards over a busy preview backdrop, with Crystal marked as the default">

@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Without a relaunch, what read Accessibility at launch or earlier and came up empty reads it again.
     lazy var access = AccessWindow { [model] in
         MenuExtras.refresh(model)
-        model.controls.readFocus()
+        model.followFocus()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         workspaces = WorkspacesSource(model: model)
         clock = ClockSource(model: model)
+        model.followFocus()
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
         // A secondary click anywhere on a bar opens LiquidBar's own menu; nothing on the bar has another use for it.

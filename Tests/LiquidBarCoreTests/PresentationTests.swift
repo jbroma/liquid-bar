@@ -63,32 +63,13 @@ import Testing
     #expect(VolumeState(level: 1, muted: false).stepped(-1) == 0)
 }
 
-@Test func clockAndDateText() {
+@Test func clockText() {
     let date = Date(timeIntervalSince1970: 1_790_364_425)  // 2026-09-25 19:27:05 UTC
     let utc = TimeZone(identifier: "UTC")!
     #expect(clockText(date, timeZone: utc) == "19:27")
     #expect(clockText(date, seconds: true, timeZone: utc) == "19:27:05")
     #expect(clockText(date, hour24: false, timeZone: utc) == "7:27 PM")
     #expect(clockText(date, hour24: false, seconds: true, timeZone: utc) == "7:27:05 PM")
-    #expect(fullDateText(date, timeZone: utc) == "Friday 25 September 2026")
-    #expect(fullDateText(Date(timeIntervalSince1970: 1_780_000_000), timeZone: utc) == "Thursday 28 May 2026")
-}
-
-@Test func monthGridStartsOnFirstWeekday() {
-    var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "UTC")!
-    calendar.firstWeekday = 2  // Monday
-    let day: (Date) -> String = { date in
-        let c = calendar.dateComponents([.month, .day], from: date)
-        return "\(c.month!)/\(c.day!)"
-    }
-    let september = monthGrid(for: Date(timeIntervalSince1970: 1_790_364_425), calendar: calendar)
-    #expect(september.count == 42)
-    #expect(day(september[0]) == "8/31")
-    #expect(day(september[1]) == "9/1")
-    #expect(day(september[41]) == "10/11")
-    calendar.firstWeekday = 1  // Sunday
-    #expect(day(monthGrid(for: Date(timeIntervalSince1970: 1_790_364_425), calendar: calendar)[0]) == "8/30")
 }
 
 @Test func menuShortcutModifiersFromAccessibilityMask() {

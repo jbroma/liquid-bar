@@ -8,7 +8,6 @@ A right-click, or a Control-click, anywhere on the bar opens LiquidBar's menu be
 
 - **General**: Open at login, which adds the app to macOS's login items and has no config key. Workspaces, Automatic, AeroSpace, Desktops, or Apps (`workspaceSource`). Show Now Playing, which adds `nowPlaying` to the start of `right` or removes it. Show Battery Percentage (`batteryPercent`). The clock as System, 24-Hour, or 12-Hour (`clock24Hour`; System removes the key), and Show Seconds (`clockSeconds`). Permissions: each grant the bar can use, with an icon for its live status (green allowed, orange not asked yet, red not allowed; the words are in the tooltip) and a button that asks or opens its Privacy & Security list (see [Permissions](details.md#permissions)). Configuration: the config file's path, the launch agent that started the bar when one did, **Open Config File…**, which creates the file as `{}` first when it is missing, and **Reload Config**. Last, the version, a link to the GitHub repository, the license, and **Show Welcome and Tips…**, which opens the first-launch window again.
 - **Appearance**: Pills, as Separate, Grouped, or None (`pills`), Glass pills (`pillGlass`), and Bar background, as Glass, Black, or None (`background`). With a background, on a Mac with a notch, Curve into the notch (`notchCurve`). Glass blur is a slider (`glassBlur`). Then the four presets (`glassStyle`) as cards, with the default marked, each with a preview of its pill and dropdown at its blur. A click picks one and clears the overrides. Below them, Customize picks the style of the bar's pills (`barStyle`), of the dropdowns (`dropdownStyle`), and of the bar's background (`backgroundStyle`) apart, each from the same four. The background row shows only while Bar background is Glass. The Glass blur slider overrides the preset's blur. While any of them differs from the preset, no card is selected, and Reset removes the four keys.
-- **Control Center**: a switch for each control the Control Center dropdown can show (`controlCenter`), in three groups: Connectivity, Sliders, and Controls.
 - **Menu Bar Items**: the pinned apps in bar order (`pinned`). Drag a row to reorder, and its checkbox unpins it. Below them, the other apps' menu bar items, each with a checkbox that pins it.
 
 Each change rewrites the file with sorted keys and keeps every other key.
@@ -34,11 +33,10 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `workspaces` | array of `{"id"}` | workspaces `1` to `9` | AeroSpace workspace names, in order. |
 | `left` | array of widgets | `["apple", "workspaces"]` | Widgets left of the notch. |
 | `right` | array of widgets | `["nowPlaying", "volume", "wifi", "battery", "controlCenter", "clock"]` | Widgets right of the notch. |
-| `controlCenter` | array of names | all but `sound`, `trueTone`, `stageManager` | What the Control Center dropdown shows: `"bluetooth"`, `"airDrop"`, `"focus"`, `"display"`, `"keyboard"`, `"sound"`, `"darkMode"`, `"nightShift"`, `"trueTone"`, `"stageManager"`, `"screenshot"`. The dropdown keeps its own order, whatever the order here. |
 | `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The Settings window's Menu Bar Items pane edits and reorders it. An item that is not pinned stays in the covered menu bar, out of reach until it is pinned. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
-The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. `clock` runs a command only if `clicks` sets one.
+The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. A click on `controlCenter` opens macOS's Control Center, and on `clock` Notification Center, unless `clicks` sets a command for them.
 
 ## Glass styles
 
@@ -67,8 +65,8 @@ A widget is one of these names, or a script object.
 | `volume` | Speaker symbol. Scroll over it to change the volume in steps of 2. | A switch that mutes while off and goes off when the level reaches 0, a slider like Control Center's, the output devices with the current one filled in (click one to switch), paired Bluetooth headphones and speakers that are not connected (click one to connect it and switch to it), AirPlay… (opens the real Control Center on its Sound outputs), and Sound Settings…. |
 | `wifi` | Network symbol. | Network name (or the signal, when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol, with the percentage if turned on. It is white, also while charging, when a bolt shows beside it, and red at 20% or less on battery. | The percentage and a wide level bar, which while charging is a liquid on its side, with a rolling surface at the end of the fill and bubbles drifting along it. Under it, one line with what the battery is doing and the power source. Battery Health shows the condition and unfolds to the maximum capacity and cycle count. Then a Show Percentage switch and Battery Settings…. |
-| `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | Control Center without Wi-Fi, Sound, and Now Playing, which have their own pills. See [Control Center](details.md#control-center). |
-| `clock` | Time. | Today as in Calendar's widget: the weekday in red over a large day number, with the week number. Under it a month grid with week numbers, today in a red circle, and weekends dimmed. Scroll or click the chevrons to change the month, which slides in, and the dot goes back to today. Then Open Calendar. |
+| `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | None. A click opens macOS's own Control Center, which System Settings, Control Center customizes. |
+| `clock` | Time. | None. A click opens Notification Center, with its widgets. |
 
 ## Script widgets
 

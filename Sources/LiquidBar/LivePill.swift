@@ -186,6 +186,23 @@ private struct BarHitArea: ViewModifier {
     }
 }
 
+/// A pill on the right that opens something of macOS's own on a click rather than a dropdown. It widens a few points
+/// under the pointer.
+struct ClickPill<Label: View>: View {
+    var padding: CGFloat = 10
+    @ViewBuilder var label: () -> Label
+    @Environment(\.bar) private var bar
+    @State private var hovering = false
+
+    var body: some View {
+        label()
+            .fixedSize()
+            .pill(height: bar.pill, padding: padding, lit: hovering)
+            .barHitArea()
+            .onHover { hovering = $0 }
+    }
+}
+
 /// A pill on the right whose menu is the bar's dropdown. It widens a few points while its dropdown is open.
 struct MenuPill<Pulse: Equatable, Label: View>: View {
     let id: Dropdown

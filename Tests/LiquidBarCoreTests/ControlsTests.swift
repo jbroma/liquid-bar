@@ -2,27 +2,6 @@ import LiquidBarCore
 import Foundation
 import Testing
 
-@Test func tileNamesAndStateLines() {
-    #expect(ControlTile.allCases.map(\.name) == ["Bluetooth", "AirDrop", "Focus", "Dark Mode", "Night Shift", "True Tone", "Stage Manager", "Screenshot"])
-    let state = ControlState(bluetooth: true, focus: false, airDrop: .contactsOnly, darkMode: true)
-    #expect(ControlTile.allCases.map { $0.detail(state) } == ["On", "Contacts Only", "Off", nil, nil, nil, nil, nil])
-    #expect(ControlTile.airDrop.detail(ControlState(airDrop: .off)) == "Off")
-    #expect(ControlTile.bluetooth.detail(ControlState()) == nil)
-}
-
-@Test func tilesAreOnOnlyWhenTheirControlIs() {
-    let state = ControlState(bluetooth: true, focus: nil, airDrop: .off, darkMode: true, nightShift: false)
-    #expect(ControlTile.allCases.filter { $0.isOn(state) } == [.bluetooth, .darkMode])
-    #expect(ControlTile.airDrop.isOn(ControlState(airDrop: .everyone)))
-}
-
-@Test func airDropModeFromSharingd() {
-    #expect(AirDropMode(rawValue: "Everyone") == .everyone)
-    #expect(AirDropMode(rawValue: "Contacts Only") == .contactsOnly)
-    #expect(AirDropMode(rawValue: "Off") == .off)
-    #expect(AirDropMode(rawValue: "everyone") == nil)
-}
-
 @Test func bluetoothSymbols() {
     // Classes as this Mac's paired devices report them.
     #expect(bluetoothSymbol(name: "Sam’s AirPods Pro", major: 4, minor: 6) == "airpodspro")
@@ -60,25 +39,4 @@ import Testing
     let paired = [device("a", connected: false), device("b", connected: true), device("c", connected: false),
                   device("d", connected: true), device("e", connected: false)]
     #expect(deviceRows(paired).map(\.id) == ["b", "d", "a", "c", "e"])
-}
-
-@Test func airDropToggleGoesOffOrBackToTheLastVisibleMode() {
-    #expect(AirDropMode.everyone.toggled(last: nil) == .off)
-    #expect(AirDropMode.contactsOnly.toggled(last: .everyone) == .off)
-    #expect(AirDropMode.off.toggled(last: .everyone) == .everyone)
-    #expect(AirDropMode.off.toggled(last: .contactsOnly) == .contactsOnly)
-    #expect(AirDropMode.off.toggled(last: nil) == .contactsOnly)
-    #expect(AirDropMode.off.toggled(last: .off) == .contactsOnly)
-    #expect(AirDropMode.allCases.map(\.rawValue) == ["Off", "Contacts Only", "Everyone"])
-}
-
-@Test func controlCenterItemsDecodeInTheDropdownsOrder() throws {
-    #expect(Config().controlCenter == ControlItem.defaults)
-    let config = try Config.decode(Data(#"{"controlCenter": ["sound", "focus", "trueTone"]}"#.utf8))
-    #expect(config.controlCenter == [.focus, .sound, .trueTone])
-    #expect(throws: ConfigError.self) { try Config.decode(Data(#"{"controlCenter": ["wifi"]}"#.utf8)) }
-    let added = try Setting.controlItem(.stageManager, true).applied(to: Data("{}".utf8))
-    #expect(try Config.decode(added).controlCenter == [.bluetooth, .airDrop, .focus, .display, .keyboard, .darkMode, .nightShift, .stageManager, .screenshot])
-    let removed = try Setting.controlItem(.airDrop, false).applied(to: added)
-    #expect(try !Config.decode(removed).controlCenter.contains(.airDrop))
 }

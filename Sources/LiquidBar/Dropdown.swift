@@ -4,7 +4,7 @@ import SwiftUI
 /// The items that open a dropdown, and the ids of the `ExpansionSlot`. The Apple logo's and a workspace's hang left of the notch, the rest
 /// right of it.
 nonisolated enum Dropdown: Hashable, Sendable {
-    case nowPlaying, volume, wifi, battery, controlCenter, clock
+    case nowPlaying, volume, wifi, battery
     case apple
     case workspace(String)
     /// A pinned app's status item, by bundle id.
@@ -19,8 +19,6 @@ nonisolated enum Dropdown: Hashable, Sendable {
 
     var width: CGFloat {
         switch self {
-        case .controlCenter: 300
-        case .clock: 276
         case .nowPlaying: 280
         case .workspace: 220
         case .apple: 240
@@ -141,8 +139,6 @@ struct DropdownView: View {
         case .volume: VolumeMenu(model: model)
         case .wifi: NetworkMenu(network: model.network)
         case .battery: BatteryMenu(battery: model.battery, percent: model.config.batteryPercent)
-        case .controlCenter: ControlCenterMenu(model: model)
-        case .clock: ClockMenu(now: model.now)
         case .apple: AppleMenu()
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
@@ -255,8 +251,7 @@ private struct HoverButton: ViewModifier {
     }
 }
 
-/// A title with a control at its end, as tall as a row in a Control Center module: the header of the Bluetooth and
-/// AirDrop lists with their switches, or a switch row like "Show Percentage".
+/// A title with a control at its end, as tall as a row in a Control Center module, like the "Show Percentage" switch row.
 struct HeaderRow<Trailing: View>: View {
     let title: String
     var bold = true
