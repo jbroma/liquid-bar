@@ -15,8 +15,8 @@ private func extra(_ bundleID: String, _ name: String, title: String? = nil, des
         extra("com.example.launcher", "Launcher", title: "", x: 1151),
     ]
     let tray = trayItems(extras)
-    #expect(tray.map(\.appName) == ["Launcher", "Vault", "Containers"])
-    #expect(tray.map(\.handle) == [1151, 1208, 1248])
+    #expect(tray.map(\.appName) == ["Launcher", "AeroSpace", "Vault", "Containers"])
+    #expect(tray.map(\.handle) == [1151, 1183, 1208, 1248])
 }
 
 @Test func pinnedItemsFollowThePinnedOrderAndSkipAbsentApps() {

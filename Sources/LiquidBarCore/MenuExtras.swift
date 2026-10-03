@@ -28,10 +28,9 @@ public struct MenuExtra<Handle> {
 extension MenuExtra: Equatable where Handle: Equatable {}
 extension MenuExtra: Sendable where Handle: Sendable {}
 
-/// The tray's rows, in the native menu bar's left-to-right order. Apple's items, which the bar replaces, and
-/// AeroSpace's, whose workspace the bar shows, are left out.
+/// The tray's rows, in the native menu bar's left-to-right order. Apple's items, which the bar replaces, are left out.
 public func trayItems<Handle>(_ extras: [MenuExtra<Handle>]) -> [MenuExtra<Handle>] {
-    extras.filter { !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != "bobko.aerospace" }.sorted { $0.x < $1.x }
+    extras.filter { !$0.bundleID.hasPrefix("com.apple.") }.sorted { $0.x < $1.x }
 }
 
 /// The status items on the bar: the first item of each pinned app that has one, in the order pinned.
