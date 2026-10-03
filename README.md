@@ -2,7 +2,7 @@
   <img src="docs/images/hero-v0150.webp" width="100%" alt="Banner: A Liquid Glass menu bar for macOS. The whole bar over a violet and blue wallpaper, with the Apple logo and the workspaces as a glass tab bar of app icons on the left, volume, Wi-Fi, battery, Control Center, and the clock as glass pills on the right, and the Control Center dropdown open below them">
 </p>
 
-LiquidBar replaces the macOS menu bar with one drawn in Liquid Glass. The left side shows your workspaces, from [AeroSpace](https://github.com/nikitabobko/AeroSpace), from macOS desktops, or as the running apps. The right side has volume, Wi-Fi, and battery, each with a dropdown on hover, then Control Center and the clock, which open macOS's own Control Center and Notification Center. It is a native Swift and SwiftUI app with no config needed to start.
+LiquidBar replaces the macOS menu bar with one drawn in Liquid Glass. The left side shows your workspaces, from [AeroSpace](https://github.com/nikitabobko/AeroSpace), from macOS desktops, or as the running apps. The right side has volume, Wi-Fi, and battery, each with a dropdown on hover, then Control Center and the clock, which open macOS's own Control Center and Notification Center on hover. It is a native Swift and SwiftUI app with no config needed to start.
 
 ## What you get
 

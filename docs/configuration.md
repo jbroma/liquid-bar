@@ -36,7 +36,7 @@ Each change rewrites the file with sorted keys and keeps every other key.
 | `pinned` | array of bundle ids | `[]` | Apps whose menu bar items show on the bar, left of the widgets, in this order. The Settings window's Menu Bar Items pane edits and reorders it. An item that is not pinned stays in the covered menu bar, out of reach until it is pinned. |
 | `clicks` | object | see below | Shell command per widget name, run with `/bin/sh -c` on click. Merged over the defaults. |
 
-The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. A click on `controlCenter` opens macOS's Control Center, and on `clock` Notification Center, unless `clicks` sets a command for them.
+The default clicks open the Sound, Network, and Battery settings panes for `volume`, `wifi`, and `battery`. The `apple` widget opens its dropdown on hover, and a click runs the command `clicks` sets for it, if any. `controlCenter` opens macOS's Control Center on hover, and `clock` Notification Center. A click opens them too, unless `clicks` sets a command for them.
 
 ## Glass styles
 
@@ -65,8 +65,8 @@ A widget is one of these names, or a script object.
 | `volume` | Speaker symbol. Scroll over it to change the volume in steps of 2. | A switch that mutes while off and goes off when the level reaches 0, a slider like Control Center's, the output devices with the current one filled in (click one to switch), paired Bluetooth headphones and speakers that are not connected (click one to connect it and switch to it), AirPlay… (opens the real Control Center on its Sound outputs), and Sound Settings…. |
 | `wifi` | Network symbol. | Network name (or the signal, when macOS withholds the name without Location access), IP address, live download and upload speed, and Network Settings…. |
 | `battery` | Level symbol, with the percentage if turned on. It is white, also while charging, when a bolt shows beside it, and red at 20% or less on battery. | The percentage and a wide level bar, which while charging is a liquid on its side, with a rolling surface at the end of the fill and bubbles drifting along it. Under it, one line with what the battery is doing and the power source. Battery Health shows the condition and unfolds to the maximum capacity and cycle count. Then a Show Percentage switch and Battery Settings…. |
-| `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | None. A click opens macOS's own Control Center, which System Settings, Control Center customizes. |
-| `clock` | Time. | None. A click opens Notification Center, with its widgets. |
+| `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | macOS's own Control Center, which System Settings, Control Center customizes. |
+| `clock` | Time. | Notification Center, with its widgets. |
 
 ## Script widgets
 

@@ -40,7 +40,7 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 ## Control Center and the clock
 
-A click on the Control Center pill opens macOS's own Control Center, and a click on the clock opens Notification Center, as their items in the native menu bar do. The bar presses those items through Accessibility, and with menu bar auto-hide on, it shows the native menu bar for the moment of the press. A second click closes them. Customize Control Center in System Settings, Control Center.
+Hovering the Control Center pill opens macOS's own Control Center, and hovering the clock opens Notification Center, in place of a dropdown and after the same short delay. A click opens them too. The bar presses their items in the native menu bar through Accessibility, and with menu bar auto-hide on, it shows the native menu bar for the moment of the press. Moving the pointer from the pill into the panel keeps it open, and moving on to another item of the bar closes it. A click outside closes it, as always. Customize Control Center in System Settings, Control Center.
 
 Focus has neither an API nor a store the bar can read without Full Disk Access. The bar follows the Focus menu bar item as it appears and leaves, and shows a moon beside the Control Center symbol while it is there. The item leaves about five seconds after Focus ends, so the moon stays that much longer. Which Focus is on stays unknown, so the pill shows a moon for all of them.
 

@@ -99,14 +99,14 @@ final class BarModel {
         SystemControlCenter.onItemsChanged { [weak self] in self?.focusOn = SystemControlCenter.focusIsOn() }
     }
 
-    /// Runs the widget's `clicks` command. Without one, Control Center and the clock press their native items, which
-    /// open Control Center and Notification Center.
+    /// Runs the widget's `clicks` command. Without one, Control Center and the clock open macOS's Control Center and
+    /// Notification Center, as hovering them does.
     func click(_ widget: Widget) {
         let command = if case .script(let script) = widget { script.click } else { config.clicks[widget.name] }
         let native = [Widget.controlCenter: SystemControlCenter.controlCenter, .clock: SystemControlCenter.clock][widget]
         guard command != nil || native != nil else { return }
         haptic()
         if let command { return shell(command) }
-        if let native { DispatchQueue.global().async { SystemControlCenter.press(native) } }
+        if let native { DispatchQueue.global().async { SystemControlCenter.setOpen(native, true) } }
     }
 }

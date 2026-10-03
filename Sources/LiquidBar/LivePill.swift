@@ -186,20 +186,21 @@ private struct BarHitArea: ViewModifier {
     }
 }
 
-/// A pill on the right that opens something of macOS's own on a click rather than a dropdown. It widens a few points
-/// under the pointer.
-struct ClickPill<Label: View>: View {
+/// A pill on the right that opens macOS's own panel for Apple's status item `item` rather than a dropdown, when it
+/// opens like the others. Leaving it for the panel keeps the panel open, and moving on to another item closes it.
+struct NativePill<Label: View>: View {
+    let id: Dropdown
+    let item: String
     var padding: CGFloat = 10
     @ViewBuilder var label: () -> Label
-    @Environment(\.bar) private var bar
-    @State private var hovering = false
+    @Environment(ExpansionSlot.self) private var slot
 
     var body: some View {
-        label()
-            .fixedSize()
-            .pill(height: bar.pill, padding: padding, lit: hovering)
-            .barHitArea()
-            .onHover { hovering = $0 }
+        MenuPill(id: id, pulse: 0, padding: padding, label: label)
+            .onChange(of: slot.owner) { old, new in
+                guard new == id || (old == id && new != nil) else { return }
+                DispatchQueue.global().async { [item] in SystemControlCenter.setOpen(item, new == id) }
+            }
     }
 }
 

@@ -319,13 +319,20 @@ enum SystemControlCenter {
         return AX.press(module)
     }
 
-    /// Presses Apple's status item `id`, as a click on it in the native menu bar does: Control Center's opens or
-    /// closes its panel, the clock's Notification Center. It blocks until pressed, and returns false when the item is
-    /// missing, or without Accessibility.
-    @discardableResult
-    nonisolated static func press(_ id: String) -> Bool {
-        guard let item = extras()[id] else { return false }
-        return shown(item) { AX.press(item) }
+    /// Opens or closes what Apple's status item `id` opens, Control Center's panel or the clock's Notification Center,
+    /// by pressing the item as a click on it does. It blocks until pressed, and does nothing when it is already so,
+    /// when the item is missing, or without Accessibility.
+    nonisolated static func setOpen(_ id: String, _ open: Bool) {
+        guard let item = extras()[id], isOpen(id) != open else { return }
+        shown(item) { AX.press(item) }
+    }
+
+    /// Whether what item `id` opens is on screen. The items do not report it, so it is read from the windows: Control
+    /// Center's panel is its only window, and Notification Center is a system dialog among its widgets' windows.
+    private nonisolated static func isOpen(_ id: String) -> Bool {
+        guard id == clock else { return pid.map { !windows(AXUIElementCreateApplication($0)).isEmpty } ?? false }
+        let center = running("com.apple.notificationcenterui").map { windows(AXUIElementCreateApplication($0)) } ?? []
+        return center.contains { AX.string($0, kAXSubroleAttribute) == kAXSystemDialogSubrole }
     }
 
     /// Opens Control Center's main view, and returns Control Center and its status item. Nil without Accessibility access.
