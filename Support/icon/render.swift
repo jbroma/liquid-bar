@@ -69,10 +69,11 @@ func glow(_ c: CGContext, _ color: CGColor, at p: CGPoint, radius: CGFloat) {
     c.drawRadialGradient(g, startCenter: p, startRadius: 0, endCenter: p, endRadius: radius, options: [])
 }
 
-/// The backdrop: violet to deep blue, with a pink, a cyan and an orange glow for the glass to bend.
+/// The backdrop, the social preview's ocean: deep blue to teal, with a violet, a light blue and an aqua glow for the
+/// glass to bend.
 struct Palette { let base: [CGColor]; let glows: [(CGColor, CGPoint, CGFloat)] }
-let aurora = Palette(base: [hex(0x7A3CF0), hex(0x3B22D6), hex(0x0B1E8F)],
-                     glows: [(hex(0xFF5CA8, 0.75), CGPoint(x: 250, y: 880), 520), (hex(0x35C8FF, 0.6), CGPoint(x: 900, y: 240), 470), (hex(0xFFB15C, 0.45), CGPoint(x: 560, y: 1000), 330)])
+let ocean = Palette(base: [hex(0x0B2A6F), hex(0x1468D4), hex(0x21C7C0)],
+                    glows: [(hex(0x7A5CFF, 0.6), CGPoint(x: 150, y: 130), 470), (hex(0x3FA8FF, 0.5), CGPoint(x: 600, y: 350), 360), (hex(0x5BE6D8, 0.6), CGPoint(x: 840, y: 924), 470)])
 
 /// The backdrop without the body's clip, so glass can blur and magnify it.
 func backdrop(_ p: Palette) -> CGImage {
@@ -136,7 +137,7 @@ func fill(_ c: CGContext, _ path: CGPath) { c.addPath(path); c.fillPath() }
 
 
 let bar = CGRect(x: 112, y: 396, width: 800, height: 232), lens = CGRect(x: 305, y: 418, width: 220, height: 188)
-let icon = render(aurora, [
+let icon = render(ocean, [
     Glass(shapes: { c in fill(c, capsule(bar)) }),
     Glass(tint: 0.22, shapes: { c in fill(c, capsule(lens)) }),
 ]) { c in
