@@ -107,6 +107,6 @@ final class BarModel {
         guard command != nil || native != nil else { return }
         haptic()
         if let command { return shell(command) }
-        if let native { DispatchQueue.global().async { SystemControlCenter.setOpen(native, true) } }
+        if let native { SystemControlCenter.want(native) }
     }
 }

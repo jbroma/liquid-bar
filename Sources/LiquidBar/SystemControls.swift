@@ -319,12 +319,27 @@ enum SystemControlCenter {
         return AX.press(module)
     }
 
-    /// Opens or closes what Apple's status item `id` opens, Control Center's panel or the clock's Notification Center,
-    /// by pressing the item as a click on it does. It blocks until pressed, and does nothing when it is already so,
-    /// when the item is missing, or without Accessibility.
-    nonisolated static func setOpen(_ id: String, _ open: Bool) {
+    private nonisolated static let panels = DispatchQueue(label: "dev.liquidbar.panels")
+    /// The item whose panel should be open, read and written only on `panels`.
+    private nonisolated(unsafe) static var wanted: String?
+
+    /// Leaves open only the panel of item `id`, Control Center's or Notification Center, or none for nil. It acts a
+    /// moment later on the latest wish, so the pointer sweeping across the bar opens nothing on its way, and one
+    /// press at a time, since each press toggles.
+    nonisolated static func want(_ id: String?) {
+        panels.async { wanted = id }
+        panels.asyncAfter(deadline: .now() + 0.12) {
+            for item in [controlCenter, clock] where item != wanted { setOpen(item, false) }
+            if let wanted { setOpen(wanted, true) }
+        }
+    }
+
+    /// Opens or closes what item `id` opens by pressing it, as a click on it does, and waits until it has. It does
+    /// nothing when it is already so, when the item is missing, or without Accessibility.
+    private nonisolated static func setOpen(_ id: String, _ open: Bool) {
         guard let item = extras()[id], isOpen(id) != open else { return }
         shown(item) { AX.press(item) }
+        for _ in 0..<50 where isOpen(id) != open { usleep(10_000) }
     }
 
     /// Whether what item `id` opens is on screen. The items do not report it, so it is read from the windows: Control

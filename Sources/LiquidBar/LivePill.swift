@@ -104,6 +104,9 @@ final class ExpansionSlot {
             trace("owner \(owner.map { "\($0)" } ?? "-") -> \(next.map { "\($0)" } ?? "-")")
             // A short spring: the bar redraws on every frame of it, and the longer one cost twice the CPU.
             withAnimation(.spring(duration: 0.22, bounce: 0.2)) { owner = next }
+            // Control Center and the clock open macOS's own panels. Another item closes them, while leaving the bar,
+            // which is how the pointer gets into a panel, keeps them.
+            if let next { SystemControlCenter.want(next.nativeItem) }
             if next == nil {
                 escape.map(NSEvent.removeMonitor)
                 escape = nil
@@ -183,24 +186,6 @@ private struct BarHitArea: ViewModifier {
             .padding(reach)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
-    }
-}
-
-/// A pill on the right that opens macOS's own panel for Apple's status item `item` rather than a dropdown, when it
-/// opens like the others. Leaving it for the panel keeps the panel open, and moving on to another item closes it.
-struct NativePill<Label: View>: View {
-    let id: Dropdown
-    let item: String
-    var padding: CGFloat = 10
-    @ViewBuilder var label: () -> Label
-    @Environment(ExpansionSlot.self) private var slot
-
-    var body: some View {
-        MenuPill(id: id, pulse: 0, padding: padding, label: label)
-            .onChange(of: slot.owner) { old, new in
-                guard new == id || (old == id && new != nil) else { return }
-                DispatchQueue.global().async { [item] in SystemControlCenter.setOpen(item, new == id) }
-            }
     }
 }
 

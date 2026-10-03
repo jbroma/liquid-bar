@@ -12,6 +12,15 @@ nonisolated enum Dropdown: Hashable, Sendable {
     /// A pinned app's status item, by bundle id.
     case menuExtra(String)
 
+    /// The Apple status item whose panel opens in place of a dropdown.
+    var nativeItem: String? {
+        switch self {
+        case .controlCenter: SystemControlCenter.controlCenter
+        case .clock: SystemControlCenter.clock
+        default: nil
+        }
+    }
+
     var isLeft: Bool {
         switch self {
         case .apple, .workspace: true
