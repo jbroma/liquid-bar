@@ -23,7 +23,7 @@
 	<key>NSAppleEventsUsageDescription</key>
 	<string>LiquidBar asks Spotify and Music what is playing and sends them play, pause and skip, and asks loginwindow to show the Restart, Shut Down and Log Out dialogs.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>LiquidBar lists your Bluetooth headphones and speakers in its Sound dropdown and connects them.</string>
+	<string>LiquidBar lists your Bluetooth devices in its Sound dropdown and its own Control Center, connects them, and switches Bluetooth on and off.</string>
 	<key>NSLocationUsageDescription</key>
 	<string>LiquidBar shows the names of nearby Wi-Fi networks.</string>
 	<key>SUEnableAutomaticChecks</key>

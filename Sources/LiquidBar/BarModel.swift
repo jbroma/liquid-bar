@@ -39,8 +39,7 @@ final class BarModel {
     /// Claude's and Codex's usage from their local logs, while the usage pill is on the bar, and when it was read.
     var usage: [UsageAgent: AgentUsage] = [:]
     var usageRead: Date?
-    /// A Focus is on. Nil without Accessibility access.
-    var focusOn: Bool?
+    let controls = Controls()
 
     func focus(_ workspace: String) {
         switch workspaces.source {
@@ -95,18 +94,12 @@ final class BarModel {
         nowPlaying?.player.permission.tell(command)
     }
 
-    /// Reads Focus from its status item, which shows only while a Focus is on, now and whenever it comes or goes. The
-    /// Focus database itself needs Full Disk Access.
-    func followFocus() {
-        focusOn = SystemControlCenter.focusIsOn()
-        SystemControlCenter.onItemsChanged { [weak self] in self?.focusOn = SystemControlCenter.focusIsOn() }
-    }
-
-    /// Runs the widget's `clicks` command. Without one, Control Center and the clock open macOS's Control Center and
-    /// Notification Center, as hovering them does.
+    /// Runs the widget's `clicks` command. Without one, the clock opens Notification Center, and Control Center macOS's
+    /// Control Center unless the bar's own is chosen, as hovering them does.
     func click(_ widget: Widget) {
         let command = if case .script(let script) = widget { script.click } else { config.clicks[widget.name] }
-        let native = [Widget.controlCenter: SystemControlCenter.controlCenter, .clock: SystemControlCenter.clock][widget]
+        let native = widget == .clock ? SystemControlCenter.clock
+            : widget == .controlCenter && config.systemControlCenter ? SystemControlCenter.controlCenter : nil
         guard command != nil || native != nil else { return }
         haptic()
         if let command { return shell(command) }

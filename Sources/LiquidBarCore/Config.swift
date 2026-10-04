@@ -46,6 +46,8 @@ extension Config {
             var left: [WidgetEntry]?
             var right: [WidgetEntry]?
             var pinned: [String]?
+            var systemControlCenter: Bool?
+            var controlCenter: [String]?
             var clicks: [String: String]?
         }
         let raw = try JSONDecoder().decode(Raw.self, from: data)
@@ -74,6 +76,12 @@ extension Config {
         if let workspaces = raw.workspaces { config.workspaces = workspaces }
         if let left = raw.left { config.left = left.map(\.widget) }
         if let right = raw.right { config.right = right.map(\.widget) }
+        config.systemControlCenter = raw.systemControlCenter ?? config.systemControlCenter
+        if let names = raw.controlCenter {
+            // Whatever order the file has, the dropdown shows them in its own.
+            let items = try names.map { try choice(ControlItem.self, "controlCenter", $0)! }
+            config.controlCenter = ControlItem.allCases.filter(items.contains)
+        }
         if let pinned = raw.pinned {
             guard !pinned.contains(where: \.isEmpty) else { throw ConfigError(description: "pinned holds bundle ids, not empty strings") }
             config.pinned = pinned.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
@@ -128,6 +136,8 @@ public enum Setting: Equatable, Sendable {
     case pillGlass(Bool)
     case nowPlaying(Bool)
     case pinned(String, Bool)
+    case systemControlCenter(Bool)
+    case controlItem(ControlItem, Bool)
     /// The whole pinned list, in its new order.
     case pinnedOrder([String])
     /// A preset: sets `glassStyle` and drops the overrides, so the preset applies whole.
@@ -169,6 +179,10 @@ public enum Setting: Equatable, Sendable {
         // As a decimal: JSONSerialization writes the double 0.95 as 0.94999999999999996.
         case .glassBlur(let blur): json["glassBlur"] = NSDecimalNumber(string: String(blur))
         case .pinnedOrder(let pinned): json["pinned"] = pinned
+        case .systemControlCenter(let on): json["systemControlCenter"] = on
+        case .controlItem(let item, let on):
+            let names = json["controlCenter"] as? [String] ?? ControlItem.defaults.map(\.rawValue)
+            json["controlCenter"] = ControlItem.allCases.map(\.rawValue).filter { $0 == item.rawValue ? on : names.contains($0) }
         case .nowPlaying(let on):
             let name = Widget.nowPlaying.name
             var right: [Any] = json["right"] as? [Any] ?? Config().right.map(\.name)

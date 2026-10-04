@@ -56,7 +56,7 @@ private func firstTable(in view: NSView) -> NSTableView? {
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, menuBarItems
+    case general, appearance, controlCenter, menuBarItems
 
     var id: Self { self }
 
@@ -64,6 +64,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .appearance: "Appearance"
+        case .controlCenter: "Control Center"
         case .menuBarItems: "Menu Bar Items"
         }
     }
@@ -72,6 +73,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape.fill"
         case .appearance: "circle.lefthalf.filled"
+        case .controlCenter: "switch.2"
         case .menuBarItems: "menubar.rectangle"
         }
     }
@@ -80,7 +82,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: .gray
         case .appearance: Color(white: 0.2)
-        case .menuBarItems: .gray
+        case .controlCenter, .menuBarItems: .gray
         }
     }
 
@@ -89,6 +91,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .general: "com.apple.systempreferences.GeneralSettings"
         case .appearance: "com.apple.Appearance-Settings.extension"
+        case .controlCenter: "com.apple.ControlCenter-Settings.extension"
         case .menuBarItems: nil
         }
     }
@@ -113,6 +116,7 @@ private struct SettingsView: View {
                 switch section {
                 case .general: GeneralPane(config: model.config)
                 case .appearance: AppearancePane(config: model.config)
+                case .controlCenter: ControlCenterPane(config: model.config)
                 case .menuBarItems: MenuBarItemsPane(model: model)
                 }
             }
@@ -659,6 +663,69 @@ private struct StyleCard: View {
             .frame(height: 64)
         }
         .help(style.summary)
+    }
+}
+
+/// Whether the pill opens macOS's Control Center or the bar's own, and which controls the bar's shows, as System
+/// Settings lists its Control Center modules.
+private struct ControlCenterPane: View {
+    let config: Config
+    private let groups: [(String, [ControlItem])] = [
+        ("Connectivity", [.bluetooth, .airDrop, .focus]),
+        ("Sliders", [.display, .keyboard, .sound]),
+        ("Controls", [.darkMode, .nightShift, .trueTone, .stageManager, .screenshot]),
+    ]
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(isOn: saving(config.systemControlCenter, Setting.systemControlCenter)) {
+                    Text("Use macOS Control Center")
+                    Text("Customize it in System Settings, Control Center. Off, the pill opens the bar's own, with the controls below.")
+                }
+            }
+            ForEach(groups, id: \.0) { title, items in
+                Section(title) {
+                    ForEach(items, id: \.self) { item in
+                        Toggle(isOn: saving(config.controlCenter.contains(item)) { .controlItem(item, $0) }) {
+                            Label { Text(item.title) } icon: { IconTile(symbol: item.symbol, tint: item.tint) }
+                        }
+                    }
+                }
+                .disabled(config.systemControlCenter)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+extension ControlItem {
+    fileprivate var symbol: String {
+        switch self {
+        case .bluetooth: "dot.radiowaves.left.and.right"
+        case .airDrop: "dot.radiowaves.up.forward"
+        case .focus: "moon.fill"
+        case .display: "sun.max.fill"
+        case .keyboard: "light.max"
+        case .sound: "speaker.wave.2.fill"
+        case .darkMode: "circle.lefthalf.filled"
+        case .nightShift: "sun.horizon.fill"
+        case .trueTone: "sun.max.fill"
+        case .stageManager: "squares.leading.rectangle"
+        case .screenshot: "camera.viewfinder"
+        }
+    }
+
+    /// System Settings' colours for the same controls.
+    fileprivate var tint: Color {
+        switch self {
+        case .bluetooth, .airDrop, .display, .trueTone: .blue
+        case .focus: .indigo
+        case .sound: .pink
+        case .nightShift: .orange
+        case .darkMode: Color(white: 0.2)
+        case .keyboard, .stageManager, .screenshot: .gray
+        }
     }
 }
 

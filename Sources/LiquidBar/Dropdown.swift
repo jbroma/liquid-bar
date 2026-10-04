@@ -5,8 +5,9 @@ import SwiftUI
 /// right of it.
 nonisolated enum Dropdown: Hashable, Sendable {
     case nowPlaying, volume, wifi, battery, usage
+    case controlCenter
     /// Open macOS's own Control Center and Notification Center instead of a dropdown.
-    case controlCenter, clock
+    case systemControlCenter, clock
     case apple
     case workspace(String)
     /// A pinned app's status item, by bundle id.
@@ -15,7 +16,7 @@ nonisolated enum Dropdown: Hashable, Sendable {
     /// The Apple status item whose panel opens in place of a dropdown.
     var nativeItem: String? {
         switch self {
-        case .controlCenter: SystemControlCenter.controlCenter
+        case .systemControlCenter: SystemControlCenter.controlCenter
         case .clock: SystemControlCenter.clock
         default: nil
         }
@@ -31,6 +32,7 @@ nonisolated enum Dropdown: Hashable, Sendable {
     var width: CGFloat {
         switch self {
         case .nowPlaying: 280
+        case .controlCenter: 300
         case .usage: 290
         case .workspace: 220
         case .apple: 240
@@ -134,7 +136,7 @@ struct DropdownView: View {
     /// that opens macOS's own panel.
     private func hasContent(_ dropdown: Dropdown) -> Bool {
         switch dropdown {
-        case .controlCenter, .clock: false
+        case .systemControlCenter, .clock: false
         case .workspace(let id): model.workspaces.apps(on: id).count > 1
         case .menuExtra(let id): model.pinnedExtras.first { $0.bundleID == id }?.hasMenu == true
         default: true
@@ -156,7 +158,8 @@ struct DropdownView: View {
         case .apple: AppleMenu()
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
-        case .controlCenter, .clock: EmptyView()
+        case .controlCenter: ControlCenterMenu(model: model)
+        case .systemControlCenter, .clock: EmptyView()
         case .usage: UsageMenu(model: model)
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
         }

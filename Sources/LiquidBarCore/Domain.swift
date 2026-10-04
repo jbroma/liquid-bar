@@ -163,6 +163,10 @@ public struct Config: Equatable, Sendable {
     public var workspaces: [Workspace] = (1...9).map { Workspace(id: String($0)) }
     public var left: [Widget] = [.apple, .workspaces]
     public var right: [Widget] = [.nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
+    /// The Control Center pill opens macOS's own Control Center. Off, it opens the bar's dropdown, which shows `controlCenter`.
+    public var systemControlCenter = true
+    /// What the bar's Control Center dropdown shows.
+    public var controlCenter = ControlItem.defaults
     /// Bundle ids of the apps whose status items sit on the bar, in order.
     public var pinned: [String] = []
     public var clicks: [String: String] = [
