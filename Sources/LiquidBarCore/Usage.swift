@@ -7,7 +7,8 @@ public enum UsageAgent: String, CaseIterable, Sendable {
     public var title: String {
         switch self {
         case .claude: "Claude"
-        case .codex: "Codex"
+        // Codex's limits are the ChatGPT plan's, and its app is named ChatGPT.
+        case .codex: "ChatGPT"
         }
     }
 
@@ -19,11 +20,20 @@ public enum UsageAgent: String, CaseIterable, Sendable {
         }
     }
 
-    /// The account's usage page.
+    /// The account's usage page on the web.
     public var usagePage: String {
         switch self {
         case .claude: "https://claude.ai/settings/usage"
-        case .codex: "https://chatgpt.com/codex/settings/usage"
+        case .codex: "https://chatgpt.com/codex/cloud/settings/usage"
+        }
+    }
+
+    /// The same page in the desktop app, opened in its place when the app is installed. ChatGPT's moved there from the
+    /// web, under Settings, Usage & billing.
+    public var appUsagePage: String? {
+        switch self {
+        case .claude: nil
+        case .codex: "codex://settings/usage"
         }
     }
 }

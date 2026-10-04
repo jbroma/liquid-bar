@@ -185,8 +185,8 @@ private struct AgentSection: View {
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(secondary)
                     .frame(width: 18, height: 18)
-                    .hoverButton(radius: 9) { shell("open '\(agent.usagePage)'") }
-                    .help("Open \(URL(string: agent.usagePage)?.host() ?? agent.title)")
+                    .hoverButton(radius: 9) { openUsagePage(agent) }
+                    .help("Open \(agent.title) usage")
                 Spacer(minLength: 8)
                 if let plan = usage.plan { Badge(text: plan) }
             }
@@ -251,4 +251,19 @@ private struct Badge: View {
             .padding(.vertical, 2)
             .background(Capsule().fill(.white.opacity(0.12)))
     }
+}
+
+/// Opens the agent's usage page in its desktop app when it has one, else in the default browser. A plain open can hand
+/// a site's link to an app that claims the domain, like the ChatGPT app with chatgpt.com, which then shows nothing.
+private func openUsagePage(_ agent: UsageAgent) {
+    if let page = agent.appUsagePage.flatMap(URL.init(string:)), NSWorkspace.shared.urlForApplication(withBundleIdentifier: agent.bundleID) != nil {
+        NSWorkspace.shared.open(page)
+        return
+    }
+    guard let url = URL(string: agent.usagePage) else { return }
+    guard let browser = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "http://example.com")!) else {
+        NSWorkspace.shared.open(url)
+        return
+    }
+    NSWorkspace.shared.open([url], withApplicationAt: browser, configuration: NSWorkspace.OpenConfiguration())
 }
