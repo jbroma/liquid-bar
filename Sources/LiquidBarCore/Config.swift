@@ -33,6 +33,7 @@ extension Config {
             var clockSeconds: Bool?
             var batteryPercent: Bool?
             var usagePercent: Bool?
+            var trackChanges: Bool?
             var pills: NameOrBool?
             var pillGlass: Bool?
             var background: NameOrBool?
@@ -69,6 +70,7 @@ extension Config {
         config.clockSeconds = raw.clockSeconds ?? config.clockSeconds
         config.batteryPercent = raw.batteryPercent ?? config.batteryPercent
         config.usagePercent = raw.usagePercent ?? config.usagePercent
+        config.trackChanges = raw.trackChanges ?? config.trackChanges
         config.pills = try choice(PillLayout.self, "pills", raw.pills?.name(on: "separate", off: "none")) ?? config.pills
         config.background = try choice(BarBackgroundKind.self, "background", raw.background?.name(on: "glass", off: "none")) ?? config.background
         config.notchCurve = raw.notchCurve ?? config.notchCurve
@@ -130,6 +132,7 @@ public enum Setting: Equatable, Sendable {
     case clockSeconds(Bool)
     case batteryPercent(Bool)
     case usagePercent(Bool)
+    case trackChanges(Bool)
     case pills(PillLayout)
     case background(BarBackgroundKind)
     case notchCurve(Bool)
@@ -163,6 +166,7 @@ public enum Setting: Equatable, Sendable {
         case .clockSeconds(let on): json["clockSeconds"] = on
         case .batteryPercent(let on): json["batteryPercent"] = on
         case .usagePercent(let on): json["usagePercent"] = on
+        case .trackChanges(let on): json["trackChanges"] = on
         case .pills(let layout): json["pills"] = layout.rawValue
         case .background(let kind): json["background"] = kind.rawValue
         case .notchCurve(let on): json["notchCurve"] = on

@@ -209,7 +209,7 @@ struct WidgetView: View {
                 MenuPill(id: .nowPlaying, pulse: 0) {
                     NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork, showsTitle: slot.inline == .nowPlaying)
                 }
-                .onChange(of: nowPlaying.trackID) { slot.showInline(.nowPlaying, nowPlaying.trackID) }
+                .onChange(of: nowPlaying.trackID) { if model.config.trackChanges { slot.showInline(.nowPlaying, nowPlaying.trackID) } }
                 .animation(spring, value: nowPlaying.trackID)
                 .transition(.scale(0.6).combined(with: .opacity))
             }

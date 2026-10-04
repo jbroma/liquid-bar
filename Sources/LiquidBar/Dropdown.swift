@@ -161,7 +161,7 @@ struct DropdownView: View {
         case .controlCenter: ControlCenterMenu(model: model)
         case .systemControlCenter, .clock: EmptyView()
         case .usage: UsageMenu(model: model)
-        case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
+        case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, trackChanges: model.config.trackChanges, control: model.control)
         }
     }
 }

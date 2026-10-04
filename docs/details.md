@@ -28,7 +28,7 @@ In every source, hovering an item with two or more apps lists them, and clicking
 
 **Hit areas.** The bar takes clicks over the whole strip at the top of the screen, also where nothing is drawn, so a right-click beside the items opens the bar's menu. Each item reacts across the full bar height and up to halfway to its neighbours, and the outermost items out to the screen edge. A pointer thrown at the top edge, into a corner, or between two pills still lands on one.
 
-**Changes you did not make.** A change the bar did not cause, like plugging in the charger or a network drop, opens that dropdown for 2.2 s. A new track opens no dropdown. The now playing pill instead widens for 3 s to show the title and artist next to the new artwork, and stays wide while the pointer is on it.
+**Changes you did not make.** A change the bar did not cause, like plugging in the charger or a network drop, opens that dropdown for 2.2 s. A new track opens no dropdown. With Show Track Changes on in the now playing dropdown (`trackChanges`), the now playing pill instead widens for 3 s to show the title and artist next to the new artwork, and stays wide while the pointer is on it. It is off by default.
 
 **The front app's menus.** Clicking the focused workspace, or holding Shift with the pointer on the bar, turns the strip into the front app's menu titles, read through Accessibility, with the app's own menu first and in bold. Each title opens a native menu with the app's items, shortcuts, and checkmarks, and picking an item runs it in the app. Press Esc, switch apps, click the focused workspace again, or move the pointer out of the bar to bring the workspaces back.
 

@@ -12,7 +12,7 @@ LiquidBar replaces the macOS menu bar with one drawn in Liquid Glass. The left s
 
 Also in the bar:
 
-- Now playing for Spotify and Music. On a new track the pill slides out to show the title.
+- Now playing for Spotify and Music. Turn on Show Track Changes in its dropdown, and a new track slides out of the pill with its title.
 - A Wi-Fi dropdown that lists the networks in range and joins them, and a Sound dropdown with a mute switch, the volume, and the output devices.
 - Other apps' menu bar items, pinned to the bar from Settings.
 - An optional usage pill with how much of your Claude and Codex subscription limits you have used, as donuts, and a dropdown with each limit and when it resets.

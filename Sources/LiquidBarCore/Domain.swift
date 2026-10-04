@@ -143,6 +143,8 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour: Bool?
     public var clockSeconds = false
     public var batteryPercent = false
+    /// A new track slides out of the now playing pill with its title and artist for a moment.
+    public var trackChanges = false
     /// The usage pill shows each limit's percentage beside its donut.
     public var usagePercent = true
     public var pills = PillLayout.separate

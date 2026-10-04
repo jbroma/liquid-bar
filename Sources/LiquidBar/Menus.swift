@@ -313,6 +313,8 @@ nonisolated struct LiquidEdge: Shape {
 struct NowPlayingMenu: View {
     let nowPlaying: NowPlaying?
     let artwork: NSImage?
+    /// A new track shows its title in the pill.
+    let trackChanges: Bool
     let control: (String) -> Void
 
     var body: some View {
@@ -339,6 +341,7 @@ struct NowPlayingMenu: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 2)
                 MenuSeparator()
+                HeaderRow(title: "Show Track Changes", bold: false) { GlassSwitch(on: trackChanges) { Setting.trackChanges($0).save() } }
                 if nowPlaying.player.permission.status == .denied {
                     MenuButton { nowPlaying.player.permission.request() } content: {
                         Text("Allow Control of \(nowPlaying.player.appName)…").lineLimit(1)
