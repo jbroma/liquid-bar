@@ -143,6 +143,8 @@ public struct Config: Equatable, Sendable {
     public var clock24Hour: Bool?
     public var clockSeconds = false
     public var batteryPercent = false
+    /// The usage pill shows each limit's percentage beside its donut.
+    public var usagePercent = true
     public var pills = PillLayout.separate
     /// The pills and the focused workspace are the bar style's real glass. Off, they are its flat fill.
     public var pillGlass = true

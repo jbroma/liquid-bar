@@ -251,7 +251,7 @@ struct WidgetView: View {
             }
                 .animation(spring, value: model.privacyDot)
         case .usage:
-            MenuPill(id: .usage, pulse: 0, padding: 8) { UsageLabel(usage: model.usage) }
+            MenuPill(id: .usage, pulse: 0, padding: 8) { UsageLabel(usage: model.usage, percent: model.config.usagePercent) }
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }

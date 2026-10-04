@@ -79,9 +79,10 @@ final class UsageSource {
     }
 }
 
-/// The pill: each agent's icon in a donut filled to its tightest limit, and that limit's percentage.
+/// The pill: each agent's icon in a donut filled to its tightest limit, and that limit's percentage unless turned off.
 struct UsageLabel: View {
     let usage: [UsageAgent: AgentUsage]
+    let percent: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -91,12 +92,13 @@ struct UsageLabel: View {
                     UsageDonut(fraction: (limit?.usedPercent ?? 0) / 100, tint: limit.map { usageTint($0.usedPercent) } ?? .white) {
                         AgentIcon(agent: agent, size: 11)
                     }
-                    if let limit { Text("\(Int(limit.usedPercent.rounded()))%").contentTransition(.numericText()) }
+                    if percent, let limit { Text("\(Int(limit.usedPercent.rounded()))%").contentTransition(.numericText()) }
                 }
                 .help(limit.map { "\(agent.title) \($0.title): \(Int($0.usedPercent.rounded()))%" } ?? agent.title)
             }
         }
         .animation(spring, value: usage)
+        .animation(spring, value: percent)
     }
 }
 
@@ -152,6 +154,8 @@ struct UsageMenu: View {
                 if index > 0 { MenuSeparator().padding(.vertical, 2) }
                 if let usage = model.usage[agent] { AgentSection(agent: agent, usage: usage, now: model.now) }
             }
+            MenuSeparator()
+            HeaderRow(title: "Show Percentage", bold: false) { GlassSwitch(on: model.config.usagePercent) { Setting.usagePercent($0).save() } }
             if let read = model.usageRead {
                 Text("Updated \(read.formatted(.relative(presentation: .named)))")
                     .font(.system(size: 10))

@@ -22,6 +22,8 @@ private func decode(_ json: String) throws -> Config {
     #expect(config.workspaceSource == .auto)
     #expect(try decode(#"{"workspaceSource": "spaces"}"#).workspaceSource == .spaces)
     #expect(try decode(#"{"unknown": true}"#) == Config())
+    #expect(Config().usagePercent)
+    #expect(try !decode(#"{"usagePercent": false}"#).usagePercent)
     let display = try decode(#"{"clock24Hour": false, "clockSeconds": true, "batteryPercent": false}"#)
     #expect(display.clock24Hour == false)
     #expect([display.clockSeconds, display.batteryPercent] == [true, false])
