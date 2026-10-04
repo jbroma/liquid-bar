@@ -206,7 +206,7 @@ struct WidgetView: View {
         case .nowPlaying:
             if let nowPlaying = model.nowPlaying {
                 // A new track shows in the pill itself rather than opening the dropdown.
-                MenuPill(id: .nowPlaying, pulse: 0, padding: 4) {
+                MenuPill(id: .nowPlaying, pulse: 0) {
                     NowPlayingLabel(nowPlaying: nowPlaying, artwork: model.artwork, showsTitle: slot.inline == .nowPlaying)
                 }
                 .onChange(of: nowPlaying.trackID) { slot.showInline(.nowPlaying, nowPlaying.trackID) }
