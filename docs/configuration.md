@@ -71,7 +71,7 @@ A widget is one of these names, or a script object.
 | `battery` | Level symbol, with the percentage if turned on. It is white, also while charging, when a bolt shows beside it, and red at 20% or less on battery. | The percentage and a wide level bar, which while charging is a liquid on its side, with a rolling surface at the end of the fill and bubbles drifting along it. Under it, one line with what the battery is doing and the power source. Battery Health shows the condition and unfolds to the maximum capacity and cycle count. Then a Show Percentage switch and Battery Settings…. |
 | `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | macOS's own Control Center, which System Settings, Control Center customizes. With `systemControlCenter` off, the bar's own: Control Center without Wi-Fi, Sound, and Now Playing, which have their own pills. See [Control Center](details.md#control-center-and-the-clock). |
 | `clock` | Time. | Notification Center, with its widgets. |
-| `usage` | Claude's and Codex's icons, each in a donut filled to its tightest subscription limit, and that limit's percentage. The donut is white, orange from 70%, and red from 90%. Not in the default lists; add it to `right`. | For each of Claude and ChatGPT (Codex): its plan, and each limit as a ring with its percentage, name, and reset time (Claude's session and week, Codex's limits). The ring is white, orange from 70%, and red from 90%. When a limit is used more than 10 points faster than its window passes, its caption says "Ahead of pace" in place of the reset time. A small arrow beside each name opens the account's usage page: claude.ai for Claude, and the ChatGPT app's usage settings for ChatGPT. Then a Show Percentage switch (`usagePercent`), and when it was read. See [Usage](details.md#usage). |
+| `usage` | Claude's and Codex's icons, each in a donut filled to its tightest subscription limit, and that limit's percentage. The donut is white, orange from 70%, and red from 90%. Not in the default lists; add it to `right`. | For each of Claude and ChatGPT (Codex): its plan, and each limit as a ring with its percentage, name, and reset time (Claude's session and week, Codex's limits). The ring is white, orange from 70%, and red from 90%. When a limit is used more than 10 points faster than its window passes, its caption says "Ahead of pace" in place of the reset time. A small arrow beside each name opens the account's usage page: claude.ai for Claude, and the ChatGPT app's usage settings for ChatGPT. A section whose limits are more than 10 minutes old says when they are from. Then a Show Percentage switch (`usagePercent`). See [Usage](details.md#usage). |
 
 ## Script widgets
 
@@ -101,7 +101,7 @@ To rerun every script whose `on` lists an event, run:
   "right": [
     "nowPlaying",
     {"script": "curl -s 'wttr.in?format=%t'", "symbol": "cloud.sun", "interval": 900, "on": ["weather"], "click": "open -a Weather"},
-    {"script": "bunx ccusage@latest claude daily --json --since $(date +%Y%m%d) | jq -r '\"$\" + (.totals.totalCost | tostring)'", "app": "com.anthropic.claudefordesktop", "interval": 300},
+    {"script": "osascript -e 'tell application \"Mail\" to get unread count of inbox'", "app": "com.apple.mail", "interval": 60, "click": "open -a Mail"},
     "volume", "wifi", "battery", "clock"
   ],
   "clicks": {"clock": "open -a Fantastical"}

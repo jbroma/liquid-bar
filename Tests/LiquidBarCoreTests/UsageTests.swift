@@ -35,7 +35,7 @@ import Testing
 @Test func codexLimitsReadTheSessionLog() throws {
     // A token_count event from a Codex rollout file, trimmed.
     let line = Data(#"""
-        {"type": "event_msg", "payload": {"type": "token_count", "rate_limits": {
+        {"timestamp": "2026-10-04T10:00:00.000Z", "type": "event_msg", "payload": {"type": "token_count", "rate_limits": {
           "primary": {"used_percent": 12.0, "window_minutes": 10080, "resets_at": 1791196365},
           "secondary": {"used_percent": 40.0, "window_minutes": 300, "resets_at": 1791000000},
           "credits": {"has_credits": true, "unlimited": false, "balance": "62500"}, "plan_type": "pro"}}}
@@ -48,5 +48,14 @@ import Testing
         UsageLimit(title: "Weekly", usedPercent: 12, resetsAt: Date(timeIntervalSince1970: 1_791_196_365), window: 604_800),
     ])
     #expect(read.tightest?.title == "Weekly")
+    #expect(read.asOf == Date(timeIntervalSince1970: 1_791_108_000))
     #expect(codexUsage(Data(#"{"payload": {"type": "user_message"}}"#.utf8), now: Date()) == nil)
+}
+
+@Test func usageBacksOffAfterFailures() throws {
+    #expect([0, 1, 2, 3, 4, 9].map { usageRetryDelay(failures: $0) } == [300, 300, 600, 1200, 1800, 1800])
+    // The last good read survives a relaunch.
+    let usage = AgentUsage(plan: "Max 20x", limits: [UsageLimit(title: "Session", usedPercent: 5, resetsAt: Date(timeIntervalSince1970: 1_791_126_600), window: 18000)],
+                           asOf: Date(timeIntervalSince1970: 1_791_108_000))
+    #expect(try JSONDecoder().decode(AgentUsage.self, from: JSONEncoder().encode(usage)) == usage)
 }

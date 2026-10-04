@@ -6,12 +6,20 @@ import SwiftUI
 /// and when its dropdown opens. Claude's come from its usage endpoint, with the login Claude Code keeps in the
 /// keychain, which `security` reads without a prompt since Claude Code stored it through `security` too. Codex's come
 /// from its newest session log.
+///
+/// The endpoint rate-limits hard, so Claude's last good read is kept, also across launches, and shown with its time
+/// while a request fails, and failed requests back off from 5 to 30 minutes.
 final class UsageSource {
     private let model: BarModel
     private var reading = false
+    private static let cacheKey = "usage.claude"
+    private var claudeCache = UserDefaults.standard.data(forKey: cacheKey).flatMap { try? JSONDecoder().decode(AgentUsage.self, from: $0) }
+    private var claudeFailures = 0
+    private var claudeNextRequest = Date.distantPast
 
     init(model: BarModel) {
         self.model = model
+        if let claudeCache { model.usage[.claude] = claudeCache }
         Task {
             while !Task.isCancelled {
                 refresh(ifOlderThan: 0)
@@ -25,7 +33,7 @@ final class UsageSource {
               model.usageRead.map({ Date().timeIntervalSince($0) >= age }) ?? true else { return }
         reading = true
         Task {
-            async let claude = Self.claude()
+            async let claude = claude()
             async let codex = blocking { Self.codex() }
             let read = await [UsageAgent.claude: claude, .codex: codex].compactMapValues { $0 }
             reading = false
@@ -39,16 +47,38 @@ final class UsageSource {
         }
     }
 
-    /// Nil while Claude Code is not signed in. Its limits are empty when the request fails, or once its token has
-    /// expired; Claude Code renews it on its next run.
-    private static func claude() async -> AgentUsage? {
+    /// The last good read when no request is due or it fails, with a note when the sign-in is what stands in the way.
+    private func claude() async -> AgentUsage? {
         guard let login = await run(["/usr/bin/security", "find-generic-password", "-s", "Claude Code-credentials", "-w"])
-            .flatMap({ ClaudeLogin(Data($0.utf8)) }) else { return nil }
-        return AgentUsage(plan: login.plan, limits: await claudeLimits(login) ?? [])
+            .flatMap({ ClaudeLogin(Data($0.utf8)) }) else {
+            return AgentUsage(plan: nil, limits: [], note: "Sign in to Claude Code to see its limits.")
+        }
+        // Claude Code renews its token on its next run. The bar never renews it: the renewal replaces the token Claude
+        // Code holds, which would sign it out.
+        guard login.expires > Date() else {
+            return AgentUsage(plan: login.plan, limits: claudeCache?.limits ?? [], asOf: claudeCache?.asOf,
+                              note: "Open Claude Code to refresh its sign-in.")
+        }
+        guard Date() >= claudeNextRequest else {
+            return claudeCache.map { AgentUsage(plan: login.plan, limits: $0.limits, asOf: $0.asOf) }
+        }
+        guard let limits = await Self.claudeLimits(login) else {
+            claudeFailures += 1
+            claudeNextRequest = Date() + usageRetryDelay(failures: claudeFailures)
+            return AgentUsage(plan: login.plan, limits: claudeCache?.limits ?? [], asOf: claudeCache?.asOf,
+                              note: claudeCache == nil ? "Claude's usage is busy. The bar asks again in a few minutes." : nil)
+        }
+        claudeFailures = 0
+        // A little under the five-minute tick, so each tick asks.
+        claudeNextRequest = Date() + usageRetryDelay(failures: 0) - 10
+        let read = AgentUsage(plan: login.plan, limits: limits, asOf: Date())
+        claudeCache = read
+        UserDefaults.standard.set(try? JSONEncoder().encode(read), forKey: Self.cacheKey)
+        return read
     }
 
+    /// Nil when the request fails, rate-limited included.
     private static func claudeLimits(_ login: ClaudeLogin) async -> [UsageLimit]? {
-        guard login.expires > Date() else { return nil }
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!, timeoutInterval: 15)
         request.setValue("Bearer \(login.token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
@@ -156,13 +186,6 @@ struct UsageMenu: View {
             }
             MenuSeparator()
             HeaderRow(title: "Show Percentage", bold: false) { GlassSwitch(on: model.config.usagePercent) { Setting.usagePercent($0).save() } }
-            if let read = model.usageRead {
-                Text("Updated \(read.formatted(.relative(presentation: .named)))")
-                    .font(.system(size: 10))
-                    .foregroundStyle(secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.top, 2)
-            }
         }
         .task { delegate.usage?.refresh(ifOlderThan: 60) }
     }
@@ -188,11 +211,10 @@ private struct AgentSection: View {
                 Spacer(minLength: 8)
                 if let plan = usage.plan { Badge(text: plan) }
             }
-            if usage.limits.isEmpty {
-                Text(agent == .claude ? "Limits show once Claude Code is signed in." : "Limits show after your next Codex turn.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(secondary)
-            } else {
+            if let note = usage.note ?? (usage.limits.isEmpty ? "Limits show after your next Codex turn." : nil) ?? staleness {
+                Text(note).font(.system(size: 11)).foregroundStyle(secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            if !usage.limits.isEmpty {
                 HStack(alignment: .top, spacing: 0) {
                     ForEach(usage.limits, id: \.title) { limit in
                         LimitRing(limit: limit, now: now).frame(maxWidth: .infinity)
@@ -202,6 +224,14 @@ private struct AgentSection: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
+    }
+
+    /// "As of 13:40", or "As of Fri 12:32", once the limits are more than 10 minutes old: Claude's while its endpoint
+    /// refuses, Codex's since its last turn.
+    private var staleness: String? {
+        guard let asOf = usage.asOf, now.timeIntervalSince(asOf) > 600 else { return nil }
+        let time = asOf.formatted(date: .omitted, time: .shortened)
+        return "As of " + (Calendar.current.isDateInToday(asOf) ? time : "\(asOf.formatted(.dateTime.weekday(.abbreviated))) \(time)")
     }
 }
 

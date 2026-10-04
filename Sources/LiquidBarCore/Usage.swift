@@ -39,7 +39,7 @@ public enum UsageAgent: String, CaseIterable, Sendable {
 }
 
 /// One of a subscription's rate limits, like the 5-hour session or the week.
-public struct UsageLimit: Equatable, Sendable {
+public struct UsageLimit: Equatable, Sendable, Codable {
     /// "Session", "Weekly", "Weekly Opus".
     public var title: String
     public var usedPercent: Double
@@ -77,13 +77,19 @@ func limitTitle(minutes: Int) -> String {
 }
 
 /// One agent's subscription: its plan, and its limits, the shortest window first.
-public struct AgentUsage: Equatable, Sendable {
+public struct AgentUsage: Equatable, Sendable, Codable {
     public var plan: String?
     public var limits: [UsageLimit]
+    /// When the limits were read at their source.
+    public var asOf: Date?
+    /// What keeps the limits from being current, said in the dropdown.
+    public var note: String?
 
-    public init(plan: String?, limits: [UsageLimit]) {
+    public init(plan: String?, limits: [UsageLimit], asOf: Date? = nil, note: String? = nil) {
         self.plan = plan
         self.limits = limits
+        self.asOf = asOf
+        self.note = note
     }
 
     /// The limit closest to running out, which the pill shows.
@@ -104,7 +110,8 @@ public func codexUsage(_ line: Data, now: Date) -> AgentUsage? {
                           window: TimeInterval(minutes * 60))
     }
     // The shorter window first, as Claude lists them.
-    return AgentUsage(plan: (limits["plan_type"] as? String)?.capitalized, limits: windows.sorted { $0.resetsAt < $1.resetsAt })
+    return AgentUsage(plan: (limits["plan_type"] as? String)?.capitalized, limits: windows.sorted { $0.resetsAt < $1.resetsAt },
+                      asOf: (json["timestamp"] as? String).flatMap(isoDate))
 }
 
 /// Claude's limits from its usage endpoint, `api/oauth/usage`, the numbers behind `/usage`: the 5-hour session, the
@@ -118,6 +125,12 @@ public func claudeLimits(_ data: Data) -> [UsageLimit]? {
               let resets = (window["resets_at"] as? String).flatMap(isoDate) else { return nil }
         return UsageLimit(title: title, usedPercent: used, resetsAt: resets, window: length)
     }
+}
+
+/// How long to wait before asking Claude's usage endpoint again after `failures` failed requests in a row: 5 minutes,
+/// doubling up to 30. The endpoint rate-limits hard, and a 429 comes with no useful Retry-After.
+public func usageRetryDelay(failures: Int) -> TimeInterval {
+    failures == 0 ? 300 : min(1800, 300 * pow(2, Double(failures - 1)))
 }
 
 /// Claude Code's login, as it keeps it in the keychain item "Claude Code-credentials".
