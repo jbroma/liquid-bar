@@ -142,7 +142,7 @@ private struct AgentIcon: View {
     }
 }
 
-/// Each agent's section: its plan and its limits as rings. The footer links each account's usage page and says how
+/// Each agent's section: its plan, its limits as rings, and a link to its account's usage page. The footer says how
 /// fresh it is.
 struct UsageMenu: View {
     let model: BarModel
@@ -157,15 +157,6 @@ struct UsageMenu: View {
             ForEach(Array(agents.enumerated()), id: \.element) { index, agent in
                 if index > 0 { MenuSeparator().padding(.vertical, 2) }
                 if let usage = model.usage[agent] { AgentSection(agent: agent, usage: usage, now: model.now) }
-            }
-            MenuSeparator()
-            HStack(spacing: 0) {
-                ForEach(UsageAgent.allCases, id: \.self) { agent in
-                    MenuButton { shell("open '\(agent.usagePage)'") } content: {
-                        Text("\(agent.title) Usage")
-                        Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .bold)).foregroundStyle(secondary)
-                    }
-                }
             }
             if let read = model.usageRead {
                 Text("Updated \(read.formatted(.relative(presentation: .named)))")
@@ -205,7 +196,13 @@ private struct AgentSection: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.top, 6)
+        MenuButton { shell("open '\(agent.usagePage)'") } content: {
+            Text("Open \(URL(string: agent.usagePage)?.host() ?? agent.title)").foregroundStyle(secondary)
+            Spacer(minLength: 8)
+            Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(secondary)
+        }
+        .padding(.top, 4)
     }
 }
 
