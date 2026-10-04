@@ -31,8 +31,8 @@ final class SettingsWindow {
             window.contentView = NSHostingView(rootView: SettingsView(model: delegate.model, window: self))
             if !window.setFrameUsingName("Settings") { window.center() }
             window.setFrameAutosaveName("Settings")
-            // A closed window's SwiftUI content would keep updating, as the permission rows' timers do, so the window
-            // goes with it and the next `show` builds a new one. The name frees for that one.
+            // A closed window's SwiftUI content would keep updating, as the permission statuses do, so the window goes
+            // with it and the next `show` builds a new one. The name frees for that one.
             window.onClose = { [weak self, weak window] in
                 window?.setFrameAutosaveName("")
                 self?.window = nil
@@ -56,7 +56,7 @@ private func firstTable(in view: NSView) -> NSTableView? {
 }
 
 enum SettingsSection: String, CaseIterable, Identifiable {
-    case general, appearance, controlCenter, menuBarItems
+    case general, appearance, controlCenter, menuBarItems, permissions
 
     var id: Self { self }
 
@@ -66,6 +66,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: "Appearance"
         case .controlCenter: "Control Center"
         case .menuBarItems: "Menu Bar Items"
+        case .permissions: "Permissions"
         }
     }
 
@@ -75,6 +76,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: "circle.lefthalf.filled"
         case .controlCenter: "switch.2"
         case .menuBarItems: "menubar.rectangle"
+        case .permissions: "hand.raised.fill"
         }
     }
 
@@ -83,6 +85,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: .gray
         case .appearance: Color(white: 0.2)
         case .controlCenter, .menuBarItems: .gray
+        case .permissions: .blue
         }
     }
 
@@ -93,6 +96,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .appearance: "com.apple.Appearance-Settings.extension"
         case .controlCenter: "com.apple.ControlCenter-Settings.extension"
         case .menuBarItems: nil
+        case .permissions: "com.apple.settings.PrivacySecurity.extension"
         }
     }
 }
@@ -118,6 +122,7 @@ private struct SettingsView: View {
                 case .appearance: AppearancePane(config: model.config)
                 case .controlCenter: ControlCenterPane(config: model.config)
                 case .menuBarItems: MenuBarItemsPane(model: model)
+                case .permissions: PermissionsPane()
                 }
             }
             // The sidebar otherwise gives way to a pane that asks for more width, as Appearance's cards do, and the
@@ -164,16 +169,6 @@ private struct GeneralPane: View {
                 }
                 .pickerStyle(.segmented)
                 Toggle("Show seconds", isOn: saving(config.clockSeconds, Setting.clockSeconds))
-            }
-            Section {
-                ForEach(Permission.listed) { permission in
-                    // macOS posts nothing when a grant changes.
-                    TimelineView(.periodic(from: .now, by: 2)) { _ in PermissionRow(permission: permission) }
-                }
-            } header: {
-                Text("Permissions")
-            } footer: {
-                Text("LiquidBar asks for each one the first time you use what needs it.").foregroundStyle(.secondary)
             }
             Section {
                 LabeledContent {
@@ -276,35 +271,69 @@ struct IconTile: View {
     }
 }
 
-private struct PermissionRow: View {
-    let permission: Permission
+/// Each grant LiquidBar can use, read live, with what it adds and one action: ask for it, or open its list in Privacy &
+/// Security. Accessibility comes first, since most of the bar's reach into other apps needs it.
+private struct PermissionsPane: View {
+    @State private var statuses = PermissionStatuses()
 
     var body: some View {
-        let status = permission.status
-        LabeledContent {
-            HStack(spacing: 8) {
-                HStack(spacing: 5) {
-                    Circle().fill(status.color).frame(width: 7, height: 7)
-                    Text(status.label).foregroundStyle(.secondary)
-                }
-                .help(title(status))
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(title(status))
-                if status == .notAsked {
-                    Button("Grant…") { permission.request() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .accessibilityLabel("Grant…")
-                } else if status != .unknown {
-                    Button { permission.request() } label: {
-                        Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+        let listed = Permission.listed
+        let allowed = listed.filter { statuses.statuses[$0] == .granted }.count
+        Form {
+            Section {
+                HStack(spacing: 12) {
+                    IconTile(symbol: "hand.raised.fill", tint: .blue, size: 36, system: .bundle("com.apple.settings.PrivacySecurity.extension"))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(statuses.statuses.isEmpty ? "Checking…" : "\(allowed) of \(listed.count) allowed").font(.headline)
+                        Text("LiquidBar works without any of these. Each adds features, and LiquidBar asks for it the first time you use them.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .buttonStyle(.borderless)
+                }
+                .padding(.vertical, 4)
+            }
+            Section("Accessibility") {
+                row(.accessibility)
+            }
+            Section("System Services") {
+                ForEach(listed.filter { !$0.isAutomation && $0 != .accessibility }) { row($0) }
+            }
+            Section {
+                ForEach(listed.filter(\.isAutomation)) { row($0) }
+            } header: {
+                Text("Automation")
+            } footer: {
+                Text("Lets LiquidBar send commands to these apps. macOS knows the answer for an app only while it runs.")
                     .foregroundStyle(.secondary)
-                    .help("Open Privacy & Security…")
-                    .accessibilityLabel("Open Privacy & Security…")
+            }
+        }
+        .formStyle(.grouped)
+        .task { await statuses.watch() }
+    }
+
+    private func row(_ permission: Permission) -> some View {
+        PermissionRow(permission: permission, status: statuses.statuses[permission])
+    }
+}
+
+private struct PermissionRow: View {
+    let permission: Permission
+    /// Nil until the first read.
+    let status: Permission.Status?
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: 10) {
+                if let status {
+                    StatusBadge(status: status)
+                        .help(help(status))
+                    action(status)
+                } else {
+                    ProgressView().controlSize(.small)
                 }
             }
+            .animation(.easeOut(duration: 0.2), value: status)
         } label: {
             Label {
                 Text(permission.title)
@@ -315,13 +344,50 @@ private struct PermissionRow: View {
         }
     }
 
-    private func title(_ status: Permission.Status) -> String {
+    @ViewBuilder private func action(_ status: Permission.Status) -> some View {
         switch status {
-        case .granted: "Allowed"
-        case .notAsked: "Not asked yet"
-        case .denied: "Not allowed"
-        case .unknown: "Known while \(permission.app?.name ?? "it") runs"
+        case .notAsked:
+            Button("Allow…") { permission.request() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+        case .denied:
+            Button("Open Settings…") { permission.request() }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+        case .unknown:
+            if let app = permission.app, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
+                Button("Open \(app.name)") { NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+            }
+        case .granted:
+            EmptyView()
         }
+    }
+
+    private func help(_ status: Permission.Status) -> String {
+        switch status {
+        case .granted: "LiquidBar has this permission."
+        case .notAsked: "macOS has not asked yet. Allow… shows its prompt."
+        case .denied: "Turned off in Privacy & Security. Open Settings… goes there."
+        case .unknown: "macOS tells whether this is allowed only while \(permission.app?.name ?? "the app") runs."
+        }
+    }
+}
+
+/// A status as a tinted capsule with its symbol, so it reads without the colour too.
+private struct StatusBadge: View {
+    let status: Permission.Status
+
+    var body: some View {
+        Label(status.label, systemImage: status.symbol)
+            .font(.system(size: 11, weight: .medium))
+            .labelStyle(.titleAndIcon)
+            .foregroundStyle(status.color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(status.color.opacity(0.14)))
+            .fixedSize()
     }
 }
 
@@ -399,9 +465,18 @@ extension Permission.Status {
     fileprivate var label: String {
         switch self {
         case .granted: "Allowed"
-        case .notAsked: "Not asked"
-        case .denied: "Not allowed"
-        case .unknown: "Not running"
+        case .notAsked: "Not Asked"
+        case .denied: "Not Allowed"
+        case .unknown: "Not Running"
+        }
+    }
+
+    fileprivate var symbol: String {
+        switch self {
+        case .granted: "checkmark.circle.fill"
+        case .notAsked: "questionmark.circle.fill"
+        case .denied: "xmark.circle.fill"
+        case .unknown: "moon.zzz.fill"
         }
     }
 

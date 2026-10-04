@@ -38,7 +38,7 @@ enum Permission: CaseIterable, Identifiable {
 
     var use: String {
         switch self {
-        case .accessibility: "App menus, menu bar items, Focus, switching desktops"
+        case .accessibility: "The front app's menus, other apps' menu bar items, Control Center and Notification Center on hover, Focus, and switching desktops"
         case .bluetooth: "Bluetooth in the bar's Control Center, and headphones in the Sound dropdown"
         case .location: "Wi-Fi network names"
         case .spotify: "Play, pause and skip in Spotify"
@@ -62,7 +62,8 @@ enum Permission: CaseIterable, Identifiable {
         allCases.filter { $0 == .loginwindow || $0.app.map { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.bundleID) != nil } ?? true }
     }
 
-    /// Read live; macOS posts no notification when a grant changes.
+    /// Read live; macOS posts no notification when a grant changes. Automation asks TCC, which can take a moment, so
+    /// `PermissionStatuses` reads it off the main thread.
     var status: Status {
         switch self {
         case .accessibility:
@@ -81,14 +82,20 @@ enum Permission: CaseIterable, Identifiable {
             default: return .denied
             }
         case .spotify, .music, .loginwindow:
-            switch Self.automation(app?.bundleID ?? "", ask: false) {
-            case noErr: return .granted
-            case OSStatus(errAEEventWouldRequireUserConsent): return .notAsked
-            case OSStatus(procNotFound): return .unknown
-            default: return .denied
-            }
+            return Self.automationStatus(app?.bundleID ?? "")
         }
     }
+
+    nonisolated static func automationStatus(_ bundleID: String) -> Status {
+        switch automation(bundleID, ask: false) {
+        case noErr: .granted
+        case OSStatus(errAEEventWouldRequireUserConsent): .notAsked
+        case OSStatus(procNotFound): .unknown
+        default: .denied
+        }
+    }
+
+    var isAutomation: Bool { app != nil }
 
     /// Accessibility has no "not asked" state of its own; this remembers that LiquidBar asked.
     static let askedAccessibility = "askedAccessibility"
@@ -142,4 +149,34 @@ enum Permission: CaseIterable, Identifiable {
 
 extension NowPlaying.Player {
     var permission: Permission { self == .spotify ? .spotify : .music }
+}
+
+/// Every listed permission's status, read again every 1.5s while someone watches, and at once when LiquidBar comes back
+/// to the front, as it does from System Settings. macOS posts nothing when a grant changes.
+@Observable
+final class PermissionStatuses {
+    private(set) var statuses: [Permission: Permission.Status] = [:]
+
+    func refresh() async {
+        var next: [Permission: Permission.Status] = [:]
+        for permission in Permission.listed {
+            if let bundleID = permission.app?.bundleID {
+                next[permission] = await blocking { Permission.automationStatus(bundleID) }
+            } else {
+                next[permission] = permission.status
+            }
+        }
+        if next != statuses { statuses = next }
+    }
+
+    /// Refreshes until the calling task ends, as a view's `.task` does when the view goes.
+    func watch() async {
+        let active = NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification)
+        async let returns: Void = { for await _ in active { await self.refresh() } }()
+        while !Task.isCancelled {
+            await refresh()
+            try? await Task.sleep(for: .seconds(1.5))
+        }
+        _ = await returns
+    }
 }
