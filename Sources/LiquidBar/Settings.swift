@@ -279,24 +279,36 @@ private struct PermissionsPane: View {
     var body: some View {
         let listed = Permission.listed
         let allowed = listed.filter { statuses.statuses[$0] == .granted }.count
+        let all = !statuses.statuses.isEmpty && allowed == listed.count
         Form {
             Section {
                 HStack(spacing: 12) {
                     IconTile(symbol: "hand.raised.fill", tint: .blue, size: 36, system: .bundle("com.apple.settings.PrivacySecurity.extension"))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(statuses.statuses.isEmpty ? "Checking…" : "\(allowed) of \(listed.count) allowed").font(.headline)
-                        Text("LiquidBar works without any of these. Each adds features, and LiquidBar asks for it the first time you use them.")
-                            .font(.callout)
+                        Text(statuses.statuses.isEmpty ? "Checking…" : all ? "Everything is allowed" : "\(allowed) of \(listed.count) allowed")
+                            .font(.headline)
+                            .contentTransition(.numericText())
+                        Text("Each one adds features. LiquidBar asks for it the first time you use them.")
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    Spacer(minLength: 0)
+                    if all {
+                        Image(systemName: "checkmark.seal.fill").font(.title).foregroundStyle(.green).transition(.scale.combined(with: .opacity))
+                    }
                 }
                 .padding(.vertical, 4)
+                .animation(.smooth, value: allowed)
             }
-            Section("Accessibility") {
+            Section {
                 row(.accessibility)
+            } header: {
+                Text("Recommended")
+            } footer: {
+                Text("Without it, the bar still shows your workspaces, now playing, volume, Wi-Fi, battery, and the clock.")
+                    .foregroundStyle(.secondary)
             }
-            Section("System Services") {
+            Section("Optional") {
                 ForEach(listed.filter { !$0.isAutomation && $0 != .accessibility }) { row($0) }
             }
             Section {
@@ -304,7 +316,7 @@ private struct PermissionsPane: View {
             } header: {
                 Text("Automation")
             } footer: {
-                Text("Lets LiquidBar send commands to these apps. macOS knows the answer for an app only while it runs.")
+                Text("Lets LiquidBar send commands to these apps. macOS answers for an app only while it runs.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -325,42 +337,71 @@ private struct PermissionRow: View {
     var body: some View {
         LabeledContent {
             HStack(spacing: 10) {
-                if let status {
-                    StatusBadge(status: status)
+                switch status {
+                case nil:
+                    ProgressView().controlSize(.small)
+                case .notAsked?:
+                    Button("Allow…") { permission.request() }
+                        .buttonStyle(.borderedProminent)
+                        .help("Shows macOS's prompt.")
+                case .denied?:
+                    // Just the symbol, so the row keeps one line beside a long description.
+                    Image(systemName: Permission.Status.denied.symbol)
+                        .foregroundStyle(Permission.Status.denied.color)
+                        .symbolEffect(.bounce, value: status)
+                        .help(help(.denied))
+                    action(.denied)
+                case let status?:
+                    StatusLabel(status: status)
                         .help(help(status))
                     action(status)
-                } else {
-                    ProgressView().controlSize(.small)
                 }
             }
-            .animation(.easeOut(duration: 0.2), value: status)
+            .controlSize(.small)
+            .animation(.smooth, value: status)
         } label: {
             Label {
                 Text(permission.title)
                 Text(permission.use)
             } icon: {
-                IconTile(symbol: permission.symbol, tint: permission.tint, system: .type(permission.graphicIcon))
+                icon
             }
+        }
+    }
+
+    /// Automation shows the app it controls, as Privacy & Security's Automation list does.
+    @ViewBuilder private var icon: some View {
+        if let app = permission.app, app.bundleID != "com.apple.loginwindow" {
+            Image(nsImage: AppIcons.icon(app.bundleID)).resizable().frame(width: 22, height: 22).padding(-1)
+        } else if permission == .loginwindow {
+            IconTile(symbol: "power", tint: .gray)
+        } else {
+            IconTile(symbol: permission.symbol, tint: permission.tint, system: .type(permission.graphicIcon))
         }
     }
 
     @ViewBuilder private func action(_ status: Permission.Status) -> some View {
         switch status {
-        case .notAsked:
-            Button("Allow…") { permission.request() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
         case .denied:
-            Button("Open Settings…") { permission.request() }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-        case .unknown:
-            if let app = permission.app, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
-                Button("Open \(app.name)") { NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+            if permission == .accessibility {
+                // A grant for an earlier build can show as on in System Settings while it no longer applies.
+                Menu("Open Settings…") {
+                    Button("Reset and Allow Again…") { Permission.resetAccessibility() }
+                } primaryAction: {
+                    permission.request()
+                }
+                .fixedSize()
+                .help("Opens its list in Privacy & Security. Already on there? Reset and Allow Again removes the old grant so macOS asks anew.")
+            } else {
+                Button("Open Settings…") { permission.request() }
+                    .help("Opens its list in Privacy & Security.")
             }
-        case .granted:
+        case .unknown:
+            if let app = permission.app, permission != .loginwindow, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
+                Button("Open \(app.name)") { NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) }
+                    .help("macOS answers once \(app.name) runs.")
+            }
+        case .granted, .notAsked:
             EmptyView()
         }
     }
@@ -368,26 +409,26 @@ private struct PermissionRow: View {
     private func help(_ status: Permission.Status) -> String {
         switch status {
         case .granted: "LiquidBar has this permission."
-        case .notAsked: "macOS has not asked yet. Allow… shows its prompt."
-        case .denied: "Turned off in Privacy & Security. Open Settings… goes there."
-        case .unknown: "macOS tells whether this is allowed only while \(permission.app?.name ?? "the app") runs."
+        case .notAsked: "macOS has not asked yet."
+        case .denied: "Turned off in Privacy & Security."
+        case .unknown: "macOS answers only while \(permission.app?.name ?? "the app") runs."
         }
     }
 }
 
-/// A status as a tinted capsule with its symbol, so it reads without the colour too.
-private struct StatusBadge: View {
+/// A status as its symbol and word in its colour, so it reads without the colour too. The symbol bounces when the
+/// status changes, as a grant arrives.
+private struct StatusLabel: View {
     let status: Permission.Status
 
     var body: some View {
-        Label(status.label, systemImage: status.symbol)
-            .font(.system(size: 11, weight: .medium))
-            .labelStyle(.titleAndIcon)
-            .foregroundStyle(status.color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule().fill(status.color.opacity(0.14)))
-            .fixedSize()
+        HStack(spacing: 4) {
+            Image(systemName: status.symbol).symbolEffect(.bounce, value: status)
+            Text(status.label)
+        }
+        .font(.callout.weight(.medium))
+        .foregroundStyle(status.color)
+        .fixedSize()
     }
 }
 
@@ -465,9 +506,9 @@ extension Permission.Status {
     fileprivate var label: String {
         switch self {
         case .granted: "Allowed"
-        case .notAsked: "Not Asked"
-        case .denied: "Not Allowed"
-        case .unknown: "Not Running"
+        case .notAsked: "Not asked"
+        case .denied: "Not allowed"
+        case .unknown: "Not running"
         }
     }
 

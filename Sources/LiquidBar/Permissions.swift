@@ -21,9 +21,9 @@ enum Permission: CaseIterable, Identifiable {
         case .accessibility: "Accessibility"
         case .bluetooth: "Bluetooth"
         case .location: "Location"
-        case .spotify: "Automation: Spotify"
-        case .music: "Automation: Music"
-        case .loginwindow: "Automation: loginwindow"
+        case .spotify: "Spotify"
+        case .music: "Music"
+        case .loginwindow: "Restart and Shut Down"
         }
     }
 
@@ -38,12 +38,12 @@ enum Permission: CaseIterable, Identifiable {
 
     var use: String {
         switch self {
-        case .accessibility: "The front app's menus, other apps' menu bar items, Control Center and Notification Center on hover, Focus, and switching desktops"
-        case .bluetooth: "Bluetooth in the bar's Control Center, and headphones in the Sound dropdown"
+        case .accessibility: "App menus, menu bar items, Control Center and Notification Center, Focus, and switching desktops"
+        case .bluetooth: "Bluetooth devices in the Sound dropdown and the bar's Control Center"
         case .location: "Wi-Fi network names"
-        case .spotify: "Play, pause and skip in Spotify"
-        case .music: "Play, pause and skip in Music"
-        case .loginwindow: "Restart, Shut Down and Log Out in the Apple menu"
+        case .spotify: "Play, pause and skip from the bar"
+        case .music: "Play, pause and skip from the bar"
+        case .loginwindow: "Restart…, Shut Down… and Log Out… in the Apple dropdown"
         }
     }
 
@@ -122,6 +122,16 @@ enum Permission: CaseIterable, Identifiable {
         }
     }
 
+    /// Forgets the Accessibility grant macOS holds for LiquidBar, then asks again. A grant made for an earlier build can
+    /// still show as on in System Settings while it no longer applies; only removing it lets the new one take.
+    static func resetAccessibility() {
+        Task {
+            _ = await run(["/usr/bin/tccutil", "reset", "Accessibility", Bundle.main.bundleIdentifier ?? "dev.liquidbar"])
+            UserDefaults.standard.set(false, forKey: askedAccessibility)
+            delegate.access.request()
+        }
+    }
+
     /// Sends `command` in AppleScript to the permission's app. After a no, osascript would fail without a word, so
     /// this opens the Automation list instead.
     func tell(_ command: String) {
@@ -151,8 +161,10 @@ extension NowPlaying.Player {
     var permission: Permission { self == .spotify ? .spotify : .music }
 }
 
-/// Every listed permission's status, read again every 1.5s while someone watches, and at once when LiquidBar comes back
-/// to the front, as it does from System Settings. macOS posts nothing when a grant changes.
+/// Every listed permission's status, read again every second while someone watches, at once when LiquidBar comes back
+/// to the front, as it does from System Settings, and a moment after macOS announces an Accessibility change, which it
+/// does before the new answer reads back. A grant that arrives while the user is in System Settings brings LiquidBar's
+/// Settings back to the front, as the toggle there is the last step.
 @Observable
 final class PermissionStatuses {
     private(set) var statuses: [Permission: Permission.Status] = [:]
@@ -166,17 +178,27 @@ final class PermissionStatuses {
                 next[permission] = permission.status
             }
         }
-        if next != statuses { statuses = next }
+        guard next != statuses else { return }
+        let arrived = !statuses.isEmpty && next.contains { $0.value == .granted && statuses[$0.key] != .granted }
+        statuses = next
+        if arrived && !NSApp.isActive { delegate.settings.show(.permissions) }
     }
 
     /// Refreshes until the calling task ends, as a view's `.task` does when the view goes.
     func watch() async {
-        let active = NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification)
-        async let returns: Void = { for await _ in active { await self.refresh() } }()
+        let triggers = [
+            Task { for await _ in NotificationCenter.default.notifications(named: NSApplication.didBecomeActiveNotification) { await refresh() } },
+            Task {
+                for await _ in DistributedNotificationCenter.default().notifications(named: .init("com.apple.accessibility.api")) {
+                    try? await Task.sleep(for: .milliseconds(250))
+                    await refresh()
+                }
+            },
+        ]
+        defer { triggers.forEach { $0.cancel() } }
         while !Task.isCancelled {
             await refresh()
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .seconds(1))
         }
-        _ = await returns
     }
 }
