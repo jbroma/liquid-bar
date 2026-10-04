@@ -129,8 +129,20 @@ final class AeroSpaceSource: WorkspaceFeed {
         }
         refreshWindows()
         do {
+            var bounce = FocusBounce()
+            var held: Task<Void, Never>?
             for try await line in out.fileHandleForReading.bytes.lines {
                 guard !Task.isCancelled, let event = parseAeroEvent(line) else { continue }
+                // A newer change of focus replaces a held one.
+                if event.focusedWorkspace != nil { held?.cancel() }
+                if bounce.holds(event.focusedWorkspace, current: model.workspaces.focused, now: Date()) {
+                    held = Task { [weak self] in
+                        try? await Task.sleep(for: .seconds(FocusBounce.hold))
+                        guard let self, !Task.isCancelled else { return }
+                        if model.workspaces.apply(event) { refreshWindows() }
+                    }
+                    continue
+                }
                 if model.workspaces.apply(event) { refreshWindows() }
             }
         } catch {}

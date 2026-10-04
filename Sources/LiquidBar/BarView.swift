@@ -380,6 +380,8 @@ struct WorkspaceStrip: View {
     @State private var stripOrigin = CGPoint.zero
     /// Where the selection last set off from, for the lens's lift.
     @State private var origin = CGRect.zero
+    /// The workspace the selection last went to.
+    @State private var target: String?
 
     var body: some View {
         let focused = model.workspaces.focused
@@ -442,9 +444,11 @@ struct WorkspaceStrip: View {
         .onGeometryChange(for: CGPoint.self) { $0.frame(in: .global).origin } action: { stripOrigin = $0 }
         .onChange(of: focusedFrame) { old, new in
             guard let new else { return }
-            guard let old, abs(old.midX - new.midX) > 1 else {
-                // Same workspace growing or shrinking (its first window arrived or its last left): both edges together,
-                // with no trip to lift for.
+            let moved = focused != target
+            target = focused
+            guard let old, moved, abs(old.midX - new.midX) > 1 else {
+                // The same workspace growing, shrinking, or shifting as a neighbour gains or loses windows: both edges
+                // together, with no trip to lift for.
                 origin = new
                 return withAnimation(old == nil ? nil : spring) { (lead, trail) = (new.minX, new.maxX) }
             }
@@ -507,6 +511,8 @@ nonisolated func lensLift(lead: CGFloat, trail: CGFloat, from: CGRect, to: CGRec
 /// The glass selection at rest on a workspace. It keeps its place and size while the lens is on its way, at the
 /// workspace the lens left and then at the one it is going to, and fades out as the lens lifts.
 nonisolated struct LensRest: ViewModifier, Animatable {
+    /// The lift from which the lens counts as in the air.
+    static let airborne: CGFloat = 0.25
     var lead: CGFloat
     var trail: CGFloat
     let from: CGRect
@@ -522,12 +528,18 @@ nonisolated struct LensRest: ViewModifier, Animatable {
         let left = abs(lead - from.minX) + abs(trail - from.maxX), remaining = abs(lead - to.minX) + abs(trail - to.maxX)
         // Still lifting off, or already coming down.
         let rect = from.width > 0 && left / 16 < remaining / 36 ? from : to
-        content
-            // A light wash, so it stands out from the glass of the capsule under it.
-            .overlay(Capsule().fill(.white.opacity(0.08)))
-            .frame(width: max(rect.width, 1), height: height)
-            .offset(x: rect.minX)
-            .opacity(1 - lensLift(lead: lead, trail: trail, from: from, to: to))
+        let lift = lensLift(lead: lead, trail: trail, from: from, to: to)
+        // Glass moved, or made, while the lens is in the air drew itself for a few frames at the start of the strip.
+        // So it is gone for the trip, fading out as the lens lifts and in as it lands, and only ever placed at rest.
+        if lift < Self.airborne {
+            content
+                // A light wash, so it stands out from the glass of the capsule under it.
+                .overlay(Capsule().fill(.white.opacity(0.08)))
+                .frame(width: max(rect.width, 1), height: height)
+                .offset(x: rect.minX)
+                .opacity(1 - lift / Self.airborne)
+                .transition(.opacity)
+        }
     }
 }
 
@@ -551,7 +563,8 @@ nonisolated struct LensFrame: ViewModifier, Animatable {
             .frame(width: max(trail - lead, 1) + 8 * lift, height: height * (1 + 0.26 * lift))
             .offset(x: lead - 4 * lift)
             .frame(height: height)
-            .opacity(lift)
+            // Whole while the resting glass is away, so the selection never goes faint between the two.
+            .opacity(min(1, lift / LensRest.airborne))
     }
 }
 

@@ -95,3 +95,20 @@ nonisolated(unsafe) private let threeDesktops: [[String: Any]] = [
     #expect(desktopShortcut(3, in: hotkeys) == KeyShortcut(keyCode: 20, modifiers: 786432))
     #expect(desktopShortcut(4, in: hotkeys) == nil)
 }
+
+@Test func aQuickReturnToTheWorkspaceJustLeftWaits() {
+    // What AeroSpace sent for `workspace 6`, `2`, `4`: focus went back to 4 and on to 6 again within milliseconds.
+    var bounce = FocusBounce()
+    let start = Date(timeIntervalSince1970: 0)
+    let held = [
+        bounce.holds("6", current: "4", now: start),
+        bounce.holds("4", current: "6", now: start + 0.02),
+        // The return never applied, so focus is still 6 when AeroSpace says 6 again: nothing to do.
+        bounce.holds("6", current: "6", now: start + 0.04),
+        bounce.holds("2", current: "6", now: start + 0.2),
+        // Going back on purpose, after the hold, goes through.
+        bounce.holds("6", current: "2", now: start + 0.5),
+        bounce.holds(nil, current: "6", now: start + 0.6),
+    ]
+    #expect(held == [false, true, false, false, false, false])
+}

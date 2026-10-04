@@ -8,6 +8,35 @@ public enum AeroEvent: Equatable, Sendable {
     case modeChanged(String)
 }
 
+extension AeroEvent {
+    /// The workspace the event moves focus to, if it says.
+    public var focusedWorkspace: String? {
+        switch self {
+        case .focusChanged(let workspace, _): workspace
+        case .workspaceChanged(let workspace): workspace
+        case .windowDetected, .modeChanged: nil
+        }
+    }
+}
+
+/// AeroSpace can report focus going back to the workspace just left and forward again within a few dozen milliseconds,
+/// when an app takes the focus during a switch, and the selection would bounce. Such a quick return waits `hold`
+/// seconds, in which a newer event replaces it. Every other change goes through at once.
+public struct FocusBounce: Sendable {
+    public static let hold: TimeInterval = 0.12
+    private var left: (workspace: String, at: Date)?
+
+    public init() {}
+
+    /// Whether a change of focus from `current` to `next` at `now` waits.
+    public mutating func holds(_ next: String?, current: String?, now: Date) -> Bool {
+        guard let next, next != current else { return false }
+        if let left, left.workspace == next, now.timeIntervalSince(left.at) < Self.hold { return true }
+        left = current.map { ($0, now) }
+        return false
+    }
+}
+
 public func parseAeroEvent(_ line: String) -> AeroEvent? {
     struct Raw: Decodable {
         let _event: String
