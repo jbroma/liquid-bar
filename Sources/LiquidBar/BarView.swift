@@ -455,6 +455,8 @@ struct WorkspaceStrip: View {
         .opacity(model.workspacesConnected ? 1 : 0.4)
         .animation(spring, value: model.workspaces.mode)
         .animation(spring, value: model.workspaces.windows)
+        // Focus moving between apps on one workspace reorders its stack, the focused app sliding to the front.
+        .animation(spring, value: model.workspaces.recency)
         .animation(spring, value: model.workspacesConnected)
         // Wheel away or fingers up goes to the previous workspace, like scrolling up a list.
         .overlay { ScrollCatcher(step: 30) { model.scrollWorkspaces(-$0) } }
