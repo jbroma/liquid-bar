@@ -4,14 +4,11 @@ import SwiftUI
 
 /// The native Apple menu, which is otherwise unreachable while the bar covers the menu bar. App Store's pending
 /// updates and Recent Items are read from the real menu through Accessibility when the dropdown opens, and pressed
-/// there; without access the dropdown leaves them out. Recent Items and Force Quit unfold inline, one at a time, and
-/// the dropdown opens with both folded.
+/// there; without access the dropdown leaves them out. Recent Items and Force Quit open native submenus beside their
+/// rows, as the Apple menu's do, which scroll when long.
 struct AppleMenu: View {
     @Environment(ExpansionSlot.self) private var slot
-    @State private var unfolded: Fold?
     @State private var native = NativeAppleMenu()
-
-    private enum Fold { case recent, forceQuit }
 
     var body: some View {
         MenuBody {
@@ -23,12 +20,10 @@ struct AppleMenu: View {
             }
             if !native.recent.isEmpty {
                 MenuSeparator()
-                fold(.recent, "Recent Items")
-                if unfolded == .recent { recentItems }
+                SubmenuRow(title: "Recent Items") { [native] in native.recentMenu() }
             }
             MenuSeparator()
-            fold(.forceQuit, "Force Quit", shortcut: MenuShortcut(key: "⎋", modifiers: [.option, .command]))
-            if unfolded == .forceQuit { forceQuitApps }
+            SubmenuRow(title: "Force Quit", shortcut: MenuShortcut(key: "⎋", modifiers: [.option, .command])) { forceQuitMenu() }
             MenuSeparator()
             row("Sleep") { shell("pmset sleepnow") }
             // loginwindow's own confirmation dialogs (kAEShowRestartDialog, kAEShowShutdownDialog, kAELogOut).
@@ -40,8 +35,7 @@ struct AppleMenu: View {
                 Permission.loginwindow.tell("«event aevtlogo»")
             }
         }
-        // SwiftUI can keep this view's state from one opening to the next; each opens folded and reads afresh.
-        .onChange(of: slot.owner == .apple) { _, open in if !open { unfolded = nil } }
+        // Read afresh at each opening.
         .task(id: slot.owner == .apple) {
             guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
             let read = await blocking { NativeAppleMenu.read(pid: pid) }
@@ -65,16 +59,6 @@ struct AppleMenu: View {
         .padding(.leading, indent)
     }
 
-    private func fold(_ fold: Fold, _ title: String, shortcut: MenuShortcut? = nil) -> some View {
-        MenuButton { withAnimation(spring) { unfolded = unfolded == fold ? nil : fold } } content: {
-            icon(symbol: nil, image: nil)
-            Text(title)
-            Spacer(minLength: 8)
-            if let shortcut, unfolded != fold { Text(shortcut.text).foregroundStyle(secondary) }
-            Disclosure(open: unfolded == fold)
-        }
-    }
-
     @ViewBuilder private func icon(symbol: String?, image: NSImage?) -> some View {
         Group {
             if let image { Image(nsImage: image).resizable() } else if let symbol { Image(systemName: symbol).foregroundStyle(secondary) }
@@ -82,32 +66,20 @@ struct AppleMenu: View {
         .frame(width: 16, height: 16)
     }
 
-    /// The real menu's Recent Items: its section titles, then each item with its icon.
-    @ViewBuilder private var recentItems: some View {
-        ForEach(Array(native.recent.enumerated()), id: \.offset) { _, item in
-            switch item {
-            case .section(let title):
-                MenuSection(title: title).padding(.leading, 14)
-            case .item(let entry, let icon, let symbol):
-                row(entry.title.hasSuffix(".app") ? String(entry.title.dropLast(4)) : entry.title, symbol: symbol, image: icon, indent: 14) {
-                    AX.pressLater(entry.handle)
-                }
-            case .clear(let entry):
-                MenuSeparator().padding(.leading, 14)
-                row(entry.title, indent: 14) { AX.pressLater(entry.handle) }
-            }
-        }
-    }
-
-    /// The system Force Quit window can only be opened by synthesizing ⌥⌘⎋, which needs Accessibility access.
-    /// Listing apps and force-terminating them needs no permission.
-    @ViewBuilder private var forceQuitApps: some View {
+    /// The running apps with their icons; picking one force-quits it. The system Force Quit window can only be opened
+    /// by synthesizing ⌥⌘⎋, which needs Accessibility access, while listing apps and force-terminating them needs no
+    /// permission.
+    private func forceQuitMenu() -> NSMenu {
+        let menu = NSMenu(title: "Force Quit")
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
-        ForEach(apps, id: \.processIdentifier) { app in
-            row(app.localizedName ?? app.bundleIdentifier ?? "?", image: app.icon, indent: 14) { app.forceTerminate() }
+        for app in apps {
+            let item = actionItem(app.localizedName ?? app.bundleIdentifier ?? "?") { app.forceTerminate() }
+            item.image = app.icon.map { sized($0) }
+            menu.addItem(item)
         }
+        return menu
     }
 
     private func lockScreen() {
@@ -124,8 +96,8 @@ struct AppleMenu: View {
 nonisolated struct NativeAppleMenu: @unchecked Sendable {
     enum Recent {
         case section(String)
-        /// An app's icon, or else the symbol for its section's kind of item.
-        case item(MenuEntry<AXUIElement>, icon: NSImage?, symbol: String)
+        /// An app's icon, or else the symbol for its section's kind of item, and its "Show … in Finder" for ⌘.
+        case item(MenuEntry<AXUIElement>, icon: NSImage?, symbol: String, reveal: MenuEntry<AXUIElement>?)
         /// Clear Menu, set apart below the items.
         case clear(MenuEntry<AXUIElement>)
     }
@@ -148,14 +120,49 @@ nonisolated struct NativeAppleMenu: @unchecked Sendable {
         guard let submenu = entries.first(where: { $0.submenu != nil && $0.title == "Recent Items" })?.submenu else { return menu }
         // Each item has a "Show … in Finder" alternate for ⌘, which the dropdown leaves out, as the menu shows it.
         var section = ""
-        menu.recent = AX.entries(submenu).compactMap { $0 }.filter { !$0.title.hasPrefix("Show “") }.map { entry in
+        let items = AX.entries(submenu).compactMap { $0 }
+        for (index, entry) in items.enumerated() where !entry.title.hasPrefix("Show “") {
             guard entry.enabled else {
                 section = entry.title
-                return .section(entry.title)
+                menu.recent.append(.section(entry.title))
+                continue
             }
-            if entry.title == "Clear Menu" { return .clear(entry) }
+            if entry.title == "Clear Menu" {
+                menu.recent.append(.clear(entry))
+                continue
+            }
             let symbol = section == "Servers" ? "externaldrive" : entry.title.dropFirst().contains(".") ? "doc" : "folder"
-            return .item(entry, icon: icon(entry.title), symbol: symbol)
+            let next = items.indices.contains(index + 1) ? items[index + 1] : nil
+            menu.recent.append(.item(entry, icon: icon(entry.title), symbol: symbol, reveal: next.flatMap { $0.title.hasPrefix("Show “") ? $0 : nil }))
+        }
+        return menu
+    }
+
+    /// Recent Items as the Apple menu shows it: section headers, items with their icons, each with "Show … in Finder"
+    /// while ⌘ is down, and Clear Menu.
+    @MainActor func recentMenu() -> NSMenu {
+        let menu = NSMenu(title: "Recent Items")
+        for item in recent {
+            switch item {
+            case .section(let title):
+                if menu.numberOfItems > 0 { menu.addItem(.separator()) }
+                menu.addItem(.sectionHeader(title: title))
+            case .item(let entry, let icon, let symbol, let reveal):
+                let title = entry.title.hasSuffix(".app") ? String(entry.title.dropLast(4)) : entry.title
+                let open = actionItem(title) { AX.pressLater(entry.handle) }
+                open.image = icon.map { sized($0) } ?? NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+                open.keyEquivalentModifierMask = []
+                menu.addItem(open)
+                if let reveal {
+                    let show = actionItem(reveal.title) { AX.pressLater(reveal.handle) }
+                    show.keyEquivalentModifierMask = .command
+                    show.isAlternate = true
+                    menu.addItem(show)
+                }
+            case .clear(let entry):
+                menu.addItem(.separator())
+                menu.addItem(actionItem(entry.title) { AX.pressLater(entry.handle) })
+            }
         }
         return menu
     }
@@ -181,4 +188,61 @@ private struct Badge: View {
             .padding(.vertical, 1)
             .background(Capsule().fill(.white.opacity(0.14)))
     }
+}
+
+/// An icon at a menu item's size.
+private func sized(_ image: NSImage) -> NSImage {
+    let copy = image.copy() as! NSImage
+    copy.size = NSSize(width: 16, height: 16)
+    return copy
+}
+
+/// A row that opens a native submenu beside the dropdown, as the Apple menu's rows with a chevron do: when the pointer
+/// rests on it, or on a click. The submenu is built when it opens, so it is current.
+private struct SubmenuRow: View {
+    let title: String
+    var shortcut: MenuShortcut?
+    let menu: () -> NSMenu
+    @State private var anchor = Anchor()
+    @State private var hovering = false
+
+    var body: some View {
+        MenuButton(action: open) {
+            Text(title)
+            Spacer(minLength: 8)
+            if let shortcut { Text(shortcut.text).foregroundStyle(secondary) }
+            Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(secondary)
+        }
+        .background { AnchorView(anchor: anchor) }
+        .onHover { hovering = $0 }
+        .task(id: hovering) {
+            guard hovering else { return }
+            try? await Task.sleep(for: .milliseconds(250))
+            if !Task.isCancelled { open() }
+        }
+    }
+
+    /// Pops the menu up with its first item level with the row, just past the dropdown's right edge.
+    private func open() {
+        guard let view = anchor.view, let window = view.window else { return }
+        let row = window.convertToScreen(view.convert(view.bounds, to: nil))
+        menu().popUp(positioning: nil, at: NSPoint(x: row.maxX + 14, y: row.maxY), in: nil)
+    }
+}
+
+/// The AppKit view behind a row, which knows where the row is on screen.
+private final class Anchor {
+    weak var view: NSView?
+}
+
+private struct AnchorView: NSViewRepresentable {
+    let anchor: Anchor
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        anchor.view = view
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {}
 }
