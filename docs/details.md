@@ -48,7 +48,7 @@ Focus has neither an API nor a store the bar can read without Full Disk Access. 
 
 The `usage` widget shows how much of each subscription's limits Claude and Codex have used. Claude's limits come from Anthropic's usage endpoint, `api.anthropic.com/api/oauth/usage`, the numbers behind Claude Code's `/usage`: the 5-hour session, the week, and the per-model weeks some plans have. The bar signs in with the login Claude Code keeps in the keychain item "Claude Code-credentials", which it reads through `security`, so macOS does not ask. The endpoint is undocumented, and a change on Anthropic's side can stop it. Once Claude Code's token expires, Claude shows no limits until Claude Code runs and renews it. Codex's plan, limits, and credits come from the last line that records them in its newest session log under `~/.codex/sessions`, so they are as of your last Codex turn, and a limit whose window has passed shows 0%.
 
-Spend and tokens come from [ccusage](https://ccusage.com), which prices the local logs at API rates; a subscription does not charge them. The bar runs `bunx ccusage@latest`, or `npx -y ccusage@latest` without Bun, through your login shell, so it finds them at login too, and one run at a time, since `bunx` processes started together race over their package cache. The bar reads at launch, every five minutes, and when the dropdown opens after a minute or more. A failed read keeps what was shown and tries again after 30 seconds. Nothing runs while the widget is not on the bar.
+The bar reads at launch, every five minutes, and when the dropdown opens after a minute or more. A failed read keeps what was shown and tries again after 30 seconds. Nothing runs while the widget is not on the bar.
 
 ## Permissions
 

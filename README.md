@@ -15,7 +15,7 @@ Also in the bar:
 - Now playing for Spotify and Music. On a new track the pill slides out to show the title.
 - A Wi-Fi dropdown that lists the networks in range and joins them, and a Sound dropdown with a mute switch, the volume, and the output devices.
 - Other apps' menu bar items, pinned to the bar from Settings.
-- An optional usage pill with how much of your Claude and Codex subscription limits you have used, as donuts, and a dropdown with each limit, its reset time, and the week's spend from [ccusage](https://ccusage.com).
+- An optional usage pill with how much of your Claude and Codex subscription limits you have used, as donuts, and a dropdown with each limit and when it resets.
 - The Apple logo opens a dropdown with the Apple menu's items.
 - A right-click anywhere along the top of the screen opens LiquidBar's menu: Check for Updates, Settings, and Quit.
 - The native menu bar stays hidden while the bar runs. In a fullscreen app the bar hides like the native one and slides back when the pointer reaches the top edge.

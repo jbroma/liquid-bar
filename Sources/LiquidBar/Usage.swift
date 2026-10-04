@@ -2,11 +2,10 @@ import AppKit
 import LiquidBarCore
 import SwiftUI
 
-/// Reads Claude's and Codex's usage while the usage pill is on the bar: at launch, every five minutes, and when its
-/// dropdown opens. Claude's limits come from its usage endpoint, with the login Claude Code keeps in the keychain,
-/// which `security` reads without a prompt since Claude Code stored it through `security` too. Codex's come from its
-/// newest session log. Spend comes from ccusage, run through the login shell so `bunx` or `npx` are on the PATH at
-/// login, one run at a time: `bunx` processes started together race over its package cache, and some fail.
+/// Reads Claude's and Codex's subscription limits while the usage pill is on the bar: at launch, every five minutes,
+/// and when its dropdown opens. Claude's come from its usage endpoint, with the login Claude Code keeps in the
+/// keychain, which `security` reads without a prompt since Claude Code stored it through `security` too. Codex's come
+/// from its newest session log.
 final class UsageSource {
     private let model: BarModel
     private var reading = false
@@ -26,8 +25,9 @@ final class UsageSource {
               model.usageRead.map({ Date().timeIntervalSince($0) >= age }) ?? true else { return }
         reading = true
         Task {
-            var read: [UsageAgent: AgentUsage] = [:]
-            for agent in UsageAgent.allCases { read[agent] = await Self.read(agent) }
+            async let claude = Self.claude()
+            async let codex = blocking { Self.codex() }
+            let read = await [UsageAgent.claude: claude, .codex: codex].compactMapValues { $0 }
             reading = false
             // A failed read keeps what was shown and tries again shortly.
             guard !read.isEmpty else {
@@ -39,50 +39,26 @@ final class UsageSource {
         }
     }
 
-    private static func read(_ agent: UsageAgent) async -> AgentUsage? {
-        let day = DateFormatter()
-        day.dateFormat = "yyyy-MM-dd"
-        let week = (0..<7).reversed().map { day.string(from: Calendar.current.date(byAdding: .day, value: -$0, to: Date())!) }
-        guard let daily = await ccusage([agent.rawValue, "daily", "--json", "--since", week[0].replacingOccurrences(of: "-", with: "")]),
-              let spend = dailySpend(daily, days: week) else { return nil }
-        var usage = AgentUsage()
-        (usage.days, usage.week, usage.models) = spend
-        usage.today = usage.days.last ?? Spend()
-        switch agent {
-        case .claude:
-            if let login = await claudeLogin() {
-                usage.plan = login.plan
-                usage.limits = await claudeUsage(login) ?? []
-            }
-        case .codex:
-            if let limits = await blocking({ codexSessionLimits() }) { (usage.plan, usage.limits, usage.credits) = limits }
-        }
-        return usage
+    /// Nil while Claude Code is not signed in. Its limits are empty when the request fails, or once its token has
+    /// expired; Claude Code renews it on its next run.
+    private static func claude() async -> AgentUsage? {
+        guard let login = await run(["/usr/bin/security", "find-generic-password", "-s", "Claude Code-credentials", "-w"])
+            .flatMap({ ClaudeLogin(Data($0.utf8)) }) else { return nil }
+        return AgentUsage(plan: login.plan, limits: await claudeLimits(login) ?? [])
     }
 
-    private static func claudeLogin() async -> ClaudeLogin? {
-        await run(["/usr/bin/security", "find-generic-password", "-s", "Claude Code-credentials", "-w"]).flatMap { ClaudeLogin(Data($0.utf8)) }
-    }
-
-    /// Nil when the request fails, or once Claude Code's token has expired; Claude Code renews it on its next run.
-    private static func claudeUsage(_ login: ClaudeLogin) async -> [UsageLimit]? {
+    private static func claudeLimits(_ login: ClaudeLogin) async -> [UsageLimit]? {
         guard login.expires > Date() else { return nil }
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!, timeoutInterval: 15)
         request.setValue("Bearer \(login.token)", forHTTPHeaderField: "Authorization")
         request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
         guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
-        return claudeLimits(data)
+        return LiquidBarCore.claudeLimits(data)
     }
 
-    private static func ccusage(_ arguments: [String]) async -> Data? {
-        let args = arguments.joined(separator: " ")
-        let command = "if command -v bunx >/dev/null; then exec bunx ccusage@latest \(args); else exec npx -y ccusage@latest \(args); fi"
-        return await run(["/bin/zsh", "-lc", command], timeout: 60).map { Data($0.utf8) }
-    }
-
-    /// The limits in the last line that records them, in the newest of Codex's session logs that has one. They live
-    /// under `~/.codex/sessions/<year>/<month>/<day>/`.
-    private nonisolated static func codexSessionLimits() -> (plan: String?, limits: [UsageLimit], credits: String?)? {
+    /// The plan and limits in the last line that records them, in the newest of Codex's session logs that has one. They
+    /// live under `~/.codex/sessions/<year>/<month>/<day>/`.
+    private nonisolated static func codex() -> AgentUsage? {
         let files = FileManager.default
         func newest(_ url: URL) -> [URL] {
             ((try? files.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)) ?? []).sorted { $0.lastPathComponent > $1.lastPathComponent }
@@ -97,7 +73,7 @@ final class UsageSource {
         for log in logs.prefix(10) {
             guard let text = try? String(contentsOf: log, encoding: .utf8) else { continue }
             let lines = text.split(separator: "\n").reversed().lazy.filter { $0.contains("\"rate_limits\":{") }
-            if let read = lines.compactMap({ codexLimits(Data($0.utf8), now: Date()) }).first { return read }
+            if let read = lines.compactMap({ codexUsage(Data($0.utf8), now: Date()) }).first { return read }
         }
         return nil
     }
@@ -166,8 +142,8 @@ private struct AgentIcon: View {
     }
 }
 
-/// Each agent's section: its limits as rings, its last seven days as bars, and today's models. The footer says how
-/// fresh it is and links each account's usage page.
+/// Each agent's section: its plan and its limits as rings. The footer links each account's usage page and says how
+/// fresh it is.
 struct UsageMenu: View {
     let model: BarModel
 
@@ -176,7 +152,7 @@ struct UsageMenu: View {
             let agents = UsageAgent.allCases.filter { model.usage[$0] != nil }
             if agents.isEmpty {
                 MenuTitle(title: "Usage")
-                MenuRow { Text(model.usageRead == nil ? "Reading usage…" : "No usage found, or ccusage could not run.").foregroundStyle(secondary) }
+                MenuRow { Text(model.usageRead == nil ? "Reading usage…" : "Sign in to Claude Code or Codex to see their limits.").foregroundStyle(secondary) }
             }
             ForEach(Array(agents.enumerated()), id: \.element) { index, agent in
                 if index > 0 { MenuSeparator().padding(.vertical, 2) }
@@ -227,16 +203,6 @@ private struct AgentSection: View {
                     }
                 }
             }
-            WeekChart(days: usage.days, total: usage.week, now: now)
-            if !usage.models.isEmpty || usage.credits != nil {
-                HStack(spacing: 4) {
-                    ForEach(usage.models.prefix(3), id: \.self) { Badge(text: modelTitle($0)) }
-                    Spacer(minLength: 4)
-                    if let credits = usage.credits {
-                        Text("\(Int(credits).map { $0.formatted() } ?? credits) credits").font(.system(size: 11)).foregroundStyle(secondary)
-                    }
-                }
-            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -275,63 +241,7 @@ private struct LimitRing: View {
     }
 }
 
-/// Tokens per day over the last seven days, today in full white, the rest dimmer, over a hairline baseline, with the
-/// week's total tokens and API-price value beside the title. Hovering a bar names its day and figures.
-private struct WeekChart: View {
-    let days: [Spend]
-    let total: Spend
-    let now: Date
-    @State private var hovered: Int?
-    private let height: CGFloat = 34
-
-    var body: some View {
-        let peak = max(1, days.map(\.tokens).max() ?? 1)
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(hovered.map(dayTitle) ?? "Last 7 Days").font(.system(size: 11, weight: .medium)).foregroundStyle(secondary)
-                Spacer(minLength: 8)
-                let shown = hovered.map { days[$0] } ?? total
-                Text(shown.tokens == 0 ? "No tokens" : "\(tokenText(shown.tokens)) tokens · \(costText(shown.cost))")
-                    .font(.system(size: 11))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-            }
-            HStack(alignment: .bottom, spacing: 4) {
-                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                    VStack(spacing: 4) {
-                        UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3)
-                            .fill(Color.barWhite.opacity(index == days.count - 1 || index == hovered ? 0.9 : 0.35))
-                            .frame(width: 12, height: day.tokens == 0 ? 2 : max(4, height * CGFloat(day.tokens) / CGFloat(peak)))
-                            .frame(height: height, alignment: .bottom)
-                        Text(weekday(index)).font(.system(size: 9)).foregroundStyle(secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onHover { inside in
-                        if inside { hovered = index } else if hovered == index { hovered = nil }
-                    }
-                }
-            }
-            .overlay(alignment: .top) { Rectangle().fill(.white.opacity(0.12)).frame(height: 1).offset(y: height) }
-        }
-        .animation(.easeOut(duration: 0.12), value: hovered)
-    }
-
-    private func date(_ index: Int) -> Date {
-        Calendar.current.date(byAdding: .day, value: index - (days.count - 1), to: now)!
-    }
-
-    /// "M", "T", one letter like Calendar's week.
-    private func weekday(_ index: Int) -> String {
-        date(index).formatted(.dateTime.weekday(.narrow))
-    }
-
-    private func dayTitle(_ index: Int) -> String {
-        index == days.count - 1 ? "Today" : date(index).formatted(.dateTime.weekday(.wide))
-    }
-}
-
-/// A small capsule label, like the plan or a model.
+/// A small capsule label, like the plan.
 private struct Badge: View {
     let text: String
 
