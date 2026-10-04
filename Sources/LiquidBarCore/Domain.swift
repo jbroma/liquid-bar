@@ -116,7 +116,7 @@ public struct ScriptWidget: Equatable, Hashable, Sendable, Codable {
 }
 
 public enum Widget: Equatable, Hashable, Sendable {
-    case apple, workspaces, nowPlaying, volume, wifi, battery, controlCenter, clock
+    case apple, workspaces, nowPlaying, volume, wifi, battery, controlCenter, clock, usage
     case script(ScriptWidget)
 
     /// The key used in `clicks`; script widgets carry their own `click`.
@@ -130,6 +130,7 @@ public enum Widget: Equatable, Hashable, Sendable {
         case .battery: "battery"
         case .controlCenter: "controlCenter"
         case .clock: "clock"
+        case .usage: "usage"
         case .script: "script"
         }
     }

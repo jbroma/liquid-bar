@@ -44,6 +44,10 @@ Hovering the Control Center pill opens macOS's own Control Center, and hovering 
 
 Focus has neither an API nor a store the bar can read without Full Disk Access. The bar follows the Focus menu bar item as it appears and leaves, and shows a moon beside the Control Center symbol while it is there. The item leaves about five seconds after Focus ends, so the moon stays that much longer. Which Focus is on stays unknown, so the pill shows a moon for all of them.
 
+## Usage
+
+The `usage` widget reads Claude Code's and Codex's local logs; it needs no account, keychain, or network access of its own. Spend comes from [ccusage](https://ccusage.com): the bar runs `bunx ccusage@latest`, or `npx -y ccusage@latest` without Bun, through your login shell, so it finds them at login too, and one at a time, since `bunx` processes started together race over their package cache. Codex's plan, rate limits, and credits come from the last line that records them in its newest session log under `~/.codex/sessions`, so they are as of your last Codex turn, and a limit whose window has passed shows 0%. Claude Code keeps no limits on disk, so for Claude the dropdown shows the current 5-hour session, which its session limit counts, and the real percentages are one click away on claude.ai. The bar reads at launch, every five minutes, and when the dropdown opens after a minute or more. A failed read keeps what was shown and tries again after 30 seconds. Nothing runs while the widget is not on the bar.
+
 ## Permissions
 
 The bar works without any permission. Each grant adds features. The first launch opens a welcome window, one time, whose pages are all the same size:

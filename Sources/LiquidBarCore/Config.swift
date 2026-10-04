@@ -6,7 +6,7 @@ public struct ConfigError: Error, CustomStringConvertible {
 
 /// One entry of `left` or `right`: a widget name or a script object.
 private struct WidgetEntry: Decodable {
-    static let named: [Widget] = [.apple, .workspaces, .nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock]
+    static let named: [Widget] = [.apple, .workspaces, .nowPlaying, .volume, .wifi, .battery, .controlCenter, .clock, .usage]
 
     let widget: Widget
 

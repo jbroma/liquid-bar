@@ -67,6 +67,7 @@ A widget is one of these names, or a script object.
 | `battery` | Level symbol, with the percentage if turned on. It is white, also while charging, when a bolt shows beside it, and red at 20% or less on battery. | The percentage and a wide level bar, which while charging is a liquid on its side, with a rolling surface at the end of the fill and bubbles drifting along it. Under it, one line with what the battery is doing and the power source. Battery Health shows the condition and unfolds to the maximum capacity and cycle count. Then a Show Percentage switch and Battery Settings…. |
 | `controlCenter` | Control Center symbol, with a moon on its left while a Focus is on. | macOS's own Control Center, which System Settings, Control Center customizes. |
 | `clock` | Time. | Notification Center, with its widgets. |
+| `usage` | Claude's and Codex's icons and today's spend of both, at API prices. Not in the default lists; add it to `right`. | For each of Claude and Codex: Claude's current 5-hour session with its cost, a bar for the time gone, when it resets, and the projected cost; Codex's plan, its rate limits as bars with their reset times, and its credits; then today's and the last 7 days' spend and tokens, and today's models. Then when it was read, and links to each account's usage page. See [Usage](details.md#usage). |
 
 ## Script widgets
 

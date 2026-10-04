@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var workspaces: WorkspacesSource?
     var sources: [AnyObject] = []
     var clock: ClockSource?
+    var usage: UsageSource?
     var scripts: ScriptRunner?
     var configWatcher: ConfigWatcher?
     var sigterm: DispatchSourceSignal?
@@ -52,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configWatcher = ConfigWatcher { [weak self] config in self?.apply(config) }
         workspaces = WorkspacesSource(model: model)
         clock = ClockSource(model: model)
+        usage = UsageSource(model: model)
         model.followFocus()
         sources = [BatterySource(model: model), VolumeSource(model: model), NetworkSource(model: model), NowPlayingSource(model: model), FrontAppSource(model: model), MenuExtrasSource(model: model)]
         rebuildPanels()
@@ -341,6 +343,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         workspaces?.update()
         scripts?.load(config.left + config.right)
         clock?.tick()
+        usage?.refresh(ifOlderThan: 300)
     }
 
     func rebuildPanels() {

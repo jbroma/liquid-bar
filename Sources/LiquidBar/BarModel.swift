@@ -36,6 +36,9 @@ final class BarModel {
     var menuExtras: [MenuExtra<AXUIElement>] = []
     /// The pinned apps' status items that exist now, in the order pinned.
     var pinnedExtras: [MenuExtra<AXUIElement>] { pinnedItems(menuExtras, pinned: config.pinned) }
+    /// Claude's and Codex's usage from their local logs, while the usage pill is on the bar, and when it was read.
+    var usage: [UsageAgent: AgentUsage] = [:]
+    var usageRead: Date?
     /// A Focus is on. Nil without Accessibility access.
     var focusOn: Bool?
 

@@ -4,7 +4,7 @@ import SwiftUI
 /// The items that open a dropdown, and the ids of the `ExpansionSlot`. The Apple logo's and a workspace's hang left of the notch, the rest
 /// right of it.
 nonisolated enum Dropdown: Hashable, Sendable {
-    case nowPlaying, volume, wifi, battery
+    case nowPlaying, volume, wifi, battery, usage
     /// Open macOS's own Control Center and Notification Center instead of a dropdown.
     case controlCenter, clock
     case apple
@@ -31,6 +31,7 @@ nonisolated enum Dropdown: Hashable, Sendable {
     var width: CGFloat {
         switch self {
         case .nowPlaying: 280
+        case .usage: 290
         case .workspace: 220
         case .apple: 240
         default: 264
@@ -156,6 +157,7 @@ struct DropdownView: View {
         case .workspace(let id): WorkspaceMenu(model: model, id: id)
         case .menuExtra(let id): MenuExtraMenu(extra: model.pinnedExtras.first { $0.bundleID == id })
         case .controlCenter, .clock: EmptyView()
+        case .usage: UsageMenu(model: model)
         case .nowPlaying: NowPlayingMenu(nowPlaying: model.nowPlaying, artwork: model.artwork, control: model.control)
         }
     }
