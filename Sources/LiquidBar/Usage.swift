@@ -142,8 +142,8 @@ private struct AgentIcon: View {
     }
 }
 
-/// Each agent's section: its plan, its limits as rings, and a link to its account's usage page. The footer says how
-/// fresh it is.
+/// Each agent's section: its name with a link to its account's usage page, its plan, and its limits as rings. The
+/// footer says how fresh it is.
 struct UsageMenu: View {
     let model: BarModel
 
@@ -180,6 +180,13 @@ private struct AgentSection: View {
             HStack(spacing: 8) {
                 AgentIcon(agent: agent, size: 20)
                 Text(agent.title).font(.system(size: 13, weight: .semibold))
+                // The account's usage page, which has the limits' fine print.
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(secondary)
+                    .frame(width: 18, height: 18)
+                    .hoverButton(radius: 9) { shell("open '\(agent.usagePage)'") }
+                    .help("Open \(URL(string: agent.usagePage)?.host() ?? agent.title)")
                 Spacer(minLength: 8)
                 if let plan = usage.plan { Badge(text: plan) }
             }
@@ -196,13 +203,7 @@ private struct AgentSection: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.top, 6)
-        MenuButton { shell("open '\(agent.usagePage)'") } content: {
-            Text("Open \(URL(string: agent.usagePage)?.host() ?? agent.title)").foregroundStyle(secondary)
-            Spacer(minLength: 8)
-            Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(secondary)
-        }
-        .padding(.top, 4)
+        .padding(.vertical, 6)
     }
 }
 
