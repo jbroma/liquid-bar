@@ -229,8 +229,9 @@ struct BatteryBar: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.14))
                     if charging {
-                        // The whole surface leans in and out, as a liquid settles.
-                        let end = width + 2.5 * sin(time * 1.3)
+                        // The whole surface leans in and out, as a liquid settles. Near full it reaches past the end,
+                        // so the wave's dips do not leave the bar looking unfilled; the square keeps the middle as it was.
+                        let end = width + 2.5 * sin(time * 1.3) + 11 * level * level
                         let surface = LiquidEdge(end: end, time: time, amplitude: 4)
                         // Two fainter waves behind the surface, each a little ahead and out of step.
                         LiquidEdge(end: end + 5, time: time * 0.8 + 4, amplitude: 5).fill(fill.opacity(0.22))

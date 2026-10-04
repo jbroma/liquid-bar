@@ -284,13 +284,15 @@ extension VolumeState {
 }
 
 extension BatteryState {
-    /// "3:12 left", "Charging, 1:05 to full", "Charged".
+    /// "3:12 left", "1:05 to full", "Charged". The bolt in the bar above already says it is charging, and the shorter
+    /// text leaves room for the power source beside it. macOS can report charging with 0 minutes to go at 100%.
     public var detail: String {
         switch power {
         case .battery(let minutes?): "\(durationText(minutes)) left"
         case .battery(nil): "Estimating time left"
-        case .charging(let minutes?): "Charging, \(durationText(minutes)) to full"
-        case .charging(nil): "Charging"
+        case .charging where percent >= 100: "Charged"
+        case .charging(let minutes?) where minutes > 0: "\(durationText(minutes)) to full"
+        case .charging: "Charging"
         case .pluggedIn: percent >= 95 ? "Charged" : "Not charging"
         }
     }
