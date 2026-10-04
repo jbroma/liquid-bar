@@ -12,7 +12,9 @@ import Testing
     let limits = try #require(claudeLimits(data))
     #expect(limits.map(\.title) == ["Session", "Weekly"])
     #expect(limits.map(\.usedPercent) == [3, 11])
-    #expect(limits.map(\.window) == [5 * 3600, 7 * 86400])
+    // Typed, since the literal arithmetic is too slow for CI's compiler to infer.
+    let windows: [TimeInterval] = [18_000, 604_800]
+    #expect(limits.map(\.window) == windows)
     // 15:10 resets the session, so at 12:40 half of its five hours have gone by.
     let halfway = Date(timeIntervalSince1970: 1_791_126_600 - 9000)
     #expect(limits[0].elapsed(at: halfway) > 0.49)
