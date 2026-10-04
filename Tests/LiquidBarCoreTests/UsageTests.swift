@@ -14,7 +14,10 @@ import Testing
     #expect(limits.map(\.usedPercent) == [3, 11])
     #expect(limits.map(\.window) == [5 * 3600, 7 * 86400])
     // 15:10 resets the session, so at 12:40 half of its five hours have gone by.
-    #expect(limits[0].elapsed(at: Date(timeIntervalSince1970: 1_791_126_600 - 9000)) > 0.49)
+    let halfway = Date(timeIntervalSince1970: 1_791_126_600 - 9000)
+    #expect(limits[0].elapsed(at: halfway) > 0.49)
+    #expect(!limits[0].aheadOfPace(at: halfway))
+    #expect(UsageLimit(title: "Session", usedPercent: 70, resetsAt: limits[0].resetsAt, window: 18000).aheadOfPace(at: halfway))
     #expect(limits[0].resetsAt.timeIntervalSince1970.rounded() == 1_791_126_600)
     #expect(claudeLimits(Data(#"{"error": {"type": "authentication_error"}}"#.utf8)) == nil)
 }

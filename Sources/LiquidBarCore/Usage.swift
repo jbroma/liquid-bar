@@ -58,6 +58,12 @@ public struct UsageLimit: Equatable, Sendable {
     public func elapsed(at now: Date) -> Double {
         min(1, max(0, 1 - resetsAt.timeIntervalSince(now) / window))
     }
+
+    /// The limit is being used more than 10 points faster than its window passes, so at this rate it runs out before
+    /// it resets.
+    public func aheadOfPace(at now: Date) -> Bool {
+        usedPercent / 100 - elapsed(at: now) > 0.1
+    }
 }
 
 /// The title of a limit over a window of `minutes`, as Claude names its own: the 5-hour one is the session.

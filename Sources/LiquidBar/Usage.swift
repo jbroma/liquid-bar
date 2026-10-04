@@ -106,17 +106,11 @@ struct UsageDonut<Content: View>: View {
     let tint: Color
     var size: CGFloat = 18
     var line: CGFloat = 2.2
-    /// The share of the limit's window gone by, drawn as a brighter stretch of the track.
-    var elapsed: Double = 0
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         ZStack {
-            Circle().stroke(.white.opacity(0.1), lineWidth: line)
-            Circle()
-                .trim(from: 0, to: elapsed)
-                .stroke(.white.opacity(0.32), style: StrokeStyle(lineWidth: line, lineCap: .butt))
-                .rotationEffect(.degrees(-90))
+            Circle().stroke(.white.opacity(0.18), lineWidth: line)
             Circle()
                 .trim(from: 0, to: min(1, max(fraction, 0.02)))
                 .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
@@ -207,8 +201,8 @@ private struct AgentSection: View {
     }
 }
 
-/// A limit as a ring filled to its use over a track that is brighter as far as the window's time has gone by, so a
-/// fill past the bright track is ahead of pace. The percentage sits inside, the name and reset time below.
+/// A limit as a ring filled to its use, the percentage inside, the name and reset time below. When it is being used
+/// faster than its window passes, the caption says so in place of the reset time.
 private struct LimitRing: View {
     let limit: UsageLimit
     let now: Date
@@ -216,19 +210,24 @@ private struct LimitRing: View {
     private let line: CGFloat = 6
 
     var body: some View {
-        let used = limit.usedPercent / 100
-        let elapsed = limit.elapsed(at: now)
+        let ahead = limit.aheadOfPace(at: now)
         VStack(spacing: 6) {
-            UsageDonut(fraction: used, tint: usageTint(limit.usedPercent), size: size, line: line, elapsed: elapsed) {
+            UsageDonut(fraction: limit.usedPercent / 100, tint: usageTint(limit.usedPercent), size: size, line: line) {
                 Text("\(Int(limit.usedPercent.rounded()))%").font(.system(size: 15, weight: .semibold)).monospacedDigit()
             }
             VStack(spacing: 1) {
                 Text(limit.title).font(.system(size: 12, weight: .medium))
-                Text(resetText).font(.system(size: 10)).foregroundStyle(secondary).monospacedDigit()
+                HStack(spacing: 3) {
+                    if ahead { Image(systemName: "hare.fill").font(.system(size: 9)) }
+                    Text(ahead ? "Ahead of pace" : resetText)
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(ahead ? Color(hex: 0xff9f0a) : secondary)
+                .monospacedDigit()
             }
             .lineLimit(1)
         }
-        .help("\(Int(limit.usedPercent.rounded()))% used, \(Int((elapsed * 100).rounded()))% of the window gone by")
+        .help("\(Int(limit.usedPercent.rounded()))% used, \(Int((limit.elapsed(at: now) * 100).rounded()))% of the window gone by. \(resetText).")
     }
 
     /// "Resets 17:10" today, else "Resets Fri 03:00".
