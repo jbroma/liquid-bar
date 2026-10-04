@@ -9,21 +9,21 @@ import Testing
                    {"date": "2026-10-04", "totalCost": 7.63, "totalTokens": 20666293, "modelsUsed": ["claude-opus-5-5", "claude-sonnet-5-5"]}],
          "totals": {"totalCost": 728.81, "totalTokens": 1978411617}}
         """#.utf8)
-    let read = try #require(dailySpend(claude, today: "2026-10-04"))
-    #expect(read.today == Spend(cost: 7.63, tokens: 20666293))
-    #expect(read.week == Spend(cost: 728.81, tokens: 1978411617))
+    let read = try #require(dailySpend(claude, days: ["2026-10-02", "2026-10-03", "2026-10-04"]))
+    #expect(read.days == [Spend(), Spend(cost: 35.02, tokens: 68906367), Spend(cost: 7.63, tokens: 20666293)])
+    #expect(read.total == Spend(cost: 728.81, tokens: 1978411617))
     #expect(read.models == ["claude-opus-5-5", "claude-sonnet-5-5"])
 
     let codex = Data(#"""
         {"daily": [{"date": "2026-10-01", "costUSD": 2.31, "totalTokens": 945136, "models": {"gpt-6-astra": {}}}],
          "totals": {"costUSD": 12.11, "totalTokens": 6632655}}
         """#.utf8)
-    let quiet = try #require(dailySpend(codex, today: "2026-10-04"))
-    #expect(quiet.today == Spend())
-    #expect(quiet.week == Spend(cost: 12.11, tokens: 6632655))
+    let quiet = try #require(dailySpend(codex, days: ["2026-10-04"]))
+    #expect(quiet.days == [Spend()])
+    #expect(quiet.total == Spend(cost: 12.11, tokens: 6632655))
     #expect(quiet.models.isEmpty)
-    #expect(try #require(dailySpend(codex, today: "2026-10-01")).models == ["gpt-6-astra"])
-    #expect(dailySpend(Data("npm error".utf8), today: "2026-10-04") == nil)
+    #expect(try #require(dailySpend(codex, days: ["2026-10-01"])).models == ["gpt-6-astra"])
+    #expect(dailySpend(Data("npm error".utf8), days: ["2026-10-04"]) == nil)
 }
 
 @Test func claudeLimitsReadTheUsageEndpoint() throws {
@@ -36,6 +36,9 @@ import Testing
     let limits = try #require(claudeLimits(data))
     #expect(limits.map(\.title) == ["Session", "Weekly"])
     #expect(limits.map(\.usedPercent) == [3, 11])
+    #expect(limits.map(\.window) == [5 * 3600, 7 * 86400])
+    // 15:10 resets the session, so at 12:40 half of its five hours have gone by.
+    #expect(limits[0].elapsed(at: Date(timeIntervalSince1970: 1_791_126_600 - 9000)) > 0.49)
     #expect(limits[0].resetsAt.timeIntervalSince1970.rounded() == 1_791_126_600)
     #expect(claudeLimits(Data(#"{"error": {"type": "authentication_error"}}"#.utf8)) == nil)
 }
@@ -63,8 +66,8 @@ import Testing
     #expect(read.credits == "62500")
     // The 5-hour window reset before now, so it counts as unused; shorter windows come first.
     #expect(read.limits == [
-        UsageLimit(title: "Session", usedPercent: 0, resetsAt: Date(timeIntervalSince1970: 1_791_000_000)),
-        UsageLimit(title: "Weekly", usedPercent: 12, resetsAt: Date(timeIntervalSince1970: 1_791_196_365)),
+        UsageLimit(title: "Session", usedPercent: 0, resetsAt: Date(timeIntervalSince1970: 1_791_000_000), window: 18000),
+        UsageLimit(title: "Weekly", usedPercent: 12, resetsAt: Date(timeIntervalSince1970: 1_791_196_365), window: 604_800),
     ])
     var usage = AgentUsage()
     usage.limits = read.limits

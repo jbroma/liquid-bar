@@ -45,11 +45,19 @@ public struct UsageLimit: Equatable, Sendable {
     public var title: String
     public var usedPercent: Double
     public var resetsAt: Date
+    /// The window's length.
+    public var window: TimeInterval
 
-    public init(title: String, usedPercent: Double, resetsAt: Date) {
+    public init(title: String, usedPercent: Double, resetsAt: Date, window: TimeInterval) {
         self.title = title
         self.usedPercent = usedPercent
         self.resetsAt = resetsAt
+        self.window = window
+    }
+
+    /// How much of the window has gone by at `now`, 0...1, to compare with how much of the limit is used.
+    public func elapsed(at now: Date) -> Double {
+        min(1, max(0, 1 - resetsAt.timeIntervalSince(now) / window))
     }
 }
 
@@ -68,6 +76,8 @@ public struct AgentUsage: Equatable, Sendable {
     public var today = Spend()
     /// Today and the six days before.
     public var week = Spend()
+    /// Each of those seven days, the oldest first.
+    public var days: [Spend] = []
     /// Today's models, as ccusage names them.
     public var models: [String] = []
     /// Shortest window first.
@@ -81,18 +91,19 @@ public struct AgentUsage: Equatable, Sendable {
     public var tightest: UsageLimit? { limits.max { $0.usedPercent < $1.usedPercent } }
 }
 
-/// Today's spend, the spend over the whole report, and today's models, from `ccusage <agent> daily --json`. Claude's
-/// rows have `totalCost` and `modelsUsed`, Codex's `costUSD` and a `models` object. `today` is the local date as
-/// ccusage writes it, "2026-10-04".
-public func dailySpend(_ data: Data, today: String) -> (today: Spend, week: Spend, models: [String])? {
+/// The spend of each day in `days`, the spend over the whole report, and the last day's models, from
+/// `ccusage <agent> daily --json`. Claude's rows have `totalCost` and `modelsUsed`, Codex's `costUSD` and a `models`
+/// object. `days` are local dates as ccusage writes them, "2026-10-04", today last; a day without a row spent nothing.
+public func dailySpend(_ data: Data, days: [String]) -> (days: [Spend], total: Spend, models: [String])? {
     guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let days = json["daily"] as? [[String: Any]] else { return nil }
+          let rows = json["daily"] as? [[String: Any]] else { return nil }
     func spend(_ row: [String: Any]?) -> Spend {
         Spend(cost: (row?["totalCost"] ?? row?["costUSD"]) as? Double ?? 0, tokens: row?["totalTokens"] as? Int ?? 0)
     }
-    let row = days.first { ($0["date"] ?? $0["period"]) as? String == today }
-    let models = row?["modelsUsed"] as? [String] ?? (row?["models"] as? [String: Any]).map { $0.keys.sorted() } ?? []
-    return (spend(row), spend(json["totals"] as? [String: Any]), models)
+    func row(_ day: String?) -> [String: Any]? { rows.first { ($0["date"] ?? $0["period"]) as? String == day } }
+    let today = row(days.last)
+    let models = today?["modelsUsed"] as? [String] ?? (today?["models"] as? [String: Any]).map { $0.keys.sorted() } ?? []
+    return (days.map { spend(row($0)) }, spend(json["totals"] as? [String: Any]), models)
 }
 
 /// Codex's plan, rate limits and credits from one line of its session log, which records them with every turn. A
@@ -105,7 +116,8 @@ public func codexLimits(_ line: Data, now: Date) -> (plan: String?, limits: [Usa
     let windows = ["primary", "secondary"].compactMap { limits[$0] as? [String: Any] }.compactMap { window -> UsageLimit? in
         guard let minutes = window["window_minutes"] as? Int, let resets = window["resets_at"] as? Double else { return nil }
         let reset = Date(timeIntervalSince1970: resets)
-        return UsageLimit(title: limitTitle(minutes: minutes), usedPercent: reset < now ? 0 : window["used_percent"] as? Double ?? 0, resetsAt: reset)
+        return UsageLimit(title: limitTitle(minutes: minutes), usedPercent: reset < now ? 0 : window["used_percent"] as? Double ?? 0, resetsAt: reset,
+                          window: TimeInterval(minutes * 60))
     }
     let credits = (limits["credits"] as? [String: Any]).flatMap { credits -> String? in
         if credits["unlimited"] as? Bool == true { return "Unlimited" }
@@ -120,11 +132,12 @@ public func codexLimits(_ line: Data, now: Date) -> (plan: String?, limits: [Usa
 /// week, and the per-model weeks some plans have. Utilization runs from 0 to 100.
 public func claudeLimits(_ data: Data) -> [UsageLimit]? {
     guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], json["five_hour"] != nil else { return nil }
-    let windows = [("five_hour", "Session"), ("seven_day", "Weekly"), ("seven_day_opus", "Weekly Opus"), ("seven_day_sonnet", "Weekly Sonnet")]
-    return windows.compactMap { key, title in
+    let week: TimeInterval = 7 * 86400
+    let windows: [(String, String, TimeInterval)] = [("five_hour", "Session", 5 * 3600), ("seven_day", "Weekly", week), ("seven_day_opus", "Weekly Opus", week), ("seven_day_sonnet", "Weekly Sonnet", week)]
+    return windows.compactMap { key, title, length in
         guard let window = json[key] as? [String: Any], let used = window["utilization"] as? Double,
               let resets = (window["resets_at"] as? String).flatMap(isoDate) else { return nil }
-        return UsageLimit(title: title, usedPercent: used, resetsAt: resets)
+        return UsageLimit(title: title, usedPercent: used, resetsAt: resets, window: length)
     }
 }
 

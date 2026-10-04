@@ -41,13 +41,13 @@ final class UsageSource {
 
     private static func read(_ agent: UsageAgent) async -> AgentUsage? {
         let day = DateFormatter()
-        day.dateFormat = "yyyyMMdd"
-        let since = day.string(from: Calendar.current.date(byAdding: .day, value: -6, to: Date())!)
         day.dateFormat = "yyyy-MM-dd"
-        guard let daily = await ccusage([agent.rawValue, "daily", "--json", "--since", since]),
-              let spend = dailySpend(daily, today: day.string(from: Date())) else { return nil }
+        let week = (0..<7).reversed().map { day.string(from: Calendar.current.date(byAdding: .day, value: -$0, to: Date())!) }
+        guard let daily = await ccusage([agent.rawValue, "daily", "--json", "--since", week[0].replacingOccurrences(of: "-", with: "")]),
+              let spend = dailySpend(daily, days: week) else { return nil }
         var usage = AgentUsage()
-        (usage.today, usage.week, usage.models) = spend
+        (usage.days, usage.week, usage.models) = spend
+        usage.today = usage.days.last ?? Spend()
         switch agent {
         case .claude:
             if let login = await claudeLogin() {
@@ -130,11 +130,17 @@ struct UsageDonut<Content: View>: View {
     let tint: Color
     var size: CGFloat = 18
     var line: CGFloat = 2.2
+    /// The share of the limit's window gone by, drawn as a brighter stretch of the track.
+    var elapsed: Double = 0
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         ZStack {
-            Circle().stroke(.white.opacity(0.2), lineWidth: line)
+            Circle().stroke(.white.opacity(0.1), lineWidth: line)
+            Circle()
+                .trim(from: 0, to: elapsed)
+                .stroke(.white.opacity(0.32), style: StrokeStyle(lineWidth: line, lineCap: .butt))
+                .rotationEffect(.degrees(-90))
             Circle()
                 .trim(from: 0, to: min(1, max(fraction, 0.02)))
                 .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
@@ -160,8 +166,8 @@ private struct AgentIcon: View {
     }
 }
 
-/// Each agent's section: its limits as bars, then today's and the week's spend and today's models. The footer says how
-/// fresh it is and links each account's usage page, which has the real subscription limits.
+/// Each agent's section: its limits as rings, its last seven days as bars, and today's models. The footer says how
+/// fresh it is and links each account's usage page.
 struct UsageMenu: View {
     let model: BarModel
 
@@ -170,18 +176,27 @@ struct UsageMenu: View {
             let agents = UsageAgent.allCases.filter { model.usage[$0] != nil }
             if agents.isEmpty {
                 MenuTitle(title: "Usage")
-                MenuRow { Text(model.usageRead == nil ? "Reading ccusage…" : "ccusage found no usage, or could not run.").foregroundStyle(secondary) }
+                MenuRow { Text(model.usageRead == nil ? "Reading usage…" : "No usage found, or ccusage could not run.").foregroundStyle(secondary) }
             }
             ForEach(Array(agents.enumerated()), id: \.element) { index, agent in
-                if index > 0 { MenuSeparator() }
+                if index > 0 { MenuSeparator().padding(.vertical, 2) }
                 if let usage = model.usage[agent] { AgentSection(agent: agent, usage: usage, now: model.now) }
             }
             MenuSeparator()
-            if let read = model.usageRead {
-                MenuRow { Text("Updated \(read.formatted(.relative(presentation: .named))) · spend at API prices").font(.system(size: 11)).foregroundStyle(secondary) }
+            HStack(spacing: 0) {
+                ForEach(UsageAgent.allCases, id: \.self) { agent in
+                    MenuButton { shell("open '\(agent.usagePage)'") } content: {
+                        Text("\(agent.title) Usage")
+                        Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .bold)).foregroundStyle(secondary)
+                    }
+                }
             }
-            ForEach(UsageAgent.allCases, id: \.self) { agent in
-                MenuButton { shell("open '\(agent.usagePage)'") } content: { Text("\(agent.title) Usage…") }
+            if let read = model.usageRead {
+                Text("Updated \(read.formatted(.relative(presentation: .named)))")
+                    .font(.system(size: 10))
+                    .foregroundStyle(secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 2)
             }
         }
         .task { delegate.usage?.refresh(ifOlderThan: 60) }
@@ -194,65 +209,138 @@ private struct AgentSection: View {
     let now: Date
 
     var body: some View {
-        MenuRow {
-            AgentIcon(agent: agent, size: 20)
-            Text(agent.title).fontWeight(.semibold)
-            Spacer(minLength: 8)
-            if let plan = usage.plan { Text(plan).foregroundStyle(secondary) }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                AgentIcon(agent: agent, size: 20)
+                Text(agent.title).font(.system(size: 13, weight: .semibold))
+                Spacer(minLength: 8)
+                if let plan = usage.plan { Badge(text: plan) }
+            }
+            if usage.limits.isEmpty {
+                Text(agent == .claude ? "Limits show once Claude Code is signed in." : "Limits show after your next Codex turn.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(secondary)
+            } else {
+                HStack(alignment: .top, spacing: 0) {
+                    ForEach(usage.limits, id: \.title) { limit in
+                        LimitRing(limit: limit, now: now).frame(maxWidth: .infinity)
+                    }
+                }
+            }
+            WeekChart(days: usage.days, total: usage.week, now: now)
+            if !usage.models.isEmpty || usage.credits != nil {
+                HStack(spacing: 4) {
+                    ForEach(usage.models.prefix(3), id: \.self) { Badge(text: modelTitle($0)) }
+                    Spacer(minLength: 4)
+                    if let credits = usage.credits {
+                        Text("\(Int(credits).map { $0.formatted() } ?? credits) credits").font(.system(size: 11)).foregroundStyle(secondary)
+                    }
+                }
+            }
         }
-        .frame(minHeight: 30)
-        if usage.limits.isEmpty {
-            MenuRow { Text(agent == .claude ? "Limits show once Claude Code is signed in." : "Limits show after your next Codex turn.").foregroundStyle(secondary) }
-        }
-        ForEach(usage.limits, id: \.title) { limit in
-            UsageMeter(title: limit.title, value: "\(Int(limit.usedPercent.rounded()))%", fraction: limit.usedPercent / 100,
-                       tint: usageTint(limit.usedPercent), caption: "Resets \(resetText(limit.resetsAt))")
-        }
-        // At API prices, which a subscription does not charge; it shows how much the plan covered.
-        MenuValue(title: "Today", value: spendText(usage.today))
-        MenuValue(title: "Last 7 Days", value: spendText(usage.week))
-        if !usage.models.isEmpty { MenuValue(title: "Models", value: usage.models.map(modelTitle).joined(separator: ", ")) }
-        if let credits = usage.credits { MenuValue(title: "Credits", value: credits) }
-    }
-
-    private func spendText(_ spend: Spend) -> String {
-        spend.tokens == 0 ? "None" : "\(costText(spend.cost)) · \(tokenText(spend.tokens))"
-    }
-
-    /// "at 17:00" today, else the weekday and time.
-    private func resetText(_ date: Date) -> String {
-        guard date > now else { return "now" }
-        return Calendar.current.isDateInToday(date) ? "at \(date.formatted(date: .omitted, time: .shortened))"
-            : date.formatted(.dateTime.weekday(.wide).hour().minute())
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
     }
 }
 
-/// A title and value over a thin bar filled to `fraction`, and a dimmed caption under it.
-private struct UsageMeter: View {
-    let title: String
-    let value: String
-    let fraction: Double
-    let tint: Color
-    let caption: String
+/// A limit as a ring filled to its use over a track that is brighter as far as the window's time has gone by, so a
+/// fill past the bright track is ahead of pace. The percentage sits inside, the name and reset time below.
+private struct LimitRing: View {
+    let limit: UsageLimit
+    let now: Date
+    private let size: CGFloat = 58
+    private let line: CGFloat = 6
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(title)
-                Spacer(minLength: 8)
-                Text(value).monospacedDigit()
+        let used = limit.usedPercent / 100
+        let elapsed = limit.elapsed(at: now)
+        VStack(spacing: 6) {
+            UsageDonut(fraction: used, tint: usageTint(limit.usedPercent), size: size, line: line, elapsed: elapsed) {
+                Text("\(Int(limit.usedPercent.rounded()))%").font(.system(size: 15, weight: .semibold)).monospacedDigit()
             }
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.14))
-                    Capsule().fill(tint).frame(width: max(6, proxy.size.width * min(1, max(0, fraction))))
+            VStack(spacing: 1) {
+                Text(limit.title).font(.system(size: 12, weight: .medium))
+                Text(resetText).font(.system(size: 10)).foregroundStyle(secondary).monospacedDigit()
+            }
+            .lineLimit(1)
+        }
+        .help("\(Int(limit.usedPercent.rounded()))% used, \(Int((elapsed * 100).rounded()))% of the window gone by")
+    }
+
+    /// "Resets 17:10" today, else "Resets Fri 03:00".
+    private var resetText: String {
+        guard limit.resetsAt > now else { return "Reset" }
+        let time = limit.resetsAt.formatted(date: .omitted, time: .shortened)
+        return Calendar.current.isDateInToday(limit.resetsAt) ? "Resets \(time)" : "Resets \(limit.resetsAt.formatted(.dateTime.weekday(.abbreviated))) \(time)"
+    }
+}
+
+/// Tokens per day over the last seven days, today in full white, the rest dimmer, over a hairline baseline, with the
+/// week's total tokens and API-price value beside the title. Hovering a bar names its day and figures.
+private struct WeekChart: View {
+    let days: [Spend]
+    let total: Spend
+    let now: Date
+    @State private var hovered: Int?
+    private let height: CGFloat = 34
+
+    var body: some View {
+        let peak = max(1, days.map(\.tokens).max() ?? 1)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(hovered.map(dayTitle) ?? "Last 7 Days").font(.system(size: 11, weight: .medium)).foregroundStyle(secondary)
+                Spacer(minLength: 8)
+                let shown = hovered.map { days[$0] } ?? total
+                Text(shown.tokens == 0 ? "No tokens" : "\(tokenText(shown.tokens)) tokens · \(costText(shown.cost))")
+                    .font(.system(size: 11))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+            }
+            HStack(alignment: .bottom, spacing: 4) {
+                ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                    VStack(spacing: 4) {
+                        UnevenRoundedRectangle(topLeadingRadius: 3, topTrailingRadius: 3)
+                            .fill(Color.barWhite.opacity(index == days.count - 1 || index == hovered ? 0.9 : 0.35))
+                            .frame(width: 12, height: day.tokens == 0 ? 2 : max(4, height * CGFloat(day.tokens) / CGFloat(peak)))
+                            .frame(height: height, alignment: .bottom)
+                        Text(weekday(index)).font(.system(size: 9)).foregroundStyle(secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { hovered = index } else if hovered == index { hovered = nil }
+                    }
                 }
             }
-            .frame(height: 6)
-            Text(caption).font(.system(size: 11)).foregroundStyle(secondary).monospacedDigit()
+            .overlay(alignment: .top) { Rectangle().fill(.white.opacity(0.12)).frame(height: 1).offset(y: height) }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .animation(spring, value: fraction)
+        .animation(.easeOut(duration: 0.12), value: hovered)
+    }
+
+    private func date(_ index: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: index - (days.count - 1), to: now)!
+    }
+
+    /// "M", "T", one letter like Calendar's week.
+    private func weekday(_ index: Int) -> String {
+        date(index).formatted(.dateTime.weekday(.narrow))
+    }
+
+    private func dayTitle(_ index: Int) -> String {
+        index == days.count - 1 ? "Today" : date(index).formatted(.dateTime.weekday(.wide))
+    }
+}
+
+/// A small capsule label, like the plan or a model.
+private struct Badge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(.white.opacity(0.12)))
     }
 }
