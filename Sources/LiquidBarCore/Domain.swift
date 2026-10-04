@@ -99,13 +99,16 @@ public struct NetworkState: Equatable, Sendable {
 public struct ScriptWidget: Equatable, Hashable, Sendable, Codable {
     public var script: String
     public var symbol: String?
+    /// The bundle id of an app whose icon is drawn before the label, after the symbol if there is one.
+    public var app: String?
     public var interval: Double?
     public var on: [String]?
     public var click: String?
 
-    public init(script: String, symbol: String? = nil, interval: Double? = nil, on: [String]? = nil, click: String? = nil) {
+    public init(script: String, symbol: String? = nil, app: String? = nil, interval: Double? = nil, on: [String]? = nil, click: String? = nil) {
         self.script = script
         self.symbol = symbol
+        self.app = app
         self.interval = interval
         self.on = on
         self.click = click

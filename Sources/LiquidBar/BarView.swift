@@ -253,6 +253,7 @@ struct WidgetView: View {
         case .script(let script):
             HStack(spacing: 5) {
                 if let symbol = script.symbol { Image(systemName: symbol) }
+                if let app = script.app { Image(nsImage: AppIcons.icon(app)).resizable().frame(width: 16, height: 16) }
                 if let label = model.scriptLabels[script.script], !label.isEmpty {
                     Text(label).contentTransition(.numericText())
                 }

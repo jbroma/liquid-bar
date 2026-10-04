@@ -65,11 +65,13 @@ private func decode(_ json: String) throws -> Config {
 
 @Test func decodesScriptWidgets() throws {
     let config = try decode("""
-        {"right": ["clock", {"script": "echo hi", "symbol": "cloud", "interval": 600, "on": ["weather"], "click": "open -a Weather"}]}
+        {"right": ["clock", {"script": "echo hi", "symbol": "cloud", "interval": 600, "on": ["weather"], "click": "open -a Weather"},
+                   {"script": "echo 3", "app": "com.example.app"}]}
         """)
     #expect(config.right == [
         .clock,
         .script(ScriptWidget(script: "echo hi", symbol: "cloud", interval: 600, on: ["weather"], click: "open -a Weather")),
+        .script(ScriptWidget(script: "echo 3", app: "com.example.app")),
     ])
 }
 

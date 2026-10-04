@@ -76,6 +76,7 @@ A script object adds a pill whose label is a command's output, like a SketchyBar
 | --- | --- | --- |
 | `script` | string, required | Command run with `/bin/sh -c`. Its trimmed stdout is the label. |
 | `symbol` | string | SF Symbol drawn before the label. |
+| `app` | string | Bundle id of an app whose icon is drawn before the label, like a pinned menu bar item's. |
 | `interval` | number, at least 1 | Seconds between runs. Without it, the script runs at load and on events only. |
 | `on` | array of strings | Event names that rerun the script. |
 | `click` | string | Command run on click. |
@@ -95,6 +96,7 @@ To rerun every script whose `on` lists an event, run:
   "right": [
     "nowPlaying",
     {"script": "curl -s 'wttr.in?format=%t'", "symbol": "cloud.sun", "interval": 900, "on": ["weather"], "click": "open -a Weather"},
+    {"script": "bunx ccusage@latest claude daily --json --since $(date +%Y%m%d) | jq -r '\"$\" + (.totals.totalCost | tostring)'", "app": "com.anthropic.claudefordesktop", "interval": 300},
     "volume", "wifi", "battery", "clock"
   ],
   "clicks": {"clock": "open -a Fantastical"}
