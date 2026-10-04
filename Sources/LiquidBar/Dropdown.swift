@@ -35,7 +35,7 @@ nonisolated enum Dropdown: Hashable, Sendable {
         case .controlCenter: 300
         case .usage: 290
         case .workspace: 220
-        case .apple: 240
+        case .apple: 280
         default: 264
         }
     }
