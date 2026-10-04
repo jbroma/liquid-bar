@@ -26,17 +26,28 @@ import Testing
     #expect(dailySpend(Data("npm error".utf8), today: "2026-10-04") == nil)
 }
 
-@Test func activeBlockReadsTheRunningBlock() throws {
+@Test func claudeLimitsReadTheUsageEndpoint() throws {
+    // `api/oauth/usage` on this Mac, trimmed; unknown windows and nulls are left out.
     let data = Data(#"""
-        {"blocks": [{"isActive": true, "startTime": "2026-10-04T10:00:00.000Z", "endTime": "2026-10-04T15:00:00.000Z",
-                     "costUSD": 8.21, "totalTokens": 20666293, "projection": {"totalCost": 54.03}}]}
+        {"five_hour": {"utilization": 3.0, "resets_at": "2026-10-04T15:10:00.041798+00:00"},
+         "seven_day": {"utilization": 11.0, "resets_at": "2026-10-09T01:00:00.041816+00:00"},
+         "seven_day_opus": null, "iguana_necktie": {"utilization": 0.0, "resets_at": "2026-11-05T07:59:00+00:00"}}
         """#.utf8)
-    let block = try #require(activeBlock(data))
-    #expect(block.start == Date(timeIntervalSince1970: 1_791_108_000))
-    #expect(block.end.timeIntervalSince(block.start) == 5 * 3600)
-    #expect(block.spend == Spend(cost: 8.21, tokens: 20666293))
-    #expect(block.projectedCost == 54.03)
-    #expect(activeBlock(Data(#"{"blocks": []}"#.utf8)) == nil)
+    let limits = try #require(claudeLimits(data))
+    #expect(limits.map(\.title) == ["Session", "Weekly"])
+    #expect(limits.map(\.usedPercent) == [3, 11])
+    #expect(limits[0].resetsAt.timeIntervalSince1970.rounded() == 1_791_126_600)
+    #expect(claudeLimits(Data(#"{"error": {"type": "authentication_error"}}"#.utf8)) == nil)
+}
+
+@Test func claudeLoginFromTheKeychainItem() throws {
+    let item = Data(#"{"claudeAiOauth": {"accessToken": "t", "expiresAt": 1791137725526, "subscriptionType": "max", "rateLimitTier": "default_claude_max_20x"}}"#.utf8)
+    let login = try #require(ClaudeLogin(item))
+    #expect(login.token == "t")
+    #expect(login.plan == "Max 20x")
+    #expect(login.expires == Date(timeIntervalSince1970: 1_791_137_725.526))
+    #expect(ClaudeLogin(Data(#"{"claudeAiOauth": {"accessToken": "t", "subscriptionType": "pro"}}"#.utf8))?.plan == "Pro")
+    #expect(ClaudeLogin(Data("{}".utf8)) == nil)
 }
 
 @Test func codexLimitsReadTheSessionLog() throws {
@@ -52,10 +63,12 @@ import Testing
     #expect(read.credits == "62500")
     // The 5-hour window reset before now, so it counts as unused; shorter windows come first.
     #expect(read.limits == [
-        UsageLimit(minutes: 300, usedPercent: 0, resetsAt: Date(timeIntervalSince1970: 1_791_000_000)),
-        UsageLimit(minutes: 10080, usedPercent: 12, resetsAt: Date(timeIntervalSince1970: 1_791_196_365)),
+        UsageLimit(title: "Session", usedPercent: 0, resetsAt: Date(timeIntervalSince1970: 1_791_000_000)),
+        UsageLimit(title: "Weekly", usedPercent: 12, resetsAt: Date(timeIntervalSince1970: 1_791_196_365)),
     ])
-    #expect(read.limits.map(\.title) == ["5-Hour Limit", "Weekly Limit"])
+    var usage = AgentUsage()
+    usage.limits = read.limits
+    #expect(usage.tightest?.title == "Weekly")
     #expect(codexLimits(Data(#"{"payload": {"type": "user_message"}}"#.utf8), now: Date()) == nil)
 }
 

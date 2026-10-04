@@ -3,9 +3,10 @@ import LiquidBarCore
 import SwiftUI
 
 /// Reads Claude's and Codex's usage while the usage pill is on the bar: at launch, every five minutes, and when its
-/// dropdown opens. Spend comes from ccusage, run through the login shell so `bunx` or `npx` are on the PATH at login,
-/// and Codex's limits from its newest session log. Nothing leaves the Mac but ccusage's own version check. The ccusage
-/// runs go one at a time: `bunx` processes started together race over its package cache, and some fail.
+/// dropdown opens. Claude's limits come from its usage endpoint, with the login Claude Code keeps in the keychain,
+/// which `security` reads without a prompt since Claude Code stored it through `security` too. Codex's come from its
+/// newest session log. Spend comes from ccusage, run through the login shell so `bunx` or `npx` are on the PATH at
+/// login, one run at a time: `bunx` processes started together race over its package cache, and some fail.
 final class UsageSource {
     private let model: BarModel
     private var reading = false
@@ -47,11 +48,30 @@ final class UsageSource {
               let spend = dailySpend(daily, today: day.string(from: Date())) else { return nil }
         var usage = AgentUsage()
         (usage.today, usage.week, usage.models) = spend
-        if agent == .claude { usage.block = await ccusage(["claude", "blocks", "--active", "--json"]).flatMap(activeBlock) }
-        if agent == .codex, let limits = await blocking({ codexSessionLimits() }) {
-            (usage.plan, usage.limits, usage.credits) = limits
+        switch agent {
+        case .claude:
+            if let login = await claudeLogin() {
+                usage.plan = login.plan
+                usage.limits = await claudeUsage(login) ?? []
+            }
+        case .codex:
+            if let limits = await blocking({ codexSessionLimits() }) { (usage.plan, usage.limits, usage.credits) = limits }
         }
         return usage
+    }
+
+    private static func claudeLogin() async -> ClaudeLogin? {
+        await run(["/usr/bin/security", "find-generic-password", "-s", "Claude Code-credentials", "-w"]).flatMap { ClaudeLogin(Data($0.utf8)) }
+    }
+
+    /// Nil when the request fails, or once Claude Code's token has expired; Claude Code renews it on its next run.
+    private static func claudeUsage(_ login: ClaudeLogin) async -> [UsageLimit]? {
+        guard login.expires > Date() else { return nil }
+        var request = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!, timeoutInterval: 15)
+        request.setValue("Bearer \(login.token)", forHTTPHeaderField: "Authorization")
+        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        guard let (data, _) = try? await URLSession.shared.data(for: request) else { return nil }
+        return claudeLimits(data)
     }
 
     private static func ccusage(_ arguments: [String]) async -> Data? {
@@ -83,28 +103,52 @@ final class UsageSource {
     }
 }
 
-/// The pill: Claude's and Codex's icons overlapping, then today's spend of both.
+/// The pill: each agent's icon in a donut filled to its tightest limit, and that limit's percentage.
 struct UsageLabel: View {
     let usage: [UsageAgent: AgentUsage]
 
     var body: some View {
-        HStack(spacing: 6) {
-            ZStack(alignment: .leading) {
-                ForEach(Array(UsageAgent.allCases.enumerated()), id: \.element) { index, agent in
-                    AgentIcon(agent: agent, size: 16)
-                        .shadow(color: .black.opacity(0.35), radius: 1, y: 0.5)
-                        .offset(x: CGFloat(index) * 10)
-                        .zIndex(-Double(index))
+        HStack(spacing: 10) {
+            ForEach(UsageAgent.allCases, id: \.self) { agent in
+                let limit = usage[agent]?.tightest
+                HStack(spacing: 5) {
+                    UsageDonut(fraction: (limit?.usedPercent ?? 0) / 100, tint: limit.map { usageTint($0.usedPercent) } ?? .white) {
+                        AgentIcon(agent: agent, size: 11)
+                    }
+                    if let limit { Text("\(Int(limit.usedPercent.rounded()))%").contentTransition(.numericText()) }
                 }
-            }
-            .frame(width: 26, alignment: .leading)
-            if !usage.isEmpty {
-                Text(costText(usage.values.map(\.today.cost).reduce(0, +)))
-                    .contentTransition(.numericText())
+                .help(limit.map { "\(agent.title) \($0.title): \(Int($0.usedPercent.rounded()))%" } ?? agent.title)
             }
         }
-        .animation(spring, value: usage.values.map(\.today.cost).reduce(0, +))
+        .animation(spring, value: usage)
     }
+}
+
+/// A ring filled clockwise from the top to `fraction` over a faint track, with `content` in its middle.
+struct UsageDonut<Content: View>: View {
+    let fraction: Double
+    let tint: Color
+    var size: CGFloat = 18
+    var line: CGFloat = 2.2
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(.white.opacity(0.2), lineWidth: line)
+            Circle()
+                .trim(from: 0, to: min(1, max(fraction, 0.02)))
+                .stroke(tint, style: StrokeStyle(lineWidth: line, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            content()
+        }
+        .frame(width: size, height: size)
+        .animation(spring, value: fraction)
+    }
+}
+
+/// White while there is room, orange from 70%, red from 90%.
+func usageTint(_ percent: Double) -> Color {
+    percent >= 90 ? .barRed : percent >= 70 ? Color(hex: 0xff9f0a) : .white
 }
 
 private struct AgentIcon: View {
@@ -134,7 +178,7 @@ struct UsageMenu: View {
             }
             MenuSeparator()
             if let read = model.usageRead {
-                MenuRow { Text("Updated \(read.formatted(.relative(presentation: .named))) · from local logs").font(.system(size: 11)).foregroundStyle(secondary) }
+                MenuRow { Text("Updated \(read.formatted(.relative(presentation: .named))) · spend at API prices").font(.system(size: 11)).foregroundStyle(secondary) }
             }
             ForEach(UsageAgent.allCases, id: \.self) { agent in
                 MenuButton { shell("open '\(agent.usagePage)'") } content: { Text("\(agent.title) Usage…") }
@@ -157,17 +201,14 @@ private struct AgentSection: View {
             if let plan = usage.plan { Text(plan).foregroundStyle(secondary) }
         }
         .frame(minHeight: 30)
-        if let block = usage.block, block.end > now {
-            // Claude's session limit counts this block; how far into it we are is the bar.
-            let elapsed = now.timeIntervalSince(block.start) / block.end.timeIntervalSince(block.start)
-            UsageMeter(title: "Current Session", value: costText(block.spend.cost), fraction: elapsed, tint: Color(hex: 0xd97757),
-                       caption: "Resets \(block.end.formatted(date: .omitted, time: .shortened))"
-                           + (block.projectedCost.map { " · \(costText($0)) projected" } ?? ""))
+        if usage.limits.isEmpty {
+            MenuRow { Text(agent == .claude ? "Limits show once Claude Code is signed in." : "Limits show after your next Codex turn.").foregroundStyle(secondary) }
         }
-        ForEach(usage.limits, id: \.minutes) { limit in
+        ForEach(usage.limits, id: \.title) { limit in
             UsageMeter(title: limit.title, value: "\(Int(limit.usedPercent.rounded()))%", fraction: limit.usedPercent / 100,
-                       tint: limit.usedPercent >= 85 ? .barRed : .white, caption: "Resets \(resetText(limit.resetsAt))")
+                       tint: usageTint(limit.usedPercent), caption: "Resets \(resetText(limit.resetsAt))")
         }
+        // At API prices, which a subscription does not charge; it shows how much the plan covered.
         MenuValue(title: "Today", value: spendText(usage.today))
         MenuValue(title: "Last 7 Days", value: spendText(usage.week))
         if !usage.models.isEmpty { MenuValue(title: "Models", value: usage.models.map(modelTitle).joined(separator: ", ")) }

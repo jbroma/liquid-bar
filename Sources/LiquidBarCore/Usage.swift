@@ -39,37 +39,27 @@ public struct Spend: Equatable, Sendable {
     }
 }
 
-/// Claude's current 5-hour block, which its session limit counts.
-public struct UsageBlock: Equatable, Sendable {
-    public var start: Date
-    public var end: Date
-    public var spend: Spend
-    /// What the block will have cost by its end at the current rate.
-    public var projectedCost: Double?
-
-    public init(start: Date, end: Date, spend: Spend, projectedCost: Double?) {
-        self.start = start
-        self.end = end
-        self.spend = spend
-        self.projectedCost = projectedCost
-    }
-}
-
-/// One of Codex's rate limits.
+/// One of a subscription's rate limits, like the 5-hour session or the week.
 public struct UsageLimit: Equatable, Sendable {
-    public var minutes: Int
+    /// "Session", "Weekly", "Weekly Opus".
+    public var title: String
     public var usedPercent: Double
     public var resetsAt: Date
 
-    public init(minutes: Int, usedPercent: Double, resetsAt: Date) {
-        self.minutes = minutes
+    public init(title: String, usedPercent: Double, resetsAt: Date) {
+        self.title = title
         self.usedPercent = usedPercent
         self.resetsAt = resetsAt
     }
+}
 
-    /// "Weekly Limit", "5-Hour Limit".
-    public var title: String {
-        minutes == 10080 ? "Weekly Limit" : minutes % 1440 == 0 ? "\(minutes / 1440)-Day Limit" : "\(max(1, minutes / 60))-Hour Limit"
+/// The title of a limit over a window of `minutes`, as Claude names its own: the 5-hour one is the session.
+func limitTitle(minutes: Int) -> String {
+    switch minutes {
+    case 300: "Session"
+    case 10080: "Weekly"
+    case let minutes where minutes % 1440 == 0: "\(minutes / 1440)-Day"
+    default: "\(max(1, minutes / 60))-Hour"
     }
 }
 
@@ -80,12 +70,15 @@ public struct AgentUsage: Equatable, Sendable {
     public var week = Spend()
     /// Today's models, as ccusage names them.
     public var models: [String] = []
-    public var block: UsageBlock?
+    /// Shortest window first.
     public var limits: [UsageLimit] = []
     public var plan: String?
     public var credits: String?
 
     public init() {}
+
+    /// The limit closest to running out, which the pill shows.
+    public var tightest: UsageLimit? { limits.max { $0.usedPercent < $1.usedPercent } }
 }
 
 /// Today's spend, the spend over the whole report, and today's models, from `ccusage <agent> daily --json`. Claude's
@@ -102,17 +95,6 @@ public func dailySpend(_ data: Data, today: String) -> (today: Spend, week: Spen
     return (spend(row), spend(json["totals"] as? [String: Any]), models)
 }
 
-/// The active block from `ccusage claude blocks --active --json`, nil when no block is running.
-public func activeBlock(_ data: Data) -> UsageBlock? {
-    guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-          let block = (json["blocks"] as? [[String: Any]])?.first(where: { $0["isActive"] as? Bool == true }),
-          let start = (block["startTime"] as? String).flatMap(isoDate), let end = (block["endTime"] as? String).flatMap(isoDate)
-    else { return nil }
-    let projection = block["projection"] as? [String: Any]
-    return UsageBlock(start: start, end: end, spend: Spend(cost: block["costUSD"] as? Double ?? 0, tokens: block["totalTokens"] as? Int ?? 0),
-                      projectedCost: projection?["totalCost"] as? Double)
-}
-
 /// Codex's plan, rate limits and credits from one line of its session log, which records them with every turn. A
 /// limit whose window has passed counts as unused.
 public func codexLimits(_ line: Data, now: Date) -> (plan: String?, limits: [UsageLimit], credits: String?)? {
@@ -123,14 +105,46 @@ public func codexLimits(_ line: Data, now: Date) -> (plan: String?, limits: [Usa
     let windows = ["primary", "secondary"].compactMap { limits[$0] as? [String: Any] }.compactMap { window -> UsageLimit? in
         guard let minutes = window["window_minutes"] as? Int, let resets = window["resets_at"] as? Double else { return nil }
         let reset = Date(timeIntervalSince1970: resets)
-        return UsageLimit(minutes: minutes, usedPercent: reset < now ? 0 : window["used_percent"] as? Double ?? 0, resetsAt: reset)
+        return UsageLimit(title: limitTitle(minutes: minutes), usedPercent: reset < now ? 0 : window["used_percent"] as? Double ?? 0, resetsAt: reset)
     }
     let credits = (limits["credits"] as? [String: Any]).flatMap { credits -> String? in
         if credits["unlimited"] as? Bool == true { return "Unlimited" }
         guard credits["has_credits"] as? Bool == true else { return nil }
         return credits["balance"] as? String
     }
-    return ((limits["plan_type"] as? String)?.capitalized, windows.sorted { $0.minutes < $1.minutes }, credits)
+    // The shorter window first, as Claude lists them.
+    return ((limits["plan_type"] as? String)?.capitalized, windows.sorted { $0.resetsAt < $1.resetsAt }, credits)
+}
+
+/// Claude's limits from its usage endpoint, `api/oauth/usage`, the numbers behind `/usage`: the 5-hour session, the
+/// week, and the per-model weeks some plans have. Utilization runs from 0 to 100.
+public func claudeLimits(_ data: Data) -> [UsageLimit]? {
+    guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], json["five_hour"] != nil else { return nil }
+    let windows = [("five_hour", "Session"), ("seven_day", "Weekly"), ("seven_day_opus", "Weekly Opus"), ("seven_day_sonnet", "Weekly Sonnet")]
+    return windows.compactMap { key, title in
+        guard let window = json[key] as? [String: Any], let used = window["utilization"] as? Double,
+              let resets = (window["resets_at"] as? String).flatMap(isoDate) else { return nil }
+        return UsageLimit(title: title, usedPercent: used, resetsAt: resets)
+    }
+}
+
+/// Claude Code's login, as it keeps it in the keychain item "Claude Code-credentials".
+public struct ClaudeLogin: Equatable, Sendable {
+    public var token: String
+    public var expires: Date
+    /// "Max 20x", "Pro".
+    public var plan: String?
+
+    public init?(_ data: Data) {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let oauth = json["claudeAiOauth"] as? [String: Any], let token = oauth["accessToken"] as? String else { return nil }
+        self.token = token
+        expires = Date(timeIntervalSince1970: (oauth["expiresAt"] as? Double ?? 0) / 1000)
+        // "default_claude_max_20x" names the tier more closely than "max".
+        let tier = (oauth["rateLimitTier"] as? String)?.split(separator: "_").drop { $0 != "max" && $0 != "pro" }
+        plan = tier.flatMap { $0.isEmpty ? nil : $0.map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ") }
+            ?? (oauth["subscriptionType"] as? String)?.capitalized
+    }
 }
 
 /// "Opus 5.5" for "claude-opus-5-5", other names as they are.
